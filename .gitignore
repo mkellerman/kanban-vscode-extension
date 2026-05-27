@@ -11,3 +11,7 @@ releases/
 .claude/
 .devtool/
 coverage/
+
+# Superpowers artifacts
+.superpowers/
+docs/superpowers/
