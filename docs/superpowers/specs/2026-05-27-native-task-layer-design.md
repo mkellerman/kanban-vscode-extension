@@ -19,6 +19,7 @@ This supports the current framework split cleanly:
 - `speckit:plans` can expose `tasks`
 
 The native framework becomes the first framework to understand this new task layer.
+The framework adapter layer also becomes responsible for the human-facing nouns used across the UI, so the site can say Feature/Task, Epic/Story, or Plan/Task depending on the active framework.
 
 ## Goals
 
@@ -29,6 +30,7 @@ The native framework becomes the first framework to understand this new task lay
 - Preserve manual status control for parent features.
 - Keep task filenames sortable and predictable.
 - Reuse the existing markdown/frontmatter model as much as possible.
+- Let the active framework define the displayed nouns for parents and children.
 
 ## Non-Goals
 
@@ -56,6 +58,7 @@ This spec does not cover:
 - UI polish beyond the grouping and dependency indicators needed to make the model usable
 - automatic parent status rollups
 - recursive task nesting
+- framework-specific file layout and filename generation rules
 
 ## Architecture
 
@@ -73,6 +76,7 @@ The shared board model should load both kinds into a common in-memory item graph
 - dependency links between items
 
 The board still renders columns by `status`, but it also needs parent/child grouping metadata so task cards can appear visually under their parent feature.
+The side panel should use the active framework nouns, but keep a simple single-item inspector rather than a tabbed or split-state view.
 
 ### High-Level Flow
 
@@ -121,6 +125,7 @@ Task IDs are derived from the parent feature ID and a zero-padded suffix:
 
 The sequence suffix must be zero-padded so lexical sorting matches numeric sorting.
 The task `order` field should use the same zero-padded sequence so board sorting matches filename sorting.
+This filename and order scheme is native-specific; other frameworks may supply different schema rules through their own generators.
 
 Task frontmatter extends the existing native fields with:
 
@@ -229,6 +234,7 @@ Task serialization should:
 - generate task filenames from the parent ID and the next available sequence number
 
 Feature serialization must remain untouched for existing feature files.
+Framework adapters only supply the nouns used in labels and prompts. They do not own the file-layout schema in this spec; file generation remains owned by the framework-specific generators.
 
 ## Validation and Error Handling
 
@@ -292,3 +298,4 @@ The most important regression check is that a plain existing feature file still 
 - task IDs are derived from the parent ID plus a zero-padded suffix.
 - dependencies may target either a whole feature or a task.
 - parent feature status remains manual.
+- framework adapters supply UI nouns only; file generation rules remain framework-specific.
