@@ -10,7 +10,7 @@ import { buildAgentInvocation } from './ai/agentCommand'
  * The actual markdown editing is done by VSCode's native text editor.
  */
 export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'kanban-markdown.featureHeader'
+  public static readonly viewType = 'kanban-extension.featureHeader'
 
   private _view?: vscode.WebviewView
   private _currentDocument?: vscode.TextDocument
@@ -53,7 +53,7 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
     // Listen for settings changes
     disposables.push(
       vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('kanban-markdown')) {
+        if (e.affectsConfiguration('kanban-extension')) {
           // Re-evaluate current editor against fresh config
           // (e.g. featuresDirectory may have changed)
           provider._onActiveEditorChanged(vscode.window.activeTextEditor)
@@ -148,7 +148,7 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
 
     // Only track .md files in the features directory (including status subfolders)
     const uri = editor.document.uri
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const featuresDirectory = config.get<string>('featuresDirectory') || '.devtool/features'
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     const fullFeaturesDir = workspaceRoot ? path.join(workspaceRoot, featuresDirectory) : featuresDirectory

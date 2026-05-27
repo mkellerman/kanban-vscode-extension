@@ -9,7 +9,7 @@ import { parseNativeFile, serializeNativeFeature } from '../../shared/frameworks
 import { getFeatureFilePath, moveFeatureFile, fileExists } from '../featureFileUtils'
 
 function getFeaturesDir(workspaceRoot: string): string {
-  const config = vscode.workspace.getConfiguration('kanban-markdown')
+  const config = vscode.workspace.getConfiguration('kanban-extension')
   const featuresDirectory = config.get<string>('featuresDirectory') || '.devtool/features'
   return path.join(workspaceRoot, featuresDirectory)
 }
@@ -34,7 +34,7 @@ export class NativeAdapter implements FrameworkAdapter {
   }
 
   getWatchPatterns(workspaceRoot: string): string[] {
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const featuresDirectory = config.get<string>('featuresDirectory') || '.devtool/features'
     return [`${featuresDirectory}/**/*.md`]
   }
@@ -79,7 +79,7 @@ export class NativeAdapter implements FrameworkAdapter {
 
   async createFeature(data: CreateFeatureData, workspaceRoot: string): Promise<Feature> {
     const featuresDir = getFeaturesDir(workspaceRoot)
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const pattern = config.get<FilenamePattern>('filenamePattern', 'name-date')
     const addNewCardsToTop = config.get<boolean>('addNewCardsToTop', false)
 

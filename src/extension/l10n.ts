@@ -6,7 +6,7 @@ let bundle: Record<string, string> = {}
 let extensionPath = ''
 
 export function getEffectiveLocale(): string {
-  const config = vscode.workspace.getConfiguration('kanban-markdown')
+  const config = vscode.workspace.getConfiguration('kanban-extension')
   const language = config.get<string>('language', 'auto')
   if (language !== 'auto') return language
   return vscode.env.language.split('-')[0]

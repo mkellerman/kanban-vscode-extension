@@ -18,7 +18,7 @@ function normalizeEpic(value: string | null | undefined): string | null {
 }
 
 export class KanbanPanel {
-  public static readonly viewType = 'kanban-markdown.panel'
+  public static readonly viewType = 'kanban-extension.panel'
   public static currentPanel: KanbanPanel | undefined
 
   private readonly _panel: vscode.WebviewPanel
@@ -104,7 +104,7 @@ export class KanbanPanel {
             break
           case 'createFeature': {
             await this._createFeature(message.data)
-            const createConfig = vscode.workspace.getConfiguration('kanban-markdown')
+            const createConfig = vscode.workspace.getConfiguration('kanban-extension')
             if (createConfig.get<boolean>('markdownEditorMode', false)) {
               // Open the newly created feature in native editor
               const created = this._features[this._features.length - 1]
@@ -124,7 +124,7 @@ export class KanbanPanel {
             await this._updateFeature(message.featureId, message.updates)
             break
           case 'openFeature': {
-            const openConfig = vscode.workspace.getConfiguration('kanban-markdown')
+            const openConfig = vscode.workspace.getConfiguration('kanban-extension')
             if (openConfig.get<boolean>('markdownEditorMode', false)) {
               this._openFeatureInNativeEditor(message.featureId)
             } else {
@@ -147,7 +147,7 @@ export class KanbanPanel {
             break
           }
           case 'openSettings':
-            vscode.commands.executeCommand('workbench.action.openSettings', '@ext:LachyFS.kanban-markdown')
+            vscode.commands.executeCommand('workbench.action.openSettings', '@ext:mkellerman.kanban-extension')
             break
           case 'focusMenuBar':
             // Focus must leave the webview before focusMenuBar works (VS Code limitation).
@@ -156,29 +156,29 @@ export class KanbanPanel {
             await vscode.commands.executeCommand('workbench.action.focusMenuBar')
             break
           case 'toggleColumnCollapsed': {
-            const collapsed: string[] = this._context.workspaceState.get('kanban-markdown.collapsedColumns', [])
+            const collapsed: string[] = this._context.workspaceState.get('kanban-extension.collapsedColumns', [])
             const idx = collapsed.indexOf(message.columnId)
             if (idx >= 0) {
               collapsed.splice(idx, 1)
             } else {
               collapsed.push(message.columnId)
             }
-            await this._context.workspaceState.update('kanban-markdown.collapsedColumns', collapsed)
+            await this._context.workspaceState.update('kanban-extension.collapsedColumns', collapsed)
             break
           }
           case 'setBoardViewMode': {
-            await this._context.workspaceState.update('kanban-markdown.boardViewMode', message.mode)
+            await this._context.workspaceState.update('kanban-extension.boardViewMode', message.mode)
             break
           }
           case 'toggleEpicCollapsed': {
-            const collapsedEpics: string[] = this._context.workspaceState.get('kanban-markdown.collapsedEpics', [])
+            const collapsedEpics: string[] = this._context.workspaceState.get('kanban-extension.collapsedEpics', [])
             const idx = collapsedEpics.indexOf(message.epicKey)
             if (idx >= 0) {
               collapsedEpics.splice(idx, 1)
             } else {
               collapsedEpics.push(message.epicKey)
             }
-            await this._context.workspaceState.update('kanban-markdown.collapsedEpics', collapsedEpics)
+            await this._context.workspaceState.update('kanban-extension.collapsedEpics', collapsedEpics)
             break
           }
           case 'moveAllCards':
@@ -207,13 +207,13 @@ export class KanbanPanel {
 
     // Listen for settings changes and push updates to webview
     vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration('kanban-markdown')) {
-        if (e.affectsConfiguration('kanban-markdown.language')) {
+      if (e.affectsConfiguration('kanban-extension')) {
+        if (e.affectsConfiguration('kanban-extension.language')) {
           reloadBundle()
         }
         if (
-          e.affectsConfiguration('kanban-markdown.featuresDirectory') ||
-          e.affectsConfiguration('kanban-markdown.framework')
+          e.affectsConfiguration('kanban-extension.featuresDirectory') ||
+          e.affectsConfiguration('kanban-extension.framework')
         ) {
           // Features source changed - need to reload everything
           this._loadFeatures().then(() => {
@@ -222,10 +222,10 @@ export class KanbanPanel {
           })
         } else {
           this._sendFeaturesToWebview()
-          if (e.affectsConfiguration('kanban-markdown.filenamePattern')) {
+          if (e.affectsConfiguration('kanban-extension.filenamePattern')) {
             this._promptFilenamePatternMigration()
           }
-          if (e.affectsConfiguration('kanban-markdown.language')) {
+          if (e.affectsConfiguration('kanban-extension.language')) {
             this._promptColumnLanguageMigration()
           }
         }
@@ -333,7 +333,7 @@ export class KanbanPanel {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';">
   <link href="${styleUri}" rel="stylesheet">
-  <title>Kanban Board</title>
+  <title>Agentic Kanban Board</title>
 </head>
 <body>
   <div id="root"></div>
@@ -355,7 +355,7 @@ export class KanbanPanel {
     if (!workspaceFolders || workspaceFolders.length === 0) {
       return null
     }
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const featuresDirectory = config.get<string>('featuresDirectory') || '.devtool/features'
     return path.join(workspaceFolders[0].uri.fsPath, featuresDirectory)
   }
@@ -383,7 +383,7 @@ export class KanbanPanel {
     }
 
     try {
-      const config = vscode.workspace.getConfiguration('kanban-markdown')
+      const config = vscode.workspace.getConfiguration('kanban-extension')
       const frameworkSetting = config.get<'auto' | FrameworkId>('framework', 'auto')
       this._adapters = await getActiveAdapters(workspaceRoot, frameworkSetting)
 
@@ -546,7 +546,7 @@ export class KanbanPanel {
   }
 
   public openFeature(featureId: string): void {
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     if (config.get<boolean>('markdownEditorMode', false)) {
       this._openFeatureInNativeEditor(featureId)
     } else {
@@ -947,7 +947,7 @@ export class KanbanPanel {
     const prompt = `Implement this feature: "${title}" (${feature.priority} priority)${labels}. ${shortDesc} See full details in: ${feature.filePath}`
 
     // Use provided agent or fall back to config
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const selectedAgent = (agent || config.get<string>('aiAgent') || 'claude') as AIAgent
     const selectedPermissionMode = permissionMode || 'default'
     const { command, args, terminalName } = buildAgentInvocation(selectedAgent, selectedPermissionMode, prompt)
@@ -1042,7 +1042,7 @@ export class KanbanPanel {
   }
 
   private async _promptColumnLanguageMigration(): Promise<void> {
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const columns = config.get<KanbanColumn[]>('columns')
     if (!columns || columns.length === 0) return
 
@@ -1076,7 +1076,7 @@ export class KanbanPanel {
     const featuresDir = this._getWorkspaceFeaturesDir()
     if (!featuresDir) return
 
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const pattern = config.get<FilenamePattern>('filenamePattern', 'name-date')
 
     let renamed = 0
@@ -1127,11 +1127,11 @@ export class KanbanPanel {
     const msg = skipped > 0
       ? t('panel.renameResultWithSkipped', { renamed, skipped })
       : t('panel.renameResult', { renamed })
-    vscode.window.showInformationMessage(`Kanban Markdown: ${msg}`)
+    vscode.window.showInformationMessage(`Agentic Kanban Extension: ${msg}`)
   }
 
   private _sendFeaturesToWebview(): void {
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
 
     const defaultColumns: KanbanColumn[] = [
       { id: 'backlog', name: 'Backlog', color: '#6b7280' },
@@ -1156,9 +1156,9 @@ export class KanbanPanel {
       defaultStatus: config.get<FeatureStatus>('defaultStatus', 'backlog')
     }
 
-    const collapsedColumns: string[] = this._context.workspaceState.get('kanban-markdown.collapsedColumns', [])
-    const boardViewMode: BoardViewMode = this._context.workspaceState.get('kanban-markdown.boardViewMode', 'standard')
-    const collapsedEpics: string[] = this._context.workspaceState.get('kanban-markdown.collapsedEpics', [])
+    const collapsedColumns: string[] = this._context.workspaceState.get('kanban-extension.collapsedColumns', [])
+    const boardViewMode: BoardViewMode = this._context.workspaceState.get('kanban-extension.boardViewMode', 'standard')
+    const collapsedEpics: string[] = this._context.workspaceState.get('kanban-extension.collapsedEpics', [])
 
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     const features = this._features.map(f => ({

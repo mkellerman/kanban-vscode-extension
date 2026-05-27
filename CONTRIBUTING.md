@@ -1,6 +1,6 @@
-# Contributing to Kanban Markdown
+# Contributing to Agentic Kanban Extension
 
-Thanks for your interest in contributing to Kanban Markdown! This guide will help you get started.
+Thanks for your interest in contributing to Agentic Kanban Extension! This guide will help you get started.
 
 ## Getting Started
 
@@ -15,8 +15,8 @@ Thanks for your interest in contributing to Kanban Markdown! This guide will hel
 1. Fork and clone the repository:
 
    ```sh
-   git clone https://github.com/<your-username>/kanban-markdown-vscode-extension.git
-   cd kanban-markdown-vscode-extension
+   git clone https://github.com/<your-username>/kanban-vscode-extension.git
+   cd kanban-vscode-extension
    ```
 
 2. Install dependencies:
@@ -99,7 +99,7 @@ src/
 
 ## Reporting Bugs
 
-Open an issue at [GitHub Issues](https://github.com/LachyFS/kanban-markdown-vscode-extension/issues) with:
+Open an issue at [GitHub Issues](https://github.com/mkellerman/kanban-vscode-extension/issues) with:
 
 - Steps to reproduce
 - Expected vs actual behavior

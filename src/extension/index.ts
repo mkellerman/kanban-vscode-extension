@@ -64,7 +64,7 @@ async function createFeatureFromPrompts(): Promise<void> {
     placeHolder: t('ext.descriptionPlaceholder')
   })
 
-  const config = vscode.workspace.getConfiguration('kanban-markdown')
+  const config = vscode.workspace.getConfiguration('kanban-extension')
   const frameworkSetting = config.get<'auto' | FrameworkId>('framework', 'auto')
   const adapters = await getActiveAdapters(workspaceRoot, frameworkSetting)
   const adapter = adapters.find(candidate => candidate.id === 'native') ?? adapters[0]
@@ -102,7 +102,7 @@ export function activate(context: vscode.ExtensionContext) {
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('kanban-markdown.open', () => {
+    vscode.commands.registerCommand('kanban-extension.open', () => {
       const wasOpen = !!KanbanPanel.currentPanel
       KanbanPanel.createOrShow(context.extensionUri, context)
       if (!wasOpen && KanbanPanel.currentPanel) {
@@ -115,7 +115,7 @@ export function activate(context: vscode.ExtensionContext) {
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('kanban-markdown.addFeature', () => {
+    vscode.commands.registerCommand('kanban-extension.addFeature', () => {
       createFeatureFromPrompts()
     })
   )
