@@ -222,6 +222,25 @@
           ],
           "description": "%config.aiAgent.description%"
         },
+        "kanban-markdown.framework": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "native",
+            "superpowers",
+            "spec-kit",
+            "bmad"
+          ],
+          "enumDescriptions": [
+            "%config.framework.auto%",
+            "%config.framework.native%",
+            "%config.framework.superpowers%",
+            "%config.framework.specKit%",
+            "%config.framework.bmad%"
+          ],
+          "description": "%config.framework.description%"
+        },
         "kanban-markdown.showPriorityBadges": {
           "type": "boolean",
           "default": true,

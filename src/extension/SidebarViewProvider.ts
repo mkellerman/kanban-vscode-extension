@@ -1,10 +1,12 @@
 import * as vscode from 'vscode'
 import * as crypto from 'crypto'
-import * as path from 'path'
 import { getTitleFromContent } from '../shared/types'
 import type { FeatureStatus, Priority, KanbanColumn } from '../shared/types'
 import { KanbanPanel } from './KanbanPanel'
 import { t } from './l10n'
+import type { FrameworkAdapter } from './frameworks/FrameworkAdapter'
+import { getActiveAdapters, ALL_ADAPTERS } from './frameworkRegistry'
+import type { FrameworkId } from '../shared/frameworks/types'
 
 interface SidebarFeature {
   id: string
@@ -18,17 +20,22 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
   private _view?: vscode.WebviewView
   private _features: SidebarFeature[] = []
-  private _fileWatcher?: vscode.FileSystemWatcher
+  private _adapters: FrameworkAdapter[] = []
+  private _fileWatchers: vscode.FileSystemWatcher[] = []
   private _debounceTimer?: NodeJS.Timeout
   private _disposables: vscode.Disposable[] = []
 
   constructor(private readonly _extensionUri: vscode.Uri, private readonly _context: vscode.ExtensionContext) {
-    this._setupFileWatcher()
+    this._setupFileWatchers()
 
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('kanban-markdown')) {
-        if (e.affectsConfiguration('kanban-markdown.featuresDirectory')) {
-          this._setupFileWatcher()
+        if (
+          e.affectsConfiguration('kanban-markdown.featuresDirectory') ||
+          e.affectsConfiguration('kanban-markdown.framework')
+        ) {
+          this._refresh().then(() => this._setupFileWatchers())
+          return
         }
         this._refresh()
       }
@@ -93,9 +100,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   }
 
   public dispose(): void {
-    if (this._fileWatcher) {
-      this._fileWatcher.dispose()
+    for (const w of this._fileWatchers) {
+      w.dispose()
     }
+    this._fileWatchers = []
     if (this._debounceTimer) {
       clearTimeout(this._debounceTimer)
     }
@@ -104,25 +112,34 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private _setupFileWatcher(): void {
-    if (this._fileWatcher) {
-      this._fileWatcher.dispose()
+  private _setupFileWatchers(): void {
+    for (const w of this._fileWatchers) {
+      w.dispose()
     }
+    this._fileWatchers = []
 
-    const featuresDir = this._getFeaturesDir()
-    if (!featuresDir) return
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]
+    if (!workspaceFolder) return
+    const workspaceRoot = workspaceFolder.uri.fsPath
 
-    const pattern = new vscode.RelativePattern(featuresDir, '**/*.md')
-    this._fileWatcher = vscode.workspace.createFileSystemWatcher(pattern)
+    const adapters = this._adapters.length > 0 ? this._adapters : ALL_ADAPTERS
 
     const handleChange = () => {
       if (this._debounceTimer) clearTimeout(this._debounceTimer)
       this._debounceTimer = setTimeout(() => this._refresh(), 300)
     }
 
-    this._fileWatcher.onDidChange(handleChange, null, this._disposables)
-    this._fileWatcher.onDidCreate(handleChange, null, this._disposables)
-    this._fileWatcher.onDidDelete(handleChange, null, this._disposables)
+    for (const adapter of adapters) {
+      for (const pattern of adapter.getWatchPatterns(workspaceRoot)) {
+        const watcher = vscode.workspace.createFileSystemWatcher(
+          new vscode.RelativePattern(workspaceFolder, pattern)
+        )
+        watcher.onDidChange(handleChange, null, this._disposables)
+        watcher.onDidCreate(handleChange, null, this._disposables)
+        watcher.onDidDelete(handleChange, null, this._disposables)
+        this._fileWatchers.push(watcher)
+      }
+    }
   }
 
   private async _refresh(): Promise<void> {
@@ -140,14 +157,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private _getFeaturesDir(): string | null {
-    const workspaceFolders = vscode.workspace.workspaceFolders
-    if (!workspaceFolders || workspaceFolders.length === 0) return null
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
-    const dir = config.get<string>('featuresDirectory') || '.devtool/features'
-    return path.join(workspaceFolders[0].uri.fsPath, dir)
-  }
-
   private _getColumns(): KanbanColumn[] {
     const config = vscode.workspace.getConfiguration('kanban-markdown')
     const defaultColumns: KanbanColumn[] = [
@@ -161,75 +170,39 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async _loadFeatures(): Promise<void> {
-    const featuresDir = this._getFeaturesDir()
-    if (!featuresDir) {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!workspaceRoot) {
       this._features = []
       return
     }
 
+    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const frameworkSetting = config.get<'auto' | FrameworkId>('framework', 'auto')
+    this._adapters = await getActiveAdapters(workspaceRoot, frameworkSetting)
+
     const features: SidebarFeature[] = []
 
-    // Load root-level files (non-done statuses)
-    try {
-      const rootEntries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(featuresDir))
-      for (const [file, fileType] of rootEntries) {
-        if (fileType !== vscode.FileType.File || !file.endsWith('.md')) continue
-        const filePath = path.join(featuresDir, file)
+    for (const adapter of this._adapters) {
+      const files = await adapter.getFiles(workspaceRoot)
+      for (const filePath of files) {
         try {
-          const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath)))
-          const parsed = this._parseFrontmatter(content, file)
-          if (parsed) features.push(parsed)
+          const bytes = await vscode.workspace.fs.readFile(vscode.Uri.file(filePath))
+          const raw = new TextDecoder().decode(bytes)
+          const feature = adapter.parseFile(raw, filePath)
+          if (!feature) continue
+          features.push({
+            id: feature.id,
+            title: getTitleFromContent(feature.content),
+            status: feature.status,
+            priority: feature.priority
+          })
         } catch {
           // Skip unreadable files
         }
       }
-    } catch {
-      // Root directory may not exist
-    }
-
-    // Load done/ subfolder files
-    const doneDir = path.join(featuresDir, 'done')
-    try {
-      const doneEntries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(doneDir))
-      for (const [file, fileType] of doneEntries) {
-        if (fileType !== vscode.FileType.File || !file.endsWith('.md')) continue
-        const filePath = path.join(doneDir, file)
-        try {
-          const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath)))
-          const parsed = this._parseFrontmatter(content, file)
-          if (parsed) features.push(parsed)
-        } catch {
-          // Skip unreadable files
-        }
-      }
-    } catch {
-      // done/ subfolder may not exist
     }
 
     this._features = features
-  }
-
-  private _parseFrontmatter(content: string, filename: string): SidebarFeature | null {
-    content = content.replace(/\r\n/g, '\n')
-    const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
-    if (!match) return null
-
-    const fm = match[1]
-    const body = match[2] || ''
-
-    const getValue = (key: string): string => {
-      const m = fm.match(new RegExp(`^${key}:\\s*(.*)$`, 'm'))
-      if (!m) return ''
-      const v = m[1].trim().replace(/^["']|["']$/g, '')
-      return v === 'null' ? '' : v
-    }
-
-    const id = getValue('id') || path.basename(filename, '.md')
-    const status = (getValue('status') as FeatureStatus) || 'backlog'
-    const priority = (getValue('priority') as Priority) || 'medium'
-    const title = getTitleFromContent(body)
-
-    return { id, title, status, priority }
   }
 
   private _getHtml(): string {

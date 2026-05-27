@@ -132,6 +132,7 @@ Settings live under `kanban-markdown.*` in your VS Code/Cursor preferences.
 | `defaultStatus` | `backlog` | Default status for new features |
 | `columns` | *see below* | Customize column IDs, names, and colors |
 | `aiAgent` | `claude` | AI agent for "Build with AI" (`claude`, `codex`, `copilot`, `opencode`) |
+| `framework` | `auto` | Feature file framework (`auto`, `native`, `superpowers`, `spec-kit`, `bmad`) |
 | `showPriorityBadges` | `true` | Show priority badges on cards |
 | `showAssignee` | `true` | Show assignee on cards |
 | `showDueDate` | `true` | Show due date on cards |

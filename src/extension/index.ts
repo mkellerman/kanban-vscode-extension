@@ -1,12 +1,10 @@
 import * as vscode from 'vscode'
-import * as path from 'path'
-import { generateKeyBetween } from 'fractional-indexing'
 import { KanbanPanel } from './KanbanPanel'
 import { SidebarViewProvider } from './SidebarViewProvider'
-import { generateFeatureFilename } from '../shared/types'
-import { serializeFeature } from '../shared/featureFrontmatter'
-import type { Feature, FeatureStatus, Priority } from '../shared/types'
-import { ensureStatusSubfolders, getFeatureFilePath } from './featureFileUtils'
+import { getActiveAdapters } from './frameworkRegistry'
+import type { CreateFeatureData } from './frameworks/FrameworkAdapter'
+import type { FeatureStatus, Priority } from '../shared/types'
+import type { FrameworkId } from '../shared/frameworks/types'
 import { t, loadBundle } from './l10n'
 
 interface StatusQuickPickItem extends vscode.QuickPickItem {
@@ -18,8 +16,8 @@ interface PriorityQuickPickItem extends vscode.QuickPickItem {
 }
 
 async function createFeatureFromPrompts(): Promise<void> {
-  const workspaceFolders = vscode.workspace.workspaceFolders
-  if (!workspaceFolders || workspaceFolders.length === 0) {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  if (!workspaceRoot) {
     vscode.window.showErrorMessage(t('ext.noWorkspace'))
     return
   }
@@ -66,37 +64,27 @@ async function createFeatureFromPrompts(): Promise<void> {
     placeHolder: t('ext.descriptionPlaceholder')
   })
 
-  // Create the feature file
   const config = vscode.workspace.getConfiguration('kanban-markdown')
-  const featuresDirectory = config.get<string>('featuresDirectory') || '.devtool/features'
-  const featuresDir = path.join(workspaceFolders[0].uri.fsPath, featuresDirectory)
-  await vscode.workspace.fs.createDirectory(vscode.Uri.file(featuresDir))
-  await ensureStatusSubfolders(featuresDir)
-
-  const filename = generateFeatureFilename(title)
-  const now = new Date().toISOString()
+  const frameworkSetting = config.get<'auto' | FrameworkId>('framework', 'auto')
+  const adapters = await getActiveAdapters(workspaceRoot, frameworkSetting)
+  const adapter = adapters.find(candidate => candidate.id === 'native') ?? adapters[0]
+  if (!adapter) {
+    vscode.window.showErrorMessage(t('ext.noWorkspace'))
+    return
+  }
 
   // Build content with title as first # heading
   const content = `# ${title}${description ? '\n\n' + description : ''}`
-
-  const feature: Feature = {
-    id: filename,
+  const data: CreateFeatureData = {
     status,
     priority,
     assignee: null,
     epic: null,
     dueDate: null,
-    created: now,
-    modified: now,
-    completedAt: status === 'done' ? now : null,
     labels: [],
-    order: generateKeyBetween(null, null),
-    content,
-    filePath: getFeatureFilePath(featuresDir, status, filename)
+    content
   }
-
-  const fileContent = serializeFeature(feature)
-  await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(fileContent))
+  const feature = await adapter.createFeature(data, workspaceRoot)
 
   // Open the created file
   const document = await vscode.workspace.openTextDocument(feature.filePath)
