@@ -31,6 +31,44 @@ export function getTitleFromContent(content: string): string {
   return firstLine || 'Untitled'
 }
 
+export interface PlanTask {
+  id: string
+  title: string
+  status: FeatureStatus
+  parentId: string
+  checkedSteps: number
+  totalSteps: number
+}
+
+export function parseSuperpowersTasks(content: string, parentId: string): PlanTask[] {
+  const tasks: PlanTask[] = []
+  const taskHeadingRe = /^###\s+Task\s+\d+[:.]\s+(.+)$/gm
+  const matches = [...content.matchAll(taskHeadingRe)]
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i]
+    const title = match[1].trim().replace(/`/g, '')
+    const sectionStart = (match.index ?? 0) + match[0].length
+    const sectionEnd = i + 1 < matches.length ? (matches[i + 1].index ?? content.length) : content.length
+    const section = content.slice(sectionStart, sectionEnd)
+    const checked = (section.match(/^- \[x\]/gim) ?? []).length
+    const unchecked = (section.match(/^- \[ \]/gm) ?? []).length
+    const total = checked + unchecked
+    const status: FeatureStatus = total === 0 || checked === 0 ? 'todo' : checked >= total ? 'done' : 'in-progress'
+    tasks.push({ id: `${parentId}.t${i}`, title, status, parentId, checkedSteps: checked, totalSteps: total })
+  }
+  return tasks
+}
+
+export function formatStatusLabel(status: FeatureStatus): string {
+  switch (status) {
+    case 'backlog':     return 'backlog'
+    case 'todo':        return 'todo'
+    case 'in-progress': return 'in progress'
+    case 'review':      return 'review'
+    case 'done':        return 'done'
+  }
+}
+
 export type FilenamePattern = 'name-date' | 'date-name' | 'name-datetime' | 'datetime-name'
 
 // Generate a filename-safe slug from a title
