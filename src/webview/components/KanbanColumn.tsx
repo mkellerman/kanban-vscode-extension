@@ -1,14 +1,25 @@
 import { Plus, ChevronLeft, MoreVertical, ChevronRight } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { FeatureCard } from './FeatureCard'
-import type { Feature, KanbanColumn as KanbanColumnType } from '../../shared/types'
+import { PlanCard } from './PlanCard'
+import { TaskCard } from './TaskCard'
+import type { Feature, KanbanColumn as KanbanColumnType, PlanTask } from '../../shared/types'
+import { parseSuperpowersTasks, getTitleFromContent, formatStatusLabel } from '../../shared/types'
 import type { LayoutMode } from '../store'
 import type { DropTarget } from './KanbanBoard'
 import { t } from '../lib/i18n'
 
+interface FeatureGroup {
+  feature: Feature
+  tasks: PlanTask[]
+  allTasks: PlanTask[]
+  isGhost: boolean
+}
+
 interface KanbanColumnProps {
   column: KanbanColumnType
   features: Feature[]
+  allFeatures: Feature[]
   otherColumns: KanbanColumnType[]
   onFeatureClick: (feature: Feature) => void
   onAddFeature: (status: string) => void
@@ -28,6 +39,7 @@ interface KanbanColumnProps {
 export function KanbanColumn({
   column,
   features,
+  allFeatures,
   otherColumns,
   onFeatureClick,
   onAddFeature,
@@ -48,6 +60,26 @@ export function KanbanColumn({
   const [menuOpen, setMenuOpen] = useState(false)
   const [submenuOpen, setSubmenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  const groups = useMemo<FeatureGroup[]>(() => {
+    const inColumn = new Set(features.map((f) => f.id))
+    const result: FeatureGroup[] = features.map((feature) => {
+      const allTasks = parseSuperpowersTasks(feature.content, feature.id)
+      return {
+        feature,
+        tasks: allTasks.filter((t) => t.status === column.id),
+        allTasks,
+        isGhost: false,
+      }
+    })
+    for (const feature of allFeatures) {
+      if (inColumn.has(feature.id)) continue
+      const allTasks = parseSuperpowersTasks(feature.content, feature.id)
+      const tasks = allTasks.filter((t) => t.status === column.id)
+      if (tasks.length > 0) result.push({ feature, tasks, allTasks, isGhost: true })
+    }
+    return result
+  }, [features, allFeatures, column.id])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -149,35 +181,86 @@ export function KanbanColumn({
         className={
           isVertical
             ? "flex-1 p-2 flex flex-wrap gap-2"
-            : "flex-1 overflow-y-auto p-2 space-y-2 min-h-[200px]"
+            : "flex-1 overflow-y-auto p-2 min-h-[200px]"
         }
       >
-        {features.map((feature, index) => (
-          <div key={feature.id}>
-            {/* Drop indicator before this card */}
-            {isDropTarget && dropTarget.index === index && (
-              <div className="h-0.5 bg-blue-500 rounded-full mx-1 mb-1" />
-            )}
-            <div
-              draggable
-              onDragStart={(e) => onDragStart(e, feature)}
-              onDragOver={(e) => onDragOverCard(e, column.id, index)}
-              onDragEnd={onDragEnd}
-              className={`${isVertical ? "w-64" : ""} ${
-                draggedFeature?.id === feature.id ? "opacity-40" : ""
-              }`}
-            >
-              <FeatureCard feature={feature} onClick={() => onFeatureClick(feature)} />
+        {groups.map((group) => {
+          const featureIdx = group.isGhost
+            ? -1
+            : features.findIndex((f) => f.id === group.feature.id)
+          const isDragging = draggedFeature?.id === group.feature.id
+          const parentTitle = getTitleFromContent(group.feature.content)
+
+          return (
+            <div key={group.feature.id} className={isVertical ? 'w-64 mb-2' : 'mb-2'}>
+              {/* Drop indicator before this group */}
+              {!group.isGhost && isDropTarget && dropTarget.index === featureIdx && (
+                <div className="h-0.5 bg-blue-500 rounded-full mx-1 mb-1" />
+              )}
+
+              {/* plan:disabled — ghost strip */}
+              {group.isGhost ? (
+                <div className="bg-white dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-700/50 border-l-2 border-l-zinc-300 dark:border-l-zinc-600 rounded-md px-2.5 py-1.5 pb-3 flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 truncate">
+                    {parentTitle}
+                  </span>
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-zinc-300 dark:text-zinc-600 shrink-0">
+                    {formatStatusLabel(group.feature.status)}
+                  </span>
+                </div>
+              ) : (
+                /* plan:enabled — draggable parent card */
+                <div
+                  draggable
+                  onDragStart={(e) => onDragStart(e, group.feature)}
+                  onDragOver={(e) => onDragOverCard(e, column.id, featureIdx)}
+                  onDragEnd={onDragEnd}
+                  className={isDragging ? 'opacity-40' : ''}
+                >
+                  {group.allTasks.length > 0 ? (
+                    <PlanCard
+                      feature={group.feature}
+                      allTasks={group.allTasks}
+                      accentColor={column.color}
+                      onClick={() => onFeatureClick(group.feature)}
+                    />
+                  ) : (
+                    <FeatureCard
+                      feature={group.feature}
+                      onClick={() => onFeatureClick(group.feature)}
+                      isDragging={isDragging}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Child task cards */}
+              {group.tasks.map((task, taskIdx) => {
+                // Promotion rule: done tasks always render as task:enabled
+                const variant = (group.isGhost || task.status === 'done') ? 'enabled' : 'disabled'
+                return (
+                  <div
+                    key={task.id}
+                    className={`ml-2.5 relative z-10 ${taskIdx === 0 ? '-mt-3' : 'mt-0.5'}`}
+                  >
+                    <TaskCard
+                      task={task}
+                      parentFeature={group.feature}
+                      variant={variant}
+                    />
+                  </div>
+                )
+              })}
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {/* Drop indicator at end of list */}
         {isDropTarget && dropTarget.index === features.length && features.length > 0 && (
           <div className="h-0.5 bg-blue-500 rounded-full mx-1" />
         )}
 
-        {features.length === 0 && (
+        {groups.length === 0 && (
           <div className={isVertical ? "text-sm text-zinc-400 dark:text-zinc-500 py-4" : "text-center py-8 text-sm text-zinc-400 dark:text-zinc-500"}>
             {t('column.noFeatures')}
           </div>
