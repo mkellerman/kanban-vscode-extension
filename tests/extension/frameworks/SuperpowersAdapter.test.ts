@@ -120,7 +120,7 @@ describe('SuperpowersAdapter.createFeature — filename', () => {
     mockStat.mockRejectedValue(new Error('ENOENT'))
 
     const adapter = new SuperpowersAdapter()
-    const feature = await adapter.createFeature(WORKSPACE, {
+    const feature = await adapter.createFeature({
       status: 'backlog',
       priority: 'medium',
       content: '# My Feature\n\nSome content.',
@@ -128,7 +128,7 @@ describe('SuperpowersAdapter.createFeature — filename', () => {
       epic: null,
       dueDate: null,
       labels: []
-    })
+    }, WORKSPACE)
 
     expect(path.basename(feature.filePath)).toBe('2026-05-27-my-feature.md')
     expect(feature.filePath).toBe(path.join(PLANS_DIR, '2026-05-27-my-feature.md'))
@@ -145,7 +145,7 @@ describe('SuperpowersAdapter.createFeature — filename', () => {
       .mockRejectedValueOnce(new Error('ENOENT')) // 2026-05-27-hello-1.md → free
 
     const adapter = new SuperpowersAdapter()
-    const feature = await adapter.createFeature(WORKSPACE, {
+    const feature = await adapter.createFeature({
       status: 'backlog',
       priority: 'medium',
       content: '# Hello',
@@ -153,7 +153,7 @@ describe('SuperpowersAdapter.createFeature — filename', () => {
       epic: null,
       dueDate: null,
       labels: []
-    })
+    }, WORKSPACE)
 
     expect(path.basename(feature.filePath)).toBe('2026-05-27-hello-1.md')
   })
@@ -166,7 +166,7 @@ describe('SuperpowersAdapter.createFeature — filename', () => {
     mockStat.mockRejectedValue(new Error('ENOENT'))
 
     const adapter = new SuperpowersAdapter()
-    await adapter.createFeature(WORKSPACE, {
+    await adapter.createFeature({
       status: 'todo',
       priority: 'high',
       content: '# Write Test',
@@ -174,7 +174,7 @@ describe('SuperpowersAdapter.createFeature — filename', () => {
       epic: null,
       dueDate: null,
       labels: []
-    })
+    }, WORKSPACE)
 
     expect(mockWriteFile).toHaveBeenCalledOnce()
     const [uri] = mockWriteFile.mock.calls[0]
