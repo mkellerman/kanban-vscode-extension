@@ -33,6 +33,7 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
     modified: getValue('modified') || new Date().toISOString(),
     completedAt: getValue('completedAt') || null,
     labels: getArrayValue('labels'),
+    dependsOn: getArrayValue('dependsOn'),
     order: getValue('order') || 'a0',
     content: body.trim(),
     filePath
@@ -52,6 +53,7 @@ export function serializeFeature(feature: Feature): string {
     `modified: "${feature.modified}"`,
     `completedAt: ${feature.completedAt ? `"${feature.completedAt}"` : 'null'}`,
     `labels: [${feature.labels.map(l => `"${l}"`).join(', ')}]`,
+    `dependsOn: [${feature.dependsOn.map(d => `"${d}"`).join(', ')}]`,
     `order: "${feature.order}"`,
     '---',
     ''

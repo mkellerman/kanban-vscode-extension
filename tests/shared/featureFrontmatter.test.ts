@@ -20,6 +20,7 @@ function makeFeature(overrides: Partial<Feature> = {}): Feature {
     modified: '2026-02-24T12:00:00.000Z',
     completedAt: null,
     labels: ['frontend', 'bug'],
+    dependsOn: [],
     order: 'a1',
     content: '# My Feature\n\nSome description.',
     filePath: FIXTURE_PATH,
@@ -39,6 +40,7 @@ function makeFrontmatter(overrides: Record<string, string> = {}): string {
     modified: '"2026-02-24T12:00:00.000Z"',
     completedAt: 'null',
     labels: '["frontend", "bug"]',
+    dependsOn: '[]',
     order: '"a1"',
     ...overrides
   }
@@ -245,5 +247,92 @@ describe('round-trip: serializeFeature → parseFeatureFile', () => {
     const original = makeFeature({ status: 'done', completedAt: '2026-02-28T18:00:00.000Z' })
     const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
     expect(recovered.completedAt).toBe('2026-02-28T18:00:00.000Z')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// dependsOn round-trip
+// ---------------------------------------------------------------------------
+
+describe('dependsOn round-trip', () => {
+  it('defaults to empty array when the field is absent in frontmatter', () => {
+    const content = `---
+id: "x-1"
+status: "todo"
+priority: "low"
+assignee: null
+epic: null
+dueDate: null
+created: "2026-01-01T00:00:00.000Z"
+modified: "2026-01-01T00:00:00.000Z"
+completedAt: null
+labels: []
+order: "a0"
+---
+hello
+`
+    const feature = parseFeatureFile(content, FIXTURE_PATH)
+    expect(feature?.dependsOn).toEqual([])
+  })
+
+  it('parses a single dependency', () => {
+    const content = `---
+id: "x-2"
+status: "todo"
+priority: "low"
+assignee: null
+epic: null
+dueDate: null
+created: "2026-01-01T00:00:00.000Z"
+modified: "2026-01-01T00:00:00.000Z"
+completedAt: null
+labels: []
+dependsOn: ["AKB-22"]
+order: "a0"
+---
+body
+`
+    const feature = parseFeatureFile(content, FIXTURE_PATH)
+    expect(feature?.dependsOn).toEqual(['AKB-22'])
+  })
+
+  it('parses multiple dependencies', () => {
+    const content = `---
+id: "x-3"
+status: "todo"
+priority: "low"
+assignee: null
+epic: null
+dueDate: null
+created: "2026-01-01T00:00:00.000Z"
+modified: "2026-01-01T00:00:00.000Z"
+completedAt: null
+labels: []
+dependsOn: ["AKB-22", "AKB-30"]
+order: "a0"
+---
+body
+`
+    const feature = parseFeatureFile(content, FIXTURE_PATH)
+    expect(feature?.dependsOn).toEqual(['AKB-22', 'AKB-30'])
+  })
+
+  it('serializes an empty dependsOn as an empty list', () => {
+    const feature = makeFeature({ dependsOn: [] })
+    const text = serializeFeature(feature)
+    expect(text).toMatch(/^dependsOn: \[\]$/m)
+  })
+
+  it('serializes a populated dependsOn', () => {
+    const feature = makeFeature({ dependsOn: ['AKB-22', 'AKB-30'] })
+    const text = serializeFeature(feature)
+    expect(text).toMatch(/^dependsOn: \["AKB-22", "AKB-30"\]$/m)
+  })
+
+  it('round-trips a populated dependsOn', () => {
+    const feature = makeFeature({ dependsOn: ['AKB-22', 'AKB-30'] })
+    const text = serializeFeature(feature)
+    const parsed = parseFeatureFile(text, FIXTURE_PATH)
+    expect(parsed?.dependsOn).toEqual(['AKB-22', 'AKB-30'])
   })
 })
