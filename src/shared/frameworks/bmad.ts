@@ -98,7 +98,7 @@ export function parseBmadFile(content: string, filePath: string): Feature {
     modified: getValue('modified') || new Date().toISOString(),
     completedAt: getValue('completedAt') || null,
     labels: getArrayValue('labels'),
-    dependsOn: [],
+    dependsOn: getArrayValue('dependsOn'),
     order: getValue('order') || 'a0',
     content: body.trim(),
     filePath
