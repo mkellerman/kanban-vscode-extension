@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import type { Feature, FeatureStatus } from '../../../src/shared/types'
 import { SequenceView } from '../../../src/webview/components/SequenceView'
 
@@ -72,5 +72,56 @@ describe('SequenceView — rendering', () => {
     expect(screen.getByRole('button', { name: /review/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /backlog/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /done/i })).toBeInTheDocument()
+  })
+})
+
+describe('SequenceView — collapse interaction', () => {
+  it('calls onToggleCollapsed with the root id when the chevron is clicked', () => {
+    const onToggleCollapsed = vi.fn()
+    render(
+      <SequenceView
+        features={[f('A', { priority: 'critical' }), f('B', { dependsOn: ['A'] })]}
+        visibleStatuses={new Set<FeatureStatus>(['todo', 'in-progress', 'review'])}
+        collapsedRoots={new Set<string>()}
+        onToggleStatus={() => {}}
+        onToggleCollapsed={onToggleCollapsed}
+        onOpenFeature={() => {}}
+      />
+    )
+    const chevs = screen.getAllByText('▾')
+    fireEvent.click(chevs[0])
+    expect(onToggleCollapsed).toHaveBeenCalledWith('A')
+  })
+
+  it('does not open the feature when the chevron is clicked', () => {
+    const onOpenFeature = vi.fn()
+    render(
+      <SequenceView
+        features={[f('A', { priority: 'critical' }), f('B', { dependsOn: ['A'] })]}
+        visibleStatuses={new Set<FeatureStatus>(['todo', 'in-progress', 'review'])}
+        collapsedRoots={new Set<string>()}
+        onToggleStatus={() => {}}
+        onToggleCollapsed={() => {}}
+        onOpenFeature={onOpenFeature}
+      />
+    )
+    const chevs = screen.getAllByText('▾')
+    fireEvent.click(chevs[0])
+    expect(onOpenFeature).not.toHaveBeenCalled()
+  })
+
+  it('hides children when the root is in collapsedRoots and flips chevron to ▸', () => {
+    render(
+      <SequenceView
+        features={[f('A', { priority: 'critical' }), f('B', { dependsOn: ['A'] })]}
+        visibleStatuses={new Set<FeatureStatus>(['todo', 'in-progress', 'review'])}
+        collapsedRoots={new Set<string>(['A'])}
+        onToggleStatus={() => {}}
+        onToggleCollapsed={() => {}}
+        onOpenFeature={() => {}}
+      />
+    )
+    expect(screen.getByText('▸')).toBeInTheDocument()
+    expect(screen.queryByText('B')).not.toBeInTheDocument()
   })
 })
