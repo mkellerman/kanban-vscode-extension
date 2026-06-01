@@ -1,4 +1,4 @@
-import { Search, X, Columns, Rows, Settings, Tags, Layers } from 'lucide-react'
+import { Search, X, Columns, Rows, Settings, Tags, Layers, ListOrdered } from 'lucide-react'
 import { useStore, type DueDateFilter } from '../store'
 import type { BoardViewMode, Priority } from '../../shared/types'
 import { useState } from 'react'
@@ -171,18 +171,32 @@ export function Toolbar({
         {layout === 'horizontal' ? <Rows size={16} /> : <Columns size={16} />}
       </button>
 
-      {/* Board: standard columns vs epic swim lanes */}
+      {/* View toggles: Epic Board */}
       <button
         type="button"
-        onClick={() => onBoardViewModeChange(boardViewMode === 'standard' ? 'epic' : 'standard')}
+        onClick={() => onBoardViewModeChange(boardViewMode === 'epic' ? 'standard' : 'epic')}
         className={`flex items-center gap-1 px-2 py-1.5 text-sm rounded-md transition-colors ${
           boardViewMode === 'epic'
             ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40'
             : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'
         }`}
-        title={boardViewMode === 'standard' ? t('toolbar.epicBoardView') : t('toolbar.standardBoardView')}
+        title={boardViewMode === 'epic' ? t('toolbar.standardBoardView') : t('toolbar.epicBoardView')}
       >
         <Layers size={16} />
+      </button>
+
+      {/* View toggles: Sequence */}
+      <button
+        type="button"
+        onClick={() => onBoardViewModeChange(boardViewMode === 'sequence' ? 'standard' : 'sequence')}
+        className={`flex items-center gap-1 px-2 py-1.5 text-sm rounded-md transition-colors ${
+          boardViewMode === 'sequence'
+            ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40'
+            : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+        }`}
+        title={boardViewMode === 'sequence' ? 'Switch to standard board' : 'Switch to sequence view'}
+      >
+        <ListOrdered size={16} />
       </button>
 
       {/* Manage Labels */}
