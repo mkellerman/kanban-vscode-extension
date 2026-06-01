@@ -1,9 +1,10 @@
-import type { Feature, FeatureStatus } from '../../shared/types'
+import type { Feature, FeatureStatus, Priority } from '../../shared/types'
+import { getTitleFromContent } from '../../shared/types'
 import { buildSequence, type SequenceNode } from '../../shared/sequenceSort'
 
 const STATUSES: FeatureStatus[] = ['backlog', 'todo', 'in-progress', 'review', 'done']
 
-const PRIORITY_CLASS: Record<string, string> = {
+const PRIORITY_CLASS: Record<Priority, string> = {
   critical: 'bg-red-900/40 text-red-200',
   high:     'bg-amber-900/40 text-amber-200',
   medium:   'bg-blue-900/40 text-blue-200',
@@ -159,7 +160,8 @@ interface RowProps {
 function Row({ chev, arm, rank, node, blocksCount, onChevronClick, onOpenFeature }: RowProps) {
   const feature = node.feature
   const blocks = blocksCount.get(feature.id) ?? 0
-  const title = (feature.content.match(/^#\s+(.+)$/m)?.[1] ?? feature.id).trim()
+  const parsedTitle = getTitleFromContent(feature.content)
+  const title = parsedTitle === 'Untitled' ? feature.id : parsedTitle
 
   return (
     <div
