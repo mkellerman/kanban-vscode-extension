@@ -137,3 +137,33 @@ describe('buildSequence — dependency edges', () => {
       .toEqual(['B2', 'B3', 'B1'])
   })
 })
+
+describe('buildSequence — cycles', () => {
+  it('breaks a 2-cycle by dropping the edge into the lower-priority node and warns', () => {
+    // A.dependsOn = [B], B.dependsOn = [A]
+    // A is critical, B is low → break edge INTO B (the lower-priority node), i.e. drop A→B
+    const result = buildSequence([
+      f('A', { priority: 'critical', dependsOn: ['B'] }),
+      f('B', { priority: 'low', dependsOn: ['A'] }),
+    ], allActive)
+
+    // Cycle broken → A becomes a root (its edge to B was dropped), B is its child via reverse
+    expect(result.groups.map(g => g.root.feature.id)).toEqual(['A'])
+    expect(result.groups[0].root.children.map(c => c.feature.id)).toEqual(['B'])
+    expect(result.warnings).toEqual([{ kind: 'cycle', edge: { from: 'A', to: 'B' } }])
+  })
+
+  it('does not recurse infinitely even if a residual cycle slips past detection', () => {
+    // Use a 3-cycle that the algorithm must break exactly once
+    const result = buildSequence([
+      f('A', { priority: 'high', dependsOn: ['C'] }),
+      f('B', { priority: 'medium', dependsOn: ['A'] }),
+      f('C', { priority: 'low', dependsOn: ['B'] }),
+    ], allActive)
+
+    // Lowest-priority node is C; break edge INTO C → drop B→C
+    expect(result.warnings).toEqual([{ kind: 'cycle', edge: { from: 'B', to: 'C' } }])
+    // No infinite recursion → test completes
+    expect(result.groups.length).toBeGreaterThan(0)
+  })
+})
