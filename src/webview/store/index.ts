@@ -20,6 +20,8 @@ interface KanbanState {
   cardSettings: CardDisplaySettings
   collapsedColumns: Set<string>
   collapsedEpics: Set<string>
+  sequenceVisibleStatuses: Set<FeatureStatus>
+  sequenceCollapsedRoots: Set<string>
 
   setLocale: (locale: string) => void
   setFeatures: (features: Feature[]) => void
@@ -38,6 +40,8 @@ interface KanbanState {
   toggleColumnCollapsed: (columnId: string) => void
   setCollapsedEpics: (ids: string[]) => void
   toggleEpicCollapsed: (epicKey: string) => void
+  toggleSequenceStatus: (status: FeatureStatus) => void
+  toggleSequenceCollapsed: (rootId: string) => void
   clearAllFilters: () => void
 
   addFeature: (feature: Feature) => void
@@ -101,6 +105,8 @@ export const useStore = create<KanbanState>((set, get) => ({
   boardViewMode: 'standard',
   collapsedColumns: new Set<string>(),
   collapsedEpics: new Set<string>(),
+  sequenceVisibleStatuses: new Set<FeatureStatus>(['todo', 'in-progress', 'review']),
+  sequenceCollapsedRoots: new Set<string>(),
   cardSettings: {
     showPriorityBadges: true,
     showAssignee: true,
@@ -149,6 +155,16 @@ export const useStore = create<KanbanState>((set, get) => ({
       next.add(epicKey)
     }
     return { collapsedEpics: next }
+  }),
+  toggleSequenceStatus: (status) => set((state) => {
+    const next = new Set(state.sequenceVisibleStatuses)
+    if (next.has(status)) next.delete(status); else next.add(status)
+    return { sequenceVisibleStatuses: next }
+  }),
+  toggleSequenceCollapsed: (rootId) => set((state) => {
+    const next = new Set(state.sequenceCollapsedRoots)
+    if (next.has(rootId)) next.delete(rootId); else next.add(rootId)
+    return { sequenceCollapsedRoots: next }
   }),
 
   clearAllFilters: () =>
