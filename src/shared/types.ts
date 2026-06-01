@@ -187,6 +187,7 @@ export interface FeatureFrontmatter {
   modified: string
   completedAt: string | null
   labels: string[]
+  /** Feature IDs that must complete before this one can start. Empty when absent. */
   dependsOn: string[]
   order: string
 }
