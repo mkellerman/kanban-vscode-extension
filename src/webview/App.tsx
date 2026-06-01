@@ -3,6 +3,7 @@ import { generateKeyBetween } from 'fractional-indexing'
 import { useStore } from './store'
 import { KanbanBoard } from './components/KanbanBoard'
 import { KanbanEpicBoard } from './components/KanbanEpicBoard'
+import { SequenceView } from './components/SequenceView'
 import { CreateFeatureDialog } from './components/CreateFeatureDialog'
 import { FeatureEditor } from './components/FeatureEditor'
 import { PlanEditor } from './components/PlanEditor'
@@ -17,6 +18,7 @@ function App(): React.JSX.Element {
 
   const {
     columns,
+    features,
     cardSettings,
     setFeatures,
     setColumns,
@@ -26,7 +28,11 @@ function App(): React.JSX.Element {
     setCollapsedEpics,
     boardViewMode,
     setBoardViewMode,
-    setLocale
+    setLocale,
+    sequenceVisibleStatuses,
+    sequenceCollapsedRoots,
+    toggleSequenceStatus,
+    toggleSequenceCollapsed,
   } = useStore()
 
   const [createFeatureOpen, setCreateFeatureOpen] = useState(false)
@@ -416,7 +422,16 @@ function App(): React.JSX.Element {
       />
       <div className="flex-1 flex overflow-hidden">
         <div className={editingFeature || planEditor ? 'w-1/2' : 'w-full'}>
-          {boardViewMode === 'epic' ? (
+          {boardViewMode === 'sequence' ? (
+            <SequenceView
+              features={features}
+              visibleStatuses={sequenceVisibleStatuses}
+              collapsedRoots={sequenceCollapsedRoots}
+              onToggleStatus={toggleSequenceStatus}
+              onToggleCollapsed={toggleSequenceCollapsed}
+              onOpenFeature={(featureId) => vscode.postMessage({ type: 'openFeature', featureId })}
+            />
+          ) : boardViewMode === 'epic' ? (
             <KanbanEpicBoard
               onFeatureClick={handleFeatureClick}
               onAddFeature={handleAddFeatureInColumn}
