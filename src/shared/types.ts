@@ -18,6 +18,8 @@ export interface Feature {
   modified: string
   completedAt: string | null
   labels: string[]
+  /** Feature IDs that must complete before this one can start. Empty when absent. */
+  dependsOn: string[]
   order: string
   content: string
   filePath: string
@@ -156,7 +158,7 @@ export interface CardDisplaySettings {
 }
 
 // Messages between extension and webview
-export type BoardViewMode = 'standard' | 'epic'
+export type BoardViewMode = 'standard' | 'epic' | 'sequence'
 
 /** Stable id for the "no epic" swim lane (persisted collapse state). */
 export const NO_EPIC_LANE_ID = '__no_epic__'
@@ -185,6 +187,7 @@ export interface FeatureFrontmatter {
   modified: string
   completedAt: string | null
   labels: string[]
+  dependsOn: string[]
   order: string
 }
 
