@@ -247,6 +247,7 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
       modified: getValue('modified') || new Date().toISOString(),
       completedAt: getValue('completedAt') || null,
       labels: getArrayValue('labels'),
+      dependsOn: [],
       order: getValue('order') || 'a0'
     }
 
@@ -266,6 +267,7 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
       modified: now,
       completedAt: null,
       labels: [],
+      dependsOn: [],
       order: 'a0'
     }
   }

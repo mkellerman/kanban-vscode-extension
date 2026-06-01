@@ -321,6 +321,7 @@ function App(): React.JSX.Element {
         modified: f.modified,
         completedAt: f.completedAt,
         labels: f.labels,
+        dependsOn: f.dependsOn,
         order: f.order,
       },
       contentVersion: contentVersionRef.current,

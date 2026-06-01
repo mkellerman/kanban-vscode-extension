@@ -54,6 +54,7 @@ export function parseSpeckitFile(content: string, filePath: string): Feature {
       modified: new Date().toISOString(),
       completedAt: null,
       labels: [],
+      dependsOn: [],
       order: 'a0',
       content: content.trim(),
       filePath
@@ -87,6 +88,7 @@ export function parseSpeckitFile(content: string, filePath: string): Feature {
     modified: getValue('modified') || new Date().toISOString(),
     completedAt: getValue('completedAt') || null,
     labels: getArrayValue('labels'),
+    dependsOn: [],
     order: getValue('order') || 'a0',
     content: body.trim(),
     filePath

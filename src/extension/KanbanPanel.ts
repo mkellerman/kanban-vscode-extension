@@ -943,6 +943,7 @@ export class KanbanPanel {
       modified: feature.modified,
       completedAt: feature.completedAt,
       labels: feature.labels,
+      dependsOn: feature.dependsOn,
       order: feature.order
     }
 

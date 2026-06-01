@@ -122,6 +122,7 @@ export class SpecKitAdapter implements FrameworkAdapter {
       modified: now,
       completedAt: data.status === 'done' ? now : null,
       labels: data.labels,
+      dependsOn: [],
       order: newOrder,
       content: data.content,
       filePath
