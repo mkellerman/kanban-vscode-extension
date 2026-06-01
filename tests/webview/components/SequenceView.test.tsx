@@ -125,3 +125,37 @@ describe('SequenceView — collapse interaction', () => {
     expect(screen.queryByText('B')).not.toBeInTheDocument()
   })
 })
+
+describe('SequenceView — interactions', () => {
+  it('calls onOpenFeature with the row\'s id when the row is clicked', () => {
+    const onOpenFeature = vi.fn()
+    render(
+      <SequenceView
+        features={[f('A')]}
+        visibleStatuses={new Set<FeatureStatus>(['todo', 'in-progress', 'review'])}
+        collapsedRoots={new Set<string>()}
+        onToggleStatus={() => {}}
+        onToggleCollapsed={() => {}}
+        onOpenFeature={onOpenFeature}
+      />
+    )
+    fireEvent.click(screen.getByText('A'))
+    expect(onOpenFeature).toHaveBeenCalledWith('A')
+  })
+
+  it('calls onToggleStatus when a chip is clicked', () => {
+    const onToggleStatus = vi.fn()
+    render(
+      <SequenceView
+        features={[]}
+        visibleStatuses={new Set<FeatureStatus>(['todo'])}
+        collapsedRoots={new Set<string>()}
+        onToggleStatus={onToggleStatus}
+        onToggleCollapsed={() => {}}
+        onOpenFeature={() => {}}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /backlog/i }))
+    expect(onToggleStatus).toHaveBeenCalledWith('backlog')
+  })
+})
