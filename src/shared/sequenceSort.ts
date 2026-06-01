@@ -72,12 +72,12 @@ function detectCyclesAndPickBreaks(
             victim = node
           }
         }
-        const cycleSet = new Set(cycle)
-        // Warning `from`: the node that victim depends on within the cycle
-        // (victim's blocker in the cycle = effectiveDeps[victim] ∩ cycleSet).
-        const victimDeps = effectiveDeps.get(victim) ?? []
-        const warningFrom = victimDeps.find(d => cycleSet.has(d)) ?? cycle[(cycle.indexOf(victim) - 1 + cycle.length) % cycle.length]
-        breaks.push({ from: warningFrom, to: victim })
+        // The cycle edge entering victim (in dep-direction) is from victim's
+        // predecessor in the DFS stack — i.e., the node we visited just before
+        // recursing into victim. That node depends on victim.
+        const idx = cycle.indexOf(victim)
+        const predecessor = cycle[(idx - 1 + cycle.length) % cycle.length]
+        breaks.push({ from: predecessor, to: victim })
         // Don't recurse into 'next' — we'll re-run with the edge dropped.
         continue
       }
@@ -126,19 +126,14 @@ export function buildSequence(
     effectiveDeps.set(feat.id, kept)
   }
 
-  // Detect + break cycles BEFORE building reverse edges
+  // Detect + break cycles BEFORE building reverse edges.
+  // brk.from is the dependent (the predecessor of the victim in the DFS stack);
+  // brk.to is the victim (lowest-priority node in cycle). The edge to drop is
+  // "from depends on to" — remove `to` from `from`'s effectiveDeps.
   const breaks = detectCyclesAndPickBreaks(effectiveDeps, byId)
   for (const brk of breaks) {
-    // brk.to is the victim (lowest-priority node in cycle).
-    // brk.from is victim's blocker within the cycle (what victim depends on).
-    // To break the cycle, remove victim (brk.to) from the dep list of whichever
-    // node depends on victim — i.e., the node that has brk.to in its effectiveDeps.
-    for (const [node, deps] of effectiveDeps) {
-      if (deps.includes(brk.to)) {
-        effectiveDeps.set(node, deps.filter(id => id !== brk.to))
-        break
-      }
-    }
+    const arr = effectiveDeps.get(brk.from) ?? []
+    effectiveDeps.set(brk.from, arr.filter(id => id !== brk.to))
     warnings.push({ kind: 'cycle', edge: brk })
   }
 

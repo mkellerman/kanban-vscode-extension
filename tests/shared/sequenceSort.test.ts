@@ -153,17 +153,20 @@ describe('buildSequence — cycles', () => {
     expect(result.warnings).toEqual([{ kind: 'cycle', edge: { from: 'A', to: 'B' } }])
   })
 
-  it('does not recurse infinitely even if a residual cycle slips past detection', () => {
-    // Use a 3-cycle that the algorithm must break exactly once
+  it('breaks a 3-cycle at the lowest-priority node and yields a consistent tree', () => {
+    // A.dependsOn = [C], B.dependsOn = [A], C.dependsOn = [B]
+    // DFS from A walks A→C→B, then sees B→A as a back-edge. Cycle: [A, C, B].
+    // Lowest-priority node = C. The cycle edge entering C (in dep-direction) is A→C.
+    // Drop A→C → A is freed, becomes root. Tree: A → B → C.
     const result = buildSequence([
       f('A', { priority: 'high', dependsOn: ['C'] }),
       f('B', { priority: 'medium', dependsOn: ['A'] }),
       f('C', { priority: 'low', dependsOn: ['B'] }),
     ], allActive)
 
-    // Lowest-priority node is C; break edge INTO C → drop B→C
-    expect(result.warnings).toEqual([{ kind: 'cycle', edge: { from: 'B', to: 'C' } }])
-    // No infinite recursion → test completes
-    expect(result.groups.length).toBeGreaterThan(0)
+    expect(result.warnings).toEqual([{ kind: 'cycle', edge: { from: 'A', to: 'C' } }])
+    expect(result.groups.map(g => g.root.feature.id)).toEqual(['A'])
+    expect(result.groups[0].root.children.map(c => c.feature.id)).toEqual(['B'])
+    expect(result.groups[0].root.children[0].children.map(c => c.feature.id)).toEqual(['C'])
   })
 })
