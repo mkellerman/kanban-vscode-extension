@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as vscode from 'vscode'
 import { generateKeyBetween } from 'fractional-indexing'
-import type { Feature } from '../../shared/types'
+import type { Feature, PlanSection } from '../../shared/types'
 import { getTitleFromContent, generateFeatureFilename } from '../../shared/types'
 import type { FrameworkAdapter, CreateFeatureData } from './FrameworkAdapter'
 import type { FrameworkId } from '../../shared/frameworks/types'
@@ -123,4 +123,48 @@ export class SuperpowersAdapter implements FrameworkAdapter {
   async moveFile(currentPath: string, _feature: Feature, _workspaceRoot: string): Promise<string> {
     return currentPath
   }
+
+  splitContent(content: string): PlanSection[] {
+    const taskHeadingRe = /^#+\s+Task\s+\d+[:.]\s+(.+)$/gim
+    const matches = [...content.matchAll(taskHeadingRe)]
+
+    if (matches.length === 0) {
+      return [{ type: 'description', title: 'Description', content: content.trim() }]
+    }
+
+    const sections: PlanSection[] = []
+    sections.push({
+      type: 'description',
+      title: 'Description',
+      content: content.slice(0, matches[0].index ?? 0).trim(),
+    })
+
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i]
+      const headingText = match[0].replace(/^#+\s+/, '').trim()
+      const bodyStart = (match.index ?? 0) + match[0].length
+      const bodyEnd = i + 1 < matches.length ? (matches[i + 1].index ?? content.length) : content.length
+      sections.push({
+        type: 'task',
+        title: headingText,
+        content: content.slice(bodyStart, bodyEnd).trim(),
+        taskIndex: i,
+      })
+    }
+
+    return sections
+  }
+
+  mergeContent(sections: PlanSection[]): string {
+    const parts: string[] = []
+    for (const section of sections) {
+      if (section.type === 'description') {
+        if (section.content.trim()) parts.push(section.content)
+      } else {
+        parts.push(`### ${section.title}\n\n${section.content}`)
+      }
+    }
+    return parts.join('\n\n') + '\n'
+  }
+
 }

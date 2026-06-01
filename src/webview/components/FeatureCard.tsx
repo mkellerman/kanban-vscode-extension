@@ -105,7 +105,11 @@ export function FeatureCard({ feature, onClick, isDragging }: FeatureCardProps) 
             <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 truncate flex-1">
               {fileName}
             </span>
-            {cardSettings.showPriorityBadges && (
+            {feature.customStatus ? (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                {feature.customStatus}
+              </span>
+            ) : cardSettings.showPriorityBadges && (
               <span
                 className={`text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${priorityColors[feature.priority]}`}
               >
@@ -119,7 +123,13 @@ export function FeatureCard({ feature, onClick, isDragging }: FeatureCardProps) 
           <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 line-clamp-2 flex-1">
             {title}
           </h3>
-          {cardSettings.showPriorityBadges && !(cardSettings.showFileName && fileName) && (
+          {feature.customStatus ? (
+            !(cardSettings.showFileName && fileName) && (
+              <span className="text-xs font-medium px-1.5 py-0.5 rounded shrink-0 bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                {feature.customStatus}
+              </span>
+            )
+          ) : cardSettings.showPriorityBadges && !(cardSettings.showFileName && fileName) && (
             <span
               className={`text-xs font-medium px-1.5 py-0.5 rounded shrink-0 ${priorityColors[feature.priority]}`}
             >

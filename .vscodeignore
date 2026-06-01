@@ -1,5 +1,6 @@
 .vscode/**
 .git/**
+.codegraph/**
 node_modules/**
 src/**
 *.map

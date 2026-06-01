@@ -5,9 +5,10 @@ import { KanbanBoard } from './components/KanbanBoard'
 import { KanbanEpicBoard } from './components/KanbanEpicBoard'
 import { CreateFeatureDialog } from './components/CreateFeatureDialog'
 import { FeatureEditor } from './components/FeatureEditor'
+import { PlanEditor } from './components/PlanEditor'
 import { Toolbar } from './components/Toolbar'
 import { UndoToast } from './components/UndoToast'
-import type { Feature, FeatureStatus, Priority, ExtensionMessage, FeatureFrontmatter, AIAgent, AIPermissionMode, BoardViewMode } from '../shared/types'
+import type { Feature, FeatureStatus, Priority, ExtensionMessage, FeatureFrontmatter, AIAgent, AIPermissionMode, BoardViewMode, PlanSection } from '../shared/types'
 import { getTitleFromContent } from '../shared/types'
 import { vscode } from './vscodeApi'
 import { initLocale, t } from './lib/i18n'
@@ -43,6 +44,13 @@ function App(): React.JSX.Element {
   useEffect(() => {
     editingFeatureRef.current = editingFeature
   }, [editingFeature])
+
+  // Plan editor state
+  const [planEditor, setPlanEditor] = useState<{
+    feature: Feature
+    sections: PlanSection[]
+    focusTaskIndex?: number
+  } | null>(null)
 
   // Undo delete stack
   const [pendingDeletes, setPendingDeletes] = useState<{ id: string; feature: Feature }[]>([])
@@ -231,6 +239,7 @@ function App(): React.JSX.Element {
         case 'featureContent': {
           const { cardSettings } = useStore.getState()
           if (cardSettings.markdownEditorMode) break
+          setPlanEditor(null)
           contentVersionRef.current += 1
           setEditingFeature({
             id: message.featureId,
@@ -238,6 +247,11 @@ function App(): React.JSX.Element {
             frontmatter: message.frontmatter,
             contentVersion: contentVersionRef.current
           })
+          break
+        }
+        case 'featurePlanContent': {
+          setEditingFeature(null)
+          setPlanEditor({ feature: message.feature, sections: message.sections, focusTaskIndex: message.focusTaskIndex })
           break
         }
       }
@@ -282,6 +296,42 @@ function App(): React.JSX.Element {
   const handleOpenFile = (): void => {
     if (!editingFeature) return
     vscode.postMessage({ type: 'openFile', featureId: editingFeature.id })
+  }
+
+  const handlePlanEditorClose = (): void => {
+    setPlanEditor(null)
+    vscode.postMessage({ type: 'closeFeature' })
+  }
+
+  const handlePlanEditorEditDetails = (): void => {
+    if (!planEditor) return
+    const f = planEditor.feature
+    contentVersionRef.current += 1
+    setEditingFeature({
+      id: f.id,
+      content: f.content,
+      frontmatter: {
+        id: f.id,
+        status: f.status,
+        priority: f.priority,
+        assignee: f.assignee,
+        epic: f.epic,
+        dueDate: f.dueDate,
+        created: f.created,
+        modified: f.modified,
+        completedAt: f.completedAt,
+        labels: f.labels,
+        order: f.order,
+      },
+      contentVersion: contentVersionRef.current,
+    })
+    setPlanEditor(null)
+  }
+
+  const handlePlanSectionsChange = (sections: PlanSection[]): void => {
+    if (!planEditor) return
+    setPlanEditor(prev => prev ? { ...prev, sections } : null)
+    vscode.postMessage({ type: 'saveFeaturePlanContent', featureId: planEditor.feature.id, sections })
   }
 
   const handleStartWithAI = (agent: AIAgent, permissionMode: AIPermissionMode): void => {
@@ -364,7 +414,7 @@ function App(): React.JSX.Element {
         }}
       />
       <div className="flex-1 flex overflow-hidden">
-        <div className={editingFeature ? 'w-1/2' : 'w-full'}>
+        <div className={editingFeature || planEditor ? 'w-1/2' : 'w-full'}>
           {boardViewMode === 'epic' ? (
             <KanbanEpicBoard
               onFeatureClick={handleFeatureClick}
@@ -391,6 +441,18 @@ function App(): React.JSX.Element {
               onDelete={handleDeleteFeature}
               onOpenFile={handleOpenFile}
               onStartWithAI={handleStartWithAI}
+            />
+          </div>
+        )}
+        {planEditor && (
+          <div className="w-1/2">
+            <PlanEditor
+              feature={planEditor.feature}
+              sections={planEditor.sections}
+              focusTaskIndex={planEditor.focusTaskIndex}
+              onClose={handlePlanEditorClose}
+              onSectionsChange={handlePlanSectionsChange}
+              onEditDetails={handlePlanEditorEditDetails}
             />
           </div>
         )}

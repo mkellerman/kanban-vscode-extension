@@ -20,6 +20,7 @@ interface KanbanBoardProps {
 
 export function KanbanBoard({ onFeatureClick, onAddFeature, onMoveFeature, epicFilter }: KanbanBoardProps) {
   const columns = useStore((s) => s.columns)
+  const allFeatures = useStore((s) => s.features)
   const getFilteredFeaturesByStatus = useStore((s) => s.getFilteredFeaturesByStatus)
   const getFeaturesByStatus = useStore((s) => s.getFeaturesByStatus)
   const layout = useStore((s) => s.layout)
@@ -164,6 +165,7 @@ export function KanbanBoard({ onFeatureClick, onAddFeature, onMoveFeature, epicF
               key={column.id}
               column={column}
               features={getFilteredFeaturesByStatus(column.id as FeatureStatus, epicFilter)}
+              allFeatures={allFeatures}
               otherColumns={columns.filter((c) => c.id !== column.id)}
               onFeatureClick={onFeatureClick}
               onAddFeature={onAddFeature}

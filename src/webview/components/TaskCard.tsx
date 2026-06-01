@@ -1,10 +1,13 @@
-import { formatStatusLabel } from '../../shared/types'
+import { formatStatusLabel, getTitleFromContent } from '../../shared/types'
 import type { Feature, PlanTask } from '../../shared/types'
+import { getPlanColor } from '../lib/planColors'
 
 interface TaskCardProps {
   task: PlanTask
   parentFeature: Feature
   variant: 'enabled' | 'disabled'
+  compact?: boolean
+  onClick?: () => void
 }
 
 const severityClass: Record<string, string> = {
@@ -14,10 +17,29 @@ const severityClass: Record<string, string> = {
   low:      'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400',
 }
 
-export function TaskCard({ task, parentFeature, variant }: TaskCardProps) {
+export function TaskCard({ task, parentFeature, variant, compact, onClick }: TaskCardProps) {
+  const { border, chipBg, chipText } = getPlanColor(parentFeature.id)
+
+  if (compact) {
+    return (
+      <div
+        className="bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700/50 rounded px-2.5 py-1 shadow-sm flex items-center gap-2 cursor-pointer hover:shadow-md transition-shadow"
+        style={{ borderLeft: `2px solid ${border}` }}
+        onClick={onClick}
+      >
+        <span className="text-[10px] font-medium text-zinc-700 dark:text-zinc-200 truncate flex-1">
+          {task.title}
+        </span>
+      </div>
+    )
+  }
+
   if (variant === 'disabled') {
     return (
-      <div className="bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700/50 border-l-2 border-l-zinc-200 dark:border-l-zinc-600 rounded px-2.5 py-1 shadow-sm flex items-center justify-between gap-2">
+      <div
+        className="bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700/50 rounded px-2.5 py-1 shadow-sm flex items-center justify-between gap-2"
+        style={{ borderLeft: `2px solid ${border}`, opacity: 0.55 }}
+      >
         <span className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500 truncate">
           {task.title}
         </span>
@@ -28,11 +50,25 @@ export function TaskCard({ task, parentFeature, variant }: TaskCardProps) {
     )
   }
 
-  // task:enabled — full card with inherited epic/labels/severity from parent
+  // task:enabled — full card
   const epicTrimmed = parentFeature.epic?.trim() || null
+  const planTitle = getTitleFromContent(parentFeature.content)
 
   return (
-    <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 border-l-2 border-l-indigo-200 dark:border-l-indigo-700 rounded px-2.5 py-1.5 shadow-sm">
+    <div
+      className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-2.5 py-1.5 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+      style={{ borderLeft: `2px solid ${border}` }}
+      onClick={onClick}
+    >
+      {/* Plan chip */}
+      <div
+        className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full mb-1.5"
+        style={{ background: chipBg, color: chipText }}
+      >
+        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: border }} />
+        <span className="truncate max-w-[140px]">{planTitle}</span>
+      </div>
+
       <div className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 truncate mb-1.5">
         {task.title}
       </div>

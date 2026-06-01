@@ -21,6 +21,10 @@ export interface Feature {
   order: string
   content: string
   filePath: string
+  /** Per-task status overrides for Superpowers plans (0-based taskIndex → status). */
+  taskStatuses?: Record<number, FeatureStatus>
+  /** Original status string when the file uses a non-standard value (e.g. "paused"). */
+  customStatus?: string
 }
 
 // Parse title from the first # heading in markdown content, falling back to the first line
@@ -38,12 +42,25 @@ export interface PlanTask {
   parentId: string
   checkedSteps: number
   totalSteps: number
+  taskIndex: number
 }
 
-export function parseSuperpowersTasks(content: string, parentId: string): PlanTask[] {
+export interface PlanSection {
+  type: 'description' | 'task'
+  title: string      // "Description" | full heading text e.g. "Task 1: typeBadge helper"
+  content: string    // raw markdown body, trimmed
+  taskIndex?: number // 0-based index among task sections
+}
+
+export function parseSuperpowersTasks(
+  content: string,
+  parentId: string,
+  taskStatuses?: Record<number, FeatureStatus>
+): PlanTask[] {
   const tasks: PlanTask[] = []
-  const taskHeadingRe = /^###\s+Task\s+\d+[:.]\s+(.+)$/gm
+  const taskHeadingRe = /^#+\s+Task\s+\d+[:.]\s+(.+)$/gm
   const matches = [...content.matchAll(taskHeadingRe)]
+  const validStatuses = new Set<string>(['backlog', 'todo', 'in-progress', 'review', 'done'])
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i]
     const title = match[1].trim().replace(/`/g, '')
@@ -53,8 +70,18 @@ export function parseSuperpowersTasks(content: string, parentId: string): PlanTa
     const checked = (section.match(/^- \[x\]/gim) ?? []).length
     const unchecked = (section.match(/^- \[ \]/gm) ?? []).length
     const total = checked + unchecked
-    const status: FeatureStatus = total === 0 || checked === 0 ? 'todo' : checked >= total ? 'done' : 'in-progress'
-    tasks.push({ id: `${parentId}.t${i}`, title, status, parentId, checkedSteps: checked, totalSteps: total })
+    // Priority: sprintPlanning YAML > inline HTML comment (legacy) > checkbox-derived
+    let status: FeatureStatus
+    if (taskStatuses?.[i] !== undefined) {
+      status = taskStatuses[i]
+    } else {
+      const explicitMatch = section.match(/<!--\s*status:\s*([\w-]+)\s*-->/i)
+      const explicit = explicitMatch?.[1]
+      status = (explicit && validStatuses.has(explicit))
+        ? explicit as FeatureStatus
+        : total === 0 || checked === 0 ? 'todo' : checked >= total ? 'done' : 'in-progress'
+    }
+    tasks.push({ id: `${parentId}.t${i}`, title, status, parentId, checkedSteps: checked, totalSteps: total, taskIndex: i })
   }
   return tasks
 }
@@ -123,6 +150,7 @@ export interface CardDisplaySettings {
   compactMode: boolean
   markdownEditorMode: boolean
   hideScrollbar: boolean
+  planLayoutFlat: boolean
   defaultPriority: Priority
   defaultStatus: FeatureStatus
 }
@@ -143,6 +171,7 @@ export type ExtensionMessage =
   | { type: 'featuresUpdated'; features: Feature[] }
   | { type: 'triggerCreateDialog' }
   | { type: 'featureContent'; featureId: string; content: string; frontmatter: FeatureFrontmatter }
+  | { type: 'featurePlanContent'; feature: Feature; sections: PlanSection[]; focusTaskIndex?: number }
 
 // Frontmatter for editing
 export interface FeatureFrontmatter {
@@ -165,7 +194,8 @@ export type WebviewMessage =
   | { type: 'moveFeature'; featureId: string; newStatus: string; newOrder: number }
   | { type: 'deleteFeature'; featureId: string }
   | { type: 'updateFeature'; featureId: string; updates: Partial<Feature> }
-  | { type: 'openFeature'; featureId: string }
+  | { type: 'openFeature'; featureId: string; focusTaskIndex?: number }
+  | { type: 'saveFeaturePlanContent'; featureId: string; sections: PlanSection[] }
   | { type: 'saveFeatureContent'; featureId: string; content: string; frontmatter: FeatureFrontmatter }
   | { type: 'closeFeature' }
   | { type: 'openFile'; featureId: string }
@@ -177,3 +207,4 @@ export type WebviewMessage =
   | { type: 'archiveAllCards'; sourceColumnId: string }
   | { type: 'renameLabel'; oldName: string; newName: string }
   | { type: 'deleteLabel'; labelName: string }
+  | { type: 'moveTask'; featureId: string; taskIndex: number; newStatus: string }

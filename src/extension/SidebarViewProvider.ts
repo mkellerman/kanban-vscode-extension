@@ -7,6 +7,7 @@ import { t } from './l10n'
 import type { FrameworkAdapter } from './frameworks/FrameworkAdapter'
 import { getActiveAdapters, ALL_ADAPTERS } from './frameworkRegistry'
 import type { FrameworkId } from '../shared/frameworks/types'
+import { getOverrideRoot, setOverrideRoot } from './projectOverride'
 
 interface SidebarFeature {
   id: string
@@ -74,6 +75,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
             KanbanPanel.currentPanel?.openFeature(message.featureId)
           }, 500)
           break
+        case 'switchProject':
+          this._handleSwitchProject()
+          break
       }
     }, null, this._disposables)
 
@@ -91,6 +95,43 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     vscode.commands.executeCommand('kanban-extension.open')
 
     webviewView.webview.html = this._getHtml()
+  }
+
+  private async _handleSwitchProject(): Promise<void> {
+    const workspaceName = vscode.workspace.workspaceFolders?.[0]?.name
+    let selectedRoot: string | null | undefined
+
+    if (getOverrideRoot()) {
+      const backLabel = workspaceName ? `$(home) Back to workspace (${workspaceName})` : '$(home) Back to workspace'
+      const pick = await vscode.window.showQuickPick(
+        [
+          { label: backLabel, value: null },
+          { label: '$(folder) Choose another folder…', value: 'pick' }
+        ],
+        { placeHolder: 'Switch project' }
+      )
+      if (!pick) return
+      if (pick.value === null) {
+        selectedRoot = null
+      } else {
+        const uris = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, canSelectMany: false })
+        if (!uris || uris.length === 0) return
+        selectedRoot = uris[0].fsPath
+      }
+    } else {
+      const uris = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, canSelectMany: false })
+      if (!uris || uris.length === 0) return
+      selectedRoot = uris[0].fsPath
+    }
+
+    setOverrideRoot(selectedRoot ?? null)
+
+    const folderName = selectedRoot ? require('path').basename(selectedRoot) : null
+    this._view?.webview.postMessage({ type: 'projectChanged', folderName })
+
+    await this._refresh()
+    this._setupFileWatchers()
+    KanbanPanel.currentPanel?.reload()
   }
 
   public setBoardOpen(open: boolean): void {
@@ -118,9 +159,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     }
     this._fileWatchers = []
 
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]
-    if (!workspaceFolder) return
-    const workspaceRoot = workspaceFolder.uri.fsPath
+    const workspaceRoot = getOverrideRoot() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!workspaceRoot) return
 
     const adapters = this._adapters.length > 0 ? this._adapters : ALL_ADAPTERS
 
@@ -132,7 +172,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     for (const adapter of adapters) {
       for (const pattern of adapter.getWatchPatterns(workspaceRoot)) {
         const watcher = vscode.workspace.createFileSystemWatcher(
-          new vscode.RelativePattern(workspaceFolder, pattern)
+          new vscode.RelativePattern(vscode.Uri.file(workspaceRoot), pattern)
         )
         watcher.onDidChange(handleChange, null, this._disposables)
         watcher.onDidCreate(handleChange, null, this._disposables)
@@ -170,7 +210,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async _loadFeatures(): Promise<void> {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    const workspaceRoot = getOverrideRoot() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (!workspaceRoot) {
       this._features = []
       return
@@ -368,6 +408,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a.5.5 0 0 1 .5.5V7h5.5a.5.5 0 0 1 0 1H8.5v5.5a.5.5 0 0 1-1 0V8H2a.5.5 0 0 1 0-1h5.5V1.5A.5.5 0 0 1 8 1z"/></svg>
       ${t('sidebar.newFeature')}
     </button>
+    <button class="btn-secondary" id="switchProject">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h2.764c.958 0 1.76.56 2.311 1.184C7.985 3.648 8.48 4 9 4h4.5A1.5 1.5 0 0 1 15 5.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9z"/></svg>
+      Switch Project
+    </button>
   </div>
 
   <div class="separator"></div>
@@ -401,6 +445,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       document.getElementById('newFeature').addEventListener('click', () => {
         vscode.postMessage({ type: 'newFeature' });
       });
+      document.getElementById('switchProject').addEventListener('click', () => {
+        vscode.postMessage({ type: 'switchProject' });
+      });
 
       window.addEventListener('message', e => {
         const msg = e.data;
@@ -410,6 +457,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
           render();
         } else if (msg.type === 'boardOpenChanged') {
           document.getElementById('openBoard').style.display = msg.open ? 'none' : '';
+        } else if (msg.type === 'projectChanged') {
+          const btn = document.getElementById('switchProject');
+          const icon = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h2.764c.958 0 1.76.56 2.311 1.184C7.985 3.648 8.48 4 9 4h4.5A1.5 1.5 0 0 1 15 5.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9z"/></svg>';
+          btn.innerHTML = icon + (msg.folderName ? escapeHtml(msg.folderName) + ' (Switch…)' : 'Switch Project');
         }
       });
 

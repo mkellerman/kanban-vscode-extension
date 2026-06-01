@@ -2,8 +2,9 @@ import * as vscode from 'vscode'
 import * as crypto from 'crypto'
 import * as path from 'path'
 import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing'
-import { getTitleFromContent, generateFeatureFilename } from '../shared/types'
-import type { Feature, FeatureStatus, Priority, KanbanColumn, FeatureFrontmatter, CardDisplaySettings, FilenamePattern, AIAgent, AIPermissionMode, BoardViewMode } from '../shared/types'
+import { getTitleFromContent, generateFeatureFilename, parseSuperpowersTasks } from '../shared/types'
+import type { Feature, FeatureStatus, Priority, KanbanColumn, FeatureFrontmatter, CardDisplaySettings, FilenamePattern, AIAgent, AIPermissionMode, BoardViewMode, PlanSection } from '../shared/types'
+import { SuperpowersAdapter } from './frameworks/SuperpowersAdapter'
 import { buildAgentInvocation } from './ai/agentCommand'
 import { ensureStatusSubfolders, moveFeatureFile, getFeatureFilePath, getStatusFromPath, fileExists } from './featureFileUtils'
 import { featureMatchesEpicLane } from '../shared/epicLane'
@@ -11,6 +12,7 @@ import { t, getBundle, getEffectiveLocale, reloadBundle, getAllDefaultColumnName
 import type { FrameworkAdapter, CreateFeatureData } from './frameworks/FrameworkAdapter'
 import { getActiveAdapters, adapterForFeature, ALL_ADAPTERS } from './frameworkRegistry'
 import { makeFeatureId, parseFeatureId, type FrameworkId } from '../shared/frameworks/types'
+import { getOverrideRoot } from './projectOverride'
 
 function normalizeEpic(value: string | null | undefined): string | null {
   const t = value?.trim()
@@ -73,6 +75,13 @@ export class KanbanPanel {
     KanbanPanel.currentPanel = new KanbanPanel(panel, extensionUri, context)
   }
 
+  public reload(): void {
+    this._loadFeatures().then(() => {
+      this._setupFileWatcher()
+      this._sendFeaturesToWebview()
+    })
+  }
+
   private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, context: vscode.ExtensionContext) {
     this._panel = panel
     this._extensionUri = extensionUri
@@ -128,10 +137,18 @@ export class KanbanPanel {
             if (openConfig.get<boolean>('markdownEditorMode', false)) {
               this._openFeatureInNativeEditor(message.featureId)
             } else {
-              await this._sendFeatureContent(message.featureId)
+              const adapter = adapterForFeature(message.featureId, this._adapters)
+              if (adapter instanceof SuperpowersAdapter) {
+                await this._sendPlanContent(message.featureId, message.focusTaskIndex)
+              } else {
+                await this._sendFeatureContent(message.featureId)
+              }
             }
             break
           }
+          case 'saveFeaturePlanContent':
+            await this._savePlanContent(message.featureId, message.sections)
+            break
           case 'saveFeatureContent':
             await this._saveFeatureContent(message.featureId, message.content, message.frontmatter)
             break
@@ -193,6 +210,9 @@ export class KanbanPanel {
           case 'deleteLabel':
             await this._deleteLabel(message.labelName)
             break
+          case 'moveTask':
+            await this._moveTask(message.featureId, message.taskIndex, message.newStatus)
+            break
           case 'startWithAI':
             await this._startWithAI(message.agent, message.permissionMode)
             break
@@ -242,9 +262,8 @@ export class KanbanPanel {
     }
     this._fileWatchers = []
 
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]
-    if (!workspaceFolder) return
-    const workspaceRoot = workspaceFolder.uri.fsPath
+    const workspaceRoot = getOverrideRoot() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!workspaceRoot) return
 
     // Use detected adapters if available; fall back to all possible patterns on initial setup
     const adapters = this._adapters.length > 0 ? this._adapters : ALL_ADAPTERS
@@ -275,7 +294,7 @@ export class KanbanPanel {
     for (const adapter of adapters) {
       for (const pattern of adapter.getWatchPatterns(workspaceRoot)) {
         const watcher = vscode.workspace.createFileSystemWatcher(
-          new vscode.RelativePattern(workspaceFolder, pattern)
+          new vscode.RelativePattern(vscode.Uri.file(workspaceRoot), pattern)
         )
         watcher.onDidChange(uri => handleFileChange(uri), null, this._disposables)
         watcher.onDidCreate(uri => handleFileChange(uri), null, this._disposables)
@@ -351,13 +370,11 @@ export class KanbanPanel {
   }
 
   private _getWorkspaceFeaturesDir(): string | null {
-    const workspaceFolders = vscode.workspace.workspaceFolders
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      return null
-    }
+    const workspaceRoot = getOverrideRoot() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!workspaceRoot) return null
     const config = vscode.workspace.getConfiguration('kanban-extension')
     const featuresDirectory = config.get<string>('featuresDirectory') || '.devtool/features'
-    return path.join(workspaceFolders[0].uri.fsPath, featuresDirectory)
+    return path.join(workspaceRoot, featuresDirectory)
   }
 
   // Serialize a feature to disk content, stripping the framework-prefix from the ID
@@ -376,7 +393,7 @@ export class KanbanPanel {
   }
 
   private async _loadFeatures(): Promise<void> {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    const workspaceRoot = getOverrideRoot() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (!workspaceRoot) {
       this._features = []
       return
@@ -536,6 +553,23 @@ export class KanbanPanel {
       }
 
       this._features = features.sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
+
+      // Reconcile Superpowers plan parent status = lowest task status (in-memory only).
+      // Skip when no task statuses have been explicitly set yet — the plan hasn't been
+      // managed through the board yet, so its frontmatter status is authoritative.
+      // Also skip features with a non-standard custom status.
+      const STATUS_ORDER: FeatureStatus[] = ['backlog', 'todo', 'in-progress', 'review', 'done']
+      for (const feature of this._features) {
+        if (feature.customStatus) continue
+        if (!feature.taskStatuses || Object.keys(feature.taskStatuses).length === 0) continue
+        const adapter = adapterForFeature(feature.id, this._adapters)
+        if (!(adapter instanceof SuperpowersAdapter)) continue
+        const tasks = parseSuperpowersTasks(feature.content, feature.id, feature.taskStatuses)
+        const indices = tasks.map(t => STATUS_ORDER.indexOf(t.status)).filter(i => i >= 0)
+        if (indices.length > 0) {
+          feature.status = STATUS_ORDER[Math.min(...indices)]
+        }
+      }
     } catch {
       this._features = []
     }
@@ -555,7 +589,7 @@ export class KanbanPanel {
   }
 
   private async _createFeature(data: CreateFeatureData): Promise<void> {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    const workspaceRoot = getOverrideRoot() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (!workspaceRoot) {
       vscode.window.showErrorMessage(t('panel.noWorkspace'))
       return
@@ -582,17 +616,33 @@ export class KanbanPanel {
     const feature = this._features.find(f => f.id === featureId)
     if (!feature) return
 
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    const workspaceRoot = getOverrideRoot() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (!workspaceRoot) return
 
     const oldStatus = feature.status
     const statusChanged = oldStatus !== newStatus
 
-    // Update feature status
+    // Update feature status, clearing any non-standard custom status
     feature.status = newStatus as FeatureStatus
+    feature.customStatus = undefined
     feature.modified = new Date().toISOString()
     if (statusChanged) {
       feature.completedAt = newStatus === 'done' ? new Date().toISOString() : null
+    }
+
+    // Co-move tasks whose status matches oldStatus → newStatus (Superpowers plans only)
+    if (statusChanged) {
+      const adapter = adapterForFeature(featureId, this._adapters)
+      if (adapter instanceof SuperpowersAdapter) {
+        const tasks = parseSuperpowersTasks(feature.content, feature.id, feature.taskStatuses)
+        const coMoved = tasks.filter(t => t.status === oldStatus)
+        if (coMoved.length > 0) {
+          feature.taskStatuses = { ...feature.taskStatuses }
+          for (const task of coMoved) {
+            feature.taskStatuses[task.taskIndex] = newStatus as FeatureStatus
+          }
+        }
+      }
     }
 
     // Get sorted features in the target column (excluding the moved feature)
@@ -641,7 +691,7 @@ export class KanbanPanel {
     targetColumnId: string,
     epicLane?: string | null
   ): Promise<void> {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    const workspaceRoot = getOverrideRoot() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (!workspaceRoot) return
 
     const sourceFeatures = this._features
@@ -783,7 +833,7 @@ export class KanbanPanel {
     const feature = this._features.find(f => f.id === featureId)
     if (!feature) return
 
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    const workspaceRoot = getOverrideRoot() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (!workspaceRoot) return
 
     const oldStatus = feature.status
@@ -838,6 +888,44 @@ export class KanbanPanel {
     await vscode.window.showTextDocument(doc, { viewColumn: targetColumn, preview: true })
   }
 
+  private async _sendPlanContent(featureId: string, focusTaskIndex?: number): Promise<void> {
+    const feature = this._features.find(f => f.id === featureId)
+    if (!feature) return
+
+    const adapter = adapterForFeature(featureId, this._adapters)
+    if (!(adapter instanceof SuperpowersAdapter)) {
+      await this._sendFeatureContent(featureId)
+      return
+    }
+
+    const sections = adapter.splitContent(feature.content)
+    if (!sections.some(s => s.type === 'task')) {
+      await this._sendFeatureContent(featureId)
+      return
+    }
+
+    this._currentEditingFeatureId = featureId
+    this._panel.webview.postMessage({ type: 'featurePlanContent', feature, sections, focusTaskIndex })
+  }
+
+  private async _savePlanContent(featureId: string, sections: PlanSection[]): Promise<void> {
+    const feature = this._features.find(f => f.id === featureId)
+    if (!feature) return
+
+    const adapter = adapterForFeature(featureId, this._adapters)
+    if (!(adapter instanceof SuperpowersAdapter)) return
+
+    feature.content = adapter.mergeContent(sections)
+    feature.modified = new Date().toISOString()
+
+    const fileContent = this._serializeForDisk(feature)
+    this._lastWrittenContent = fileContent
+    await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(fileContent))
+    this._originalContent.set(feature.filePath, fileContent)
+
+    this._sendFeaturesToWebview()
+  }
+
   private async _sendFeatureContent(featureId: string): Promise<void> {
     const feature = this._features.find(f => f.id === featureId)
     if (!feature) return
@@ -874,7 +962,7 @@ export class KanbanPanel {
     const feature = this._features.find(f => f.id === featureId)
     if (!feature) return
 
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    const workspaceRoot = getOverrideRoot() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (!workspaceRoot) return
 
     const oldStatus = feature.status
@@ -953,7 +1041,7 @@ export class KanbanPanel {
     const { command, args, terminalName } = buildAgentInvocation(selectedAgent, selectedPermissionMode, prompt)
     const terminal = vscode.window.createTerminal({
       name: terminalName,
-      cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      cwd: getOverrideRoot() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     })
     terminal.show()
     terminal.sendText([this._shellQuote(command), ...args.map(a => this._shellQuote(a))].join(' '))
@@ -1130,6 +1218,38 @@ export class KanbanPanel {
     vscode.window.showInformationMessage(`Agentic Kanban Extension: ${msg}`)
   }
 
+  private async _moveTask(featureId: string, taskIndex: number, newStatus: string): Promise<void> {
+    const feature = this._features.find(f => f.id === featureId)
+    if (!feature) return
+
+    const adapter = adapterForFeature(featureId, this._adapters)
+    if (!(adapter instanceof SuperpowersAdapter)) return
+
+    // First-time initialization: seed all tasks with the parent's current status so the
+    // frontmatter reflects a coherent starting point rather than checkbox-derived defaults.
+    if (!feature.taskStatuses || Object.keys(feature.taskStatuses).length === 0) {
+      const allTasks = parseSuperpowersTasks(feature.content, feature.id)
+      feature.taskStatuses = Object.fromEntries(allTasks.map(t => [t.taskIndex, feature.status]))
+    }
+    feature.taskStatuses = { ...feature.taskStatuses, [taskIndex]: newStatus as FeatureStatus }
+    feature.modified = new Date().toISOString()
+
+    // Parent status = lowest (least-progressed) task status
+    const STATUS_ORDER: FeatureStatus[] = ['backlog', 'todo', 'in-progress', 'review', 'done']
+    const tasks = parseSuperpowersTasks(feature.content, feature.id, feature.taskStatuses)
+    const indices = tasks.map(t => STATUS_ORDER.indexOf(t.status)).filter(i => i >= 0)
+    if (indices.length > 0) {
+      feature.status = STATUS_ORDER[Math.min(...indices)]
+    }
+
+    const fileContent = this._serializeForDisk(feature)
+    this._lastWrittenContent = fileContent
+    await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(fileContent))
+    this._originalContent.set(feature.filePath, fileContent)
+
+    this._sendFeaturesToWebview()
+  }
+
   private _sendFeaturesToWebview(): void {
     const config = vscode.workspace.getConfiguration('kanban-extension')
 
@@ -1152,6 +1272,7 @@ export class KanbanPanel {
       compactMode: config.get<boolean>('compactMode', false),
       markdownEditorMode: config.get<boolean>('markdownEditorMode', false),
       hideScrollbar: config.get<boolean>('hideScrollbar', false),
+      planLayoutFlat: config.get<boolean>('planLayoutFlat', false),
       defaultPriority: config.get<Priority>('defaultPriority', 'medium'),
       defaultStatus: config.get<FeatureStatus>('defaultStatus', 'backlog')
     }
@@ -1160,7 +1281,7 @@ export class KanbanPanel {
     const boardViewMode: BoardViewMode = this._context.workspaceState.get('kanban-extension.boardViewMode', 'standard')
     const collapsedEpics: string[] = this._context.workspaceState.get('kanban-extension.collapsedEpics', [])
 
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    const workspaceRoot = getOverrideRoot() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     const features = this._features.map(f => ({
       ...f,
       filePath: workspaceRoot ? path.relative(workspaceRoot, f.filePath) : f.filePath

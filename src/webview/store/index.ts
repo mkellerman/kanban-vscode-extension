@@ -112,6 +112,7 @@ export const useStore = create<KanbanState>((set, get) => ({
     compactMode: false,
     markdownEditorMode: false,
     hideScrollbar: false,
+    planLayoutFlat: false,
     defaultPriority: 'medium',
     defaultStatus: 'backlog'
   },

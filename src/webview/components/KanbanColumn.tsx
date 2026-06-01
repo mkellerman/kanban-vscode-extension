@@ -6,8 +6,12 @@ import { TaskCard } from './TaskCard'
 import type { Feature, KanbanColumn as KanbanColumnType, PlanTask } from '../../shared/types'
 import { parseSuperpowersTasks, getTitleFromContent, formatStatusLabel } from '../../shared/types'
 import type { LayoutMode } from '../store'
+import { useStore } from '../store'
 import type { DropTarget } from './KanbanBoard'
 import { t } from '../lib/i18n'
+import { vscode } from '../vscodeApi'
+
+let activeDragTask: { featureId: string; taskIndex: number } | null = null
 
 interface FeatureGroup {
   feature: Feature
@@ -57,24 +61,48 @@ export function KanbanColumn({
 }: KanbanColumnProps) {
   const isVertical = layout === 'vertical'
   const isDropTarget = dropTarget && dropTarget.columnId === column.id
+  const isFlat = useStore((s) => s.cardSettings.planLayoutFlat)
   const [menuOpen, setMenuOpen] = useState(false)
   const [submenuOpen, setSubmenuOpen] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const menuRef = useRef<HTMLDivElement>(null)
+
+  const toggleGroupCollapse = (featureId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(featureId)) next.delete(featureId)
+      else next.add(featureId)
+      return next
+    })
+  }
+
+  const handleColumnDrop = (e: React.DragEvent) => {
+    if (activeDragTask) {
+      e.preventDefault()
+      const { featureId, taskIndex } = activeDragTask
+      activeDragTask = null
+      vscode.postMessage({ type: 'moveTask', featureId, taskIndex, newStatus: column.id })
+      return
+    }
+    onDrop(e, column.id)
+  }
 
   const groups = useMemo<FeatureGroup[]>(() => {
     const inColumn = new Set(features.map((f) => f.id))
     const result: FeatureGroup[] = features.map((feature) => {
-      const allTasks = parseSuperpowersTasks(feature.content, feature.id)
-      return {
-        feature,
-        tasks: allTasks.filter((t) => t.status === column.id),
-        allTasks,
-        isGhost: false,
-      }
+      const allTasks = parseSuperpowersTasks(feature.content, feature.id, feature.taskStatuses)
+      // Custom-status plans sit in backlog but their tasks haven't been board-managed yet —
+      // show all tasks under the parent rather than filtering by column status.
+      const tasks = feature.customStatus
+        ? allTasks
+        : allTasks.filter((t) => t.status === column.id)
+      return { feature, tasks, allTasks, isGhost: false }
     })
     for (const feature of allFeatures) {
       if (inColumn.has(feature.id)) continue
-      const allTasks = parseSuperpowersTasks(feature.content, feature.id)
+      // Don't create ghost strips for custom-status plans; their tasks stay under the parent.
+      if (feature.customStatus) continue
+      const allTasks = parseSuperpowersTasks(feature.content, feature.id, feature.taskStatuses)
       const tasks = allTasks.filter((t) => t.status === column.id)
       if (tasks.length > 0) result.push({ feature, tasks, allTasks, isGhost: true })
     }
@@ -100,7 +128,7 @@ export function KanbanColumn({
           : "flex-shrink-0 w-72 h-full flex flex-col bg-zinc-100 dark:bg-zinc-800/50 rounded-lg"
       }
       onDragOver={onDragOver}
-      onDrop={(e) => onDrop(e, column.id)}
+      onDrop={handleColumnDrop}
     >
       {/* Column Header */}
       <div className="flex items-center justify-between w-full px-3 py-2 border-b border-zinc-200 dark:border-zinc-700">
@@ -191,6 +219,51 @@ export function KanbanColumn({
           const isDragging = draggedFeature?.id === group.feature.id
           const parentTitle = getTitleFromContent(group.feature.content)
 
+          // ── Flat layout ──────────────────────────────────────────────────
+          if (isFlat) {
+            return (
+              <div key={group.feature.id} className={isVertical ? 'w-64' : ''}>
+                {/* Non-plan features still render as draggable FeatureCard */}
+                {!group.isGhost && group.allTasks.length === 0 && (
+                  <div
+                    draggable
+                    onDragStart={(e) => onDragStart(e, group.feature)}
+                    onDragOver={(e) => onDragOverCard(e, column.id, featureIdx)}
+                    onDragEnd={onDragEnd}
+                    className={`mb-1.5 ${isDragging ? 'opacity-40' : ''}`}
+                  >
+                    <FeatureCard
+                      feature={group.feature}
+                      onClick={() => onFeatureClick(group.feature)}
+                      isDragging={isDragging}
+                    />
+                  </div>
+                )}
+                {/* Tasks as independent cards — no parent card, no indent */}
+                {group.tasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="mb-1.5"
+                    draggable
+                    onDragStart={(e) => {
+                      e.stopPropagation()
+                      activeDragTask = { featureId: group.feature.id, taskIndex: task.taskIndex }
+                    }}
+                    onDragEnd={() => { activeDragTask = null }}
+                  >
+                    <TaskCard
+                      task={task}
+                      parentFeature={group.feature}
+                      variant="enabled"
+                      onClick={() => vscode.postMessage({ type: 'openFeature', featureId: group.feature.id, focusTaskIndex: task.taskIndex })}
+                    />
+                  </div>
+                ))}
+              </div>
+            )
+          }
+
+          // ── Nested layout (default) ───────────────────────────────────────
           return (
             <div key={group.feature.id} className={isVertical ? 'w-64 mb-2' : 'mb-2'}>
               {/* Drop indicator before this group */}
@@ -221,8 +294,10 @@ export function KanbanColumn({
                     <PlanCard
                       feature={group.feature}
                       allTasks={group.allTasks}
-                      accentColor={column.color}
                       onClick={() => onFeatureClick(group.feature)}
+                      hasVisibleTasks={group.tasks.length > 0}
+                      isCollapsed={!expandedGroups.has(group.feature.id)}
+                      onToggleCollapse={() => toggleGroupCollapse(group.feature.id)}
                     />
                   ) : (
                     <FeatureCard
@@ -234,23 +309,27 @@ export function KanbanColumn({
                 </div>
               )}
 
-              {/* Child task cards */}
-              {group.tasks.map((task, taskIdx) => {
-                // Promotion rule: done tasks always render as task:enabled
-                const variant = (group.isGhost || task.status === 'done') ? 'enabled' : 'disabled'
-                return (
-                  <div
-                    key={task.id}
-                    className={`ml-2.5 relative z-10 ${taskIdx === 0 ? '-mt-3' : 'mt-0.5'}`}
-                  >
-                    <TaskCard
-                      task={task}
-                      parentFeature={group.feature}
-                      variant={variant}
-                    />
-                  </div>
-                )
-              })}
+              {/* Child task cards — only shown when expanded, always in compact (1-liner) view */}
+              {expandedGroups.has(group.feature.id) && group.tasks.map((task, taskIdx) => (
+                <div
+                  key={task.id}
+                  className={`ml-2.5 relative z-10 ${taskIdx === 0 ? '-mt-3' : 'mt-0.5'}`}
+                  draggable
+                  onDragStart={(e) => {
+                    e.stopPropagation()
+                    activeDragTask = { featureId: group.feature.id, taskIndex: task.taskIndex }
+                  }}
+                  onDragEnd={() => { activeDragTask = null }}
+                >
+                  <TaskCard
+                    task={task}
+                    parentFeature={group.feature}
+                    variant="enabled"
+                    compact
+                    onClick={() => vscode.postMessage({ type: 'openFeature', featureId: group.feature.id, focusTaskIndex: task.taskIndex })}
+                  />
+                </div>
+              ))}
             </div>
           )
         })}

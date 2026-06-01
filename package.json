@@ -295,6 +295,11 @@
           "type": "boolean",
           "default": false,
           "description": "%config.hideScrollbar.description%"
+        },
+        "kanban-extension.planLayoutFlat": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show plan tasks as independent cards with a plan-link chip (Jira-style), instead of nesting them below their parent plan card."
         }
       }
     },
