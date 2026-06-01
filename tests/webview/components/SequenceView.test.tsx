@@ -159,3 +159,25 @@ describe('SequenceView — interactions', () => {
     expect(onToggleStatus).toHaveBeenCalledWith('backlog')
   })
 })
+
+describe('SequenceView — warnings', () => {
+  it('renders a banner for each cycle/unknown-id warning', () => {
+    // A → B → A creates a cycle
+    render(
+      <SequenceView
+        features={[
+          f('A', { priority: 'critical', dependsOn: ['B'] }),
+          f('B', { priority: 'low', dependsOn: ['A'] }),
+          f('C', { dependsOn: ['NOPE'] }),
+        ]}
+        visibleStatuses={new Set<FeatureStatus>(['todo', 'in-progress', 'review'])}
+        collapsedRoots={new Set<string>()}
+        onToggleStatus={() => {}}
+        onToggleCollapsed={() => {}}
+        onOpenFeature={() => {}}
+      />
+    )
+    expect(screen.getByText(/cycle broken/i)).toBeInTheDocument()
+    expect(screen.getByText(/unknown dependency id: NOPE/i)).toBeInTheDocument()
+  })
+})
