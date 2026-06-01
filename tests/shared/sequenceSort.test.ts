@@ -170,3 +170,43 @@ describe('buildSequence — cycles', () => {
     expect(result.groups[0].root.children[0].children.map(c => c.feature.id)).toEqual(['C'])
   })
 })
+
+describe('buildSequence — multi-parent duplication', () => {
+  it('duplicates a dependent that has multiple visible parents (subtree appears under each)', () => {
+    // B.dependsOn = [A], C.dependsOn = [A], D.dependsOn = [B, C]
+    // Expected: root A has children B and C; D appears under each of B and C.
+    const result = buildSequence([
+      f('A', { priority: 'critical' }),
+      f('B', { priority: 'high', dependsOn: ['A'] }),
+      f('C', { priority: 'high', dependsOn: ['A'] }),
+      f('D', { priority: 'medium', dependsOn: ['B', 'C'] }),
+    ], allActive)
+    expect(result.groups).toHaveLength(1)
+    const a = result.groups[0].root
+    expect(a.feature.id).toBe('A')
+    const childIds = a.children.map(c => c.feature.id)
+    expect(childIds).toEqual(['B', 'C']) // tie-broken by id
+    const bChildren = a.children[0].children.map(c => c.feature.id)
+    const cChildren = a.children[1].children.map(c => c.feature.id)
+    expect(bChildren).toEqual(['D'])
+    expect(cChildren).toEqual(['D']) // duplicated
+  })
+
+  it('duplicates the entire subtree under each parent (not just the leaf)', () => {
+    // X.dependsOn = [A, B]; Y.dependsOn = [X]
+    // Expected: root A has X→Y; root B has X→Y (full subtree dup)
+    const result = buildSequence([
+      f('A', { priority: 'critical' }),
+      f('B', { priority: 'high' }),
+      f('X', { priority: 'medium', dependsOn: ['A', 'B'] }),
+      f('Y', { priority: 'low', dependsOn: ['X'] }),
+    ], allActive)
+    expect(result.groups.map(g => g.root.feature.id)).toEqual(['A', 'B'])
+    const aSub = result.groups[0].root.children
+    const bSub = result.groups[1].root.children
+    expect(aSub.map(c => c.feature.id)).toEqual(['X'])
+    expect(aSub[0].children.map(c => c.feature.id)).toEqual(['Y'])
+    expect(bSub.map(c => c.feature.id)).toEqual(['X'])
+    expect(bSub[0].children.map(c => c.feature.id)).toEqual(['Y'])
+  })
+})
