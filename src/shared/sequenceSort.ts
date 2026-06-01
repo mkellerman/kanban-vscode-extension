@@ -94,6 +94,41 @@ function detectCyclesAndPickBreaks(
   return breaks
 }
 
+/**
+ * For each feature, count non-done features whose transitive dependsOn closure
+ * includes it. Computed over the full graph — ignores visibleStatuses.
+ */
+function computeBlocksCount(features: Feature[]): Map<string, number> {
+  const byId = new Map(features.map(feat => [feat.id, feat]))
+  // Forward edges: dependent → blockers (use raw dependsOn, drop self/unknown only)
+  const forward = new Map<string, string[]>()
+  for (const feat of features) {
+    const kept: string[] = []
+    for (const depId of feat.dependsOn) {
+      if (depId === feat.id) continue
+      if (!byId.has(depId)) continue
+      kept.push(depId)
+    }
+    forward.set(feat.id, kept)
+  }
+
+  const counts = new Map<string, number>()
+  for (const dependent of features) {
+    if (dependent.status === 'done') continue
+    // Walk dependent's transitive blockers
+    const seen = new Set<string>()
+    const stack = [...(forward.get(dependent.id) ?? [])]
+    while (stack.length > 0) {
+      const id = stack.pop()!
+      if (seen.has(id)) continue
+      seen.add(id)
+      counts.set(id, (counts.get(id) ?? 0) + 1)
+      for (const next of forward.get(id) ?? []) stack.push(next)
+    }
+  }
+  return counts
+}
+
 export function buildSequence(
   features: Feature[],
   visibleStatuses: Set<FeatureStatus>,
@@ -172,7 +207,7 @@ export function buildSequence(
 
   return {
     groups,
-    blocksCount: new Map(),
+    blocksCount: computeBlocksCount(features),
     warnings,
   }
 }

@@ -210,3 +210,47 @@ describe('buildSequence — multi-parent duplication', () => {
     expect(bSub[0].children.map(c => c.feature.id)).toEqual(['Y'])
   })
 })
+
+describe('buildSequence — blocksCount', () => {
+  it('counts direct + transitive non-done dependents', () => {
+    // A ← B ← C, A ← D
+    const result = buildSequence([
+      f('A'),
+      f('B', { dependsOn: ['A'] }),
+      f('C', { dependsOn: ['B'] }),
+      f('D', { dependsOn: ['A'] }),
+    ], allActive)
+    expect(result.blocksCount.get('A')).toBe(3)
+    expect(result.blocksCount.get('B')).toBe(1)
+    expect(result.blocksCount.get('C')).toBeUndefined() // 0 → omitted or zero
+    expect(result.blocksCount.get('D')).toBeUndefined()
+  })
+
+  it('does not count done dependents', () => {
+    const result = buildSequence([
+      f('A'),
+      f('B', { status: 'done', dependsOn: ['A'] }),
+    ], allActive)
+    expect(result.blocksCount.get('A') ?? 0).toBe(0)
+  })
+
+  it('counts a multi-parent dependent only once per ancestor (no double-count)', () => {
+    // A ← X, B ← X
+    const result = buildSequence([
+      f('A'),
+      f('B'),
+      f('X', { dependsOn: ['A', 'B'] }),
+    ], allActive)
+    expect(result.blocksCount.get('A')).toBe(1)
+    expect(result.blocksCount.get('B')).toBe(1)
+  })
+
+  it('counts dependents even when they are filtered out of the visible set', () => {
+    // B is in backlog (filtered out) but its existence still increments A's count
+    const result = buildSequence([
+      f('A', { status: 'todo' }),
+      f('B', { status: 'backlog', dependsOn: ['A'] }),
+    ], allActive)
+    expect(result.blocksCount.get('A')).toBe(1)
+  })
+})
