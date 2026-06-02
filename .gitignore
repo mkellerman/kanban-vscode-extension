@@ -11,3 +11,7 @@ releases/
 .claude/
 .devtool/
 coverage/
+
+
+.codegraphy/
+.codegraph/daemon.pid
