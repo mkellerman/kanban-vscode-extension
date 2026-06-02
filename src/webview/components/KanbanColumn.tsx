@@ -290,7 +290,20 @@ export function KanbanColumn({
                   onDragEnd={onDragEnd}
                   className={isDragging ? 'opacity-40' : ''}
                 >
-                  {group.allTasks.length > 0 ? (
+                  {group.feature.customStatus ? (
+                    /* shelved plan — clickable 1-liner, no collapse, no child tasks */
+                    <div
+                      className="bg-white dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-700/50 border-l-2 border-l-zinc-300 dark:border-l-zinc-600 rounded-md px-2.5 py-1.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors"
+                      onClick={() => onFeatureClick(group.feature)}
+                    >
+                      <span className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 truncate">
+                        {parentTitle}
+                      </span>
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 shrink-0">
+                        {group.feature.customStatus}
+                      </span>
+                    </div>
+                  ) : group.allTasks.length > 0 ? (
                     <PlanCard
                       feature={group.feature}
                       allTasks={group.allTasks}
@@ -310,7 +323,7 @@ export function KanbanColumn({
               )}
 
               {/* Child task cards — only shown when expanded, always in compact (1-liner) view */}
-              {expandedGroups.has(group.feature.id) && group.tasks.map((task, taskIdx) => (
+              {!group.feature.customStatus && expandedGroups.has(group.feature.id) && group.tasks.map((task, taskIdx) => (
                 <div
                   key={task.id}
                   className={`ml-2.5 relative z-10 ${taskIdx === 0 ? '-mt-3' : 'mt-0.5'}`}
