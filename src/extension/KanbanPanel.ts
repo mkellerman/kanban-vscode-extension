@@ -392,7 +392,8 @@ export class KanbanPanel {
                 const status = feature?.status || 'backlog'
                 // Move to done/ if status is done, otherwise move to root
                 await moveFeatureFile(filePath, featuresDir, status)
-              } catch {
+              } catch (err) {
+                console.error('[kanban-markdown] moveFeatureFile failed:', err)
                 // Skip files that fail to migrate
               }
             }
@@ -425,7 +426,8 @@ export class KanbanPanel {
             if (feature?.status === 'done') {
               await moveFeatureFile(filePath, featuresDir, 'done')
             }
-          } catch {
+          } catch (err) {
+            console.error('[kanban-markdown] moveFeatureFile failed:', err)
             // Skip files that fail to migrate
           }
         }
@@ -475,14 +477,16 @@ export class KanbanPanel {
             try {
               const newPath = await moveFeatureFile(feature.filePath, featuresDir, 'done')
               feature.filePath = newPath
-            } catch {
+            } catch (err) {
+              console.error('[kanban-markdown] moveFeatureFile failed:', err)
               // Will retry on next load
             }
           } else if (!isDoneStatus && inDoneFolder) {
             try {
               const newPath = await moveFeatureFile(feature.filePath, featuresDir, feature.status)
               feature.filePath = newPath
-            } catch {
+            } catch (err) {
+              console.error('[kanban-markdown] moveFeatureFile failed:', err)
               // Will retry on next load
             }
           }
