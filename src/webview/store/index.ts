@@ -211,7 +211,7 @@ export const useStore = create<KanbanState>((set, get) => ({
           }
         }
 
-        // Epic filter
+        // Epic filter (toolbar selection — independent of the per-lane epicLane param used in KanbanEpicBoard)
         if (epicFilter !== 'all') {
           const featureEpic = f.epic?.trim() || null
           if (epicFilter === 'no-epic') {

@@ -100,4 +100,11 @@ describe('Toolbar — epic filter', () => {
     await user.selectOptions(screen.getByDisplayValue('All Epics'), 'Gamma')
     expect(useStore.getState().epicFilter).toBe('Gamma')
   })
+
+  it('renders only the two sentinel options when no features have epics', () => {
+    setupToolbar()
+    expect(screen.getByRole('option', { name: 'All Epics' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'No Epic' })).toBeInTheDocument()
+    expect(screen.getAllByRole('option')).toHaveLength(2)
+  })
 })
