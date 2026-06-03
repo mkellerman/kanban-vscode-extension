@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, useRef, useCallback } from 'react'
+import { lazy, Suspense, Component, useEffect, useState, useRef, useCallback } from 'react'
 import { generateKeyBetween } from 'fractional-indexing'
 import { useStore } from './store'
 import { KanbanBoard } from './components/KanbanBoard'
@@ -17,6 +17,21 @@ const FeatureEditor = lazy(() =>
 const CreateFeatureDialog = lazy(() =>
   import('./components/CreateFeatureDialog').then(m => ({ default: m.CreateFeatureDialog }))
 )
+
+class ChunkErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() { return { hasError: true } }
+  render() {
+    if (this.state.hasError) return null
+    return this.props.children
+  }
+}
 
 function App(): React.JSX.Element {
 
@@ -387,31 +402,35 @@ function App(): React.JSX.Element {
         </div>
         {editingFeature && (
           <div className="w-1/2">
-            <Suspense fallback={null}>
-              <FeatureEditor
-                featureId={editingFeature.id}
-                content={editingFeature.content}
-                frontmatter={editingFeature.frontmatter}
-                contentVersion={editingFeature.contentVersion}
-                onSave={handleSaveFeature}
-                onClose={handleCloseEditor}
-                onDelete={handleDeleteFeature}
-                onOpenFile={handleOpenFile}
-                onStartWithAI={handleStartWithAI}
-              />
-            </Suspense>
+            <ChunkErrorBoundary>
+              <Suspense fallback={null}>
+                <FeatureEditor
+                  featureId={editingFeature.id}
+                  content={editingFeature.content}
+                  frontmatter={editingFeature.frontmatter}
+                  contentVersion={editingFeature.contentVersion}
+                  onSave={handleSaveFeature}
+                  onClose={handleCloseEditor}
+                  onDelete={handleDeleteFeature}
+                  onOpenFile={handleOpenFile}
+                  onStartWithAI={handleStartWithAI}
+                />
+              </Suspense>
+            </ChunkErrorBoundary>
           </div>
         )}
       </div>
 
-      <Suspense fallback={null}>
-        <CreateFeatureDialog
-          isOpen={createFeatureOpen}
-          onClose={() => setCreateFeatureOpen(false)}
-          onCreate={handleCreateFeature}
-          initialStatus={createFeatureStatus}
-        />
-      </Suspense>
+      <ChunkErrorBoundary>
+        <Suspense fallback={null}>
+          <CreateFeatureDialog
+            isOpen={createFeatureOpen}
+            onClose={() => setCreateFeatureOpen(false)}
+            onCreate={handleCreateFeature}
+            initialStatus={createFeatureStatus}
+          />
+        </Suspense>
+      </ChunkErrorBoundary>
 
       {pendingDeletes.map((entry, i) => (
         <UndoToast

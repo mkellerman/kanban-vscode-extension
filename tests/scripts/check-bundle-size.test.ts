@@ -3,6 +3,7 @@ import { statSync } from 'fs'
 
 vi.mock('fs', () => ({
   statSync: vi.fn(),
+  readdirSync: vi.fn(),
 }))
 
 describe('checkBundleSize', () => {
