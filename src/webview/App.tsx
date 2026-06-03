@@ -27,6 +27,7 @@ class ChunkErrorBoundary extends Component<
     this.state = { hasError: false }
   }
   static getDerivedStateFromError() { return { hasError: true } }
+  componentDidCatch(error: Error) { console.error('[ChunkErrorBoundary]', error) }
   render() {
     if (this.state.hasError) return null
     return this.props.children

@@ -124,7 +124,7 @@ describe('App', () => {
     expect(screen.getByTestId('feature-editor')).toHaveAttribute('data-feature-id', 'feat-1')
   })
 
-  it('hides FeatureEditor after a second featureContent message is not received', async () => {
+  it('keeps FeatureEditor visible while editing feature remains set', async () => {
     render(<App />)
 
     act(() => { dispatchInit() })
