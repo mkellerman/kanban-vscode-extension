@@ -162,7 +162,7 @@ describe('KanbanPanel._startWithAI wiring', () => {
       labels: ['bug'],
       order: 'a0',
       content: '# My Review Feature\nSome description',
-      filePath: `${WORKSPACE_ROOT}/.devtool/features/my-review-feature.md`
+      filePath: `${WORKSPACE_ROOT}/.kanban/features/my-review-feature.md`
     }
 
     const panelAny = panel as unknown as {
@@ -184,7 +184,7 @@ describe('KanbanPanel._startWithAI wiring', () => {
     expect(ctx.status).toBe('review')
     expect(ctx.priority).toBe('high')
     expect(ctx.labels).toEqual(['bug'])
-    expect(ctx.filePath).toBe(`${WORKSPACE_ROOT}/.devtool/features/my-review-feature.md`)
+    expect(ctx.filePath).toBe(`${WORKSPACE_ROOT}/.kanban/features/my-review-feature.md`)
 
     expect(column).toEqual(REVIEW_COLUMN)
     expect(extensionRoot).toBe(EXTENSION_ROOT)
@@ -219,7 +219,7 @@ describe('KanbanPanel._startWithAI wiring', () => {
       labels: [],
       order: 'a0',
       content: '# Feat',
-      filePath: `${WORKSPACE_ROOT}/.devtool/features/feat.md`
+      filePath: `${WORKSPACE_ROOT}/.kanban/features/feat.md`
     }
 
     const panelAny = panel as unknown as {
@@ -261,7 +261,7 @@ describe('KanbanPanel._startWithAI wiring', () => {
       labels: [],
       order: 'a0',
       content: '# Feat',
-      filePath: '/custom-workspace/.devtool/features/feat.md'
+      filePath: '/custom-workspace/.kanban/features/feat.md'
     }
 
     const panelAny = panel as unknown as {
@@ -303,7 +303,7 @@ describe('KanbanPanel._startWithAI security', () => {
       labels: [],
       order: 'a0',
       content: `# ${title}\nSome description`,
-      filePath: `${WORKSPACE_ROOT}/.devtool/features/security-test.md`
+      filePath: `${WORKSPACE_ROOT}/.kanban/features/security-test.md`
     }
   }
 

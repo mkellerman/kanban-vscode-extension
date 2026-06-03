@@ -136,7 +136,7 @@ suite('Integration: ensureStatusSubfolders', () => {
 // ---------------------------------------------------------------------------
 
 suite('Integration: getFeatureFilePath and getStatusFromPath', () => {
-  const featuresDir = '/workspace/.devtool/features'
+  const featuresDir = '/workspace/.kanban/features'
 
   test('getFeatureFilePath routes done status to done/ subdir', () => {
     const result = getFeatureFilePath(featuresDir, 'done', 'my-feature')
