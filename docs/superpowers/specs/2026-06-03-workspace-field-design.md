@@ -48,7 +48,7 @@ The resulting feature gets `workspace: branch ?? null`. If the Git API is unavai
 
 ### 3. Worktree detection helper
 
-Add a pure helper `parseWorkspaceValue(workspace: string | null)` in `src/shared/types.ts` (or a new `src/shared/workspaceContext.ts`):
+Add a pure helper `parseWorkspaceValue(workspace: string | null)` in `src/shared/workspaceContext.ts` (new file, keeps `types.ts` as pure type declarations):
 
 ```ts
 type WorkspaceContext =
@@ -121,7 +121,8 @@ The legacy `worktree` key is accepted by the parser (Option A above) — no bulk
 
 | File | Change |
 |---|---|
-| `src/shared/types.ts` | Add `workspace: string \| null` to `Feature`; add `parseWorkspaceValue` helper |
+| `src/shared/types.ts` | Add `workspace: string \| null` to `Feature` |
+| `src/shared/workspaceContext.ts` | New file: `WorkspaceContext` type + `parseWorkspaceValue` helper |
 | `src/shared/featureFrontmatter.ts` | Parse `workspace` + legacy `worktree`; serialize `workspace` |
 | `src/extension/FeatureRepository.ts` | Populate `workspace` from Git API in `createFeature` |
 | `src/extension/AgentLauncher.ts` | Use `parseWorkspaceValue` to select CWD; `fs.existsSync` guard |
