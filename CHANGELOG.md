@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Column-aware "Build with AI" prompts: the AI agent now receives a contextually appropriate prompt based on which column the card is in. Prompts are resolved from a three-level chain — a per-project `.kanban/instructions/{column}.md` file, a per-column `prompt` setting in `kanban-markdown.columns`, or bundled defaults for the five built-in columns (`backlog`, `todo`, `in-progress`, `review`, `done`). Templates support seven variables: `{{title}}`, `{{priority}}`, `{{status}}`, `{{columnName}}`, `{{labels}}`, `{{description}}`, and `{{filePath}}`. The `kanban-markdown.columns` setting gains an optional `prompt` field. Note: default behavior changes for all columns except `todo` — `backlog` now prompts for research/planning, `in-progress` for continuation, `review` for code review, and `done` for tests and documentation.
+- Column-aware "Build with AI" prompts: the AI agent now receives a contextually appropriate prompt based on which column the card is in. Prompts are resolved from a three-level chain — a per-project `.kanban/instructions/{column}.md` file, a per-column `prompt` setting in `kanban-markdown.columns`, or bundled defaults for the five built-in columns (`backlog`, `todo`, `in-progress`, `review`, `done`). Templates support seven variables: `{{title}}`, `{{priority}}`, `{{status}}`, `{{columnName}}`, `{{labels}}`, `{{description}}`, and `{{filePath}}` (all available in custom templates; built-in prompts use the most relevant subset). The `kanban-markdown.columns` setting gains an optional `prompt` field.
 
 ### Changed
 
+- "Build with AI" default prompt changed for four of the five built-in columns: `backlog` now prompts for research/planning, `in-progress` for continuation, `review` for code review, and `done` for tests and documentation. Only `todo` is unchanged. To fully restore previous behavior, revert to an earlier extension release (see the feature's Rollback section).
 - Consolidated frontmatter serialization logic into single shared module: `src/shared/featureFrontmatter.ts` is now the single source of truth for parsing and serializing feature metadata. Removed duplicate implementations from `FeatureHeaderProvider` and simplified `KanbanPanel` to call shared functions directly.
 
 ### Fixed
