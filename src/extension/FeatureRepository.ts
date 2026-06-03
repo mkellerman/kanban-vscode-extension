@@ -65,6 +65,7 @@ export class FeatureRepository implements vscode.Disposable {
       this._fileWatcher.dispose()
       this._fileWatcher = undefined
     }
+    this._currentWatcherDir = null // force _setupWatcher to re-run even if dir unchanged
     await this.load()
   }
 
@@ -212,9 +213,13 @@ export class FeatureRepository implements vscode.Disposable {
         }
       }
 
-      this._features = features.sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
+      if (myVersion === this._loadVersion) {
+        this._features = features.sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
+      }
     } catch {
-      this._features = []
+      if (myVersion === this._loadVersion) {
+        this._features = []
+      }
     }
 
     if (myVersion === this._loadVersion) {

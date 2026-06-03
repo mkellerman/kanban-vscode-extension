@@ -623,4 +623,84 @@ describe('FeatureRepository.setRoot()', () => {
 
     expect(fired).toHaveLength(1)
   })
+
+  it('stale concurrent load does not overwrite features from the newer load', async () => {
+    const memFs = new MemoryFs()
+    memFs.write(`${FEATURES_DIR}/feat-a.md`, makeFeatureMd({ id: 'feat-a' }))
+
+    let resolveBlock!: () => void
+    const origReadDir = memFs.readDirectory.bind(memFs)
+    let blocked = false
+    memFs.readDirectory = async (uri: { fsPath: string }) => {
+      if (uri.fsPath === FEATURES_DIR && !blocked) {
+        blocked = true
+        await new Promise<void>(resolve => { resolveBlock = resolve })
+      }
+      return origReadDir(uri)
+    }
+
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+
+    // load1 starts — blocks on first readDirectory(FEATURES_DIR)
+    const p1 = repo.load()
+    // load2 via setRoot (empty dir) — completes fast, sets _features = []
+    const p2 = repo.setRoot('/other-repo')
+    await p2
+
+    expect(repo.features).toHaveLength(0)
+
+    // unblock load1 (stale — must NOT overwrite load2 result)
+    resolveBlock()
+    await p1
+
+    expect(repo.features).toHaveLength(0)
+  })
+
+  it('stale erroring load does not zero out features set by the newer load', async () => {
+    const memFs = new MemoryFs()
+    memFs.write('/other-repo/.kanban/features/feat-b.md', makeFeatureMd({ id: 'feat-b' }))
+
+    let resolveBlock!: () => void
+    const origReadDir = memFs.readDirectory.bind(memFs)
+    let blocked = false
+    memFs.readDirectory = async (uri: { fsPath: string }) => {
+      if (uri.fsPath === FEATURES_DIR && !blocked) {
+        blocked = true
+        await new Promise<void>(resolve => { resolveBlock = resolve })
+        throw new Error('simulated read error')
+      }
+      return origReadDir(uri)
+    }
+
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+
+    // load1 starts — blocks on first readDirectory(FEATURES_DIR), then will throw
+    const p1 = repo.load()
+    // load2 via setRoot('/other-repo') — has feat-b, completes fast
+    const p2 = repo.setRoot('/other-repo')
+    await p2
+
+    expect(repo.features).toHaveLength(1)
+    expect(repo.features[0].id).toBe('feat-b')
+
+    // unblock load1 (stale + throws — must NOT zero out load2 result)
+    resolveBlock()
+    await p1
+
+    expect(repo.features).toHaveLength(1)
+    expect(repo.features[0].id).toBe('feat-b')
+  })
+
+  it('setRoot() re-creates the file watcher even when the effective dir is unchanged', async () => {
+    const repo = makeRepo()
+
+    const beforeLoad = mockCreateFileSystemWatcher.mock.calls.length
+    await repo.load()
+    const afterLoad = mockCreateFileSystemWatcher.mock.calls.length
+    expect(afterLoad).toBeGreaterThan(beforeLoad)
+
+    // setRoot(null) keeps the same effective dir (/workspace) — must still re-create watcher
+    await repo.setRoot(null)
+    expect(mockCreateFileSystemWatcher.mock.calls.length).toBeGreaterThan(afterLoad)
+  })
 })

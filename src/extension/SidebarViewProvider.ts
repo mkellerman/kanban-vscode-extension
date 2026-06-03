@@ -65,30 +65,36 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
           }, 500)
           break
         case 'switchWorkspace': {
-          const folders = vscode.workspace.workspaceFolders ?? []
-          const folderItems = folders.map(f => ({
-            label: f.name,
-            description: f.uri.fsPath
-          }))
-          const openItem = { label: 'Open folder…', description: '__open__' }
-          const items = [...folderItems, openItem]
+          try {
+            const folders = vscode.workspace.workspaceFolders ?? []
+            const folderItems = folders.map(f => ({
+              label: f.name,
+              description: f.uri.fsPath
+            }))
+            const openItem = { label: 'Open folder…', description: '__open__' }
+            const items = [...folderItems, openItem]
 
-          const selected = await vscode.window.showQuickPick(items, {
-            placeHolder: 'Select a workspace folder for the Kanban board'
-          })
-          if (!selected) break
-
-          if (selected.description === '__open__') {
-            const uris = await vscode.window.showOpenDialog({
-              canSelectFolders: true,
-              canSelectFiles: false,
-              canSelectMany: false,
-              openLabel: 'Select Folder'
+            const selected = await vscode.window.showQuickPick(items, {
+              placeHolder: 'Select a workspace folder for the Kanban board'
             })
-            if (!uris || uris.length === 0) break
-            await this._repo.setRoot(uris[0].fsPath)
-          } else {
-            await this._repo.setRoot(selected.description!)
+            if (!selected) break
+
+            if (selected.description === '__open__') {
+              const uris = await vscode.window.showOpenDialog({
+                canSelectFolders: true,
+                canSelectFiles: false,
+                canSelectMany: false,
+                openLabel: 'Select Folder'
+              })
+              if (!uris || uris.length === 0) break
+              await this._repo.setRoot(uris[0].fsPath)
+            } else {
+              await this._repo.setRoot(selected.description!)
+            }
+          } catch (err) {
+            vscode.window.showErrorMessage(
+              `Failed to switch workspace: ${err instanceof Error ? err.message : String(err)}`
+            )
           }
           break
         }
