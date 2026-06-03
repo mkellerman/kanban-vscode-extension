@@ -142,3 +142,4 @@ export type WebviewMessage =
   | { type: 'renameLabel'; oldName: string; newName: string }
   | { type: 'deleteLabel'; labelName: string }
   | { type: 'startWithAI'; agent?: AIAgent; permissionMode?: AIPermissionMode }
+  | { type: 'laneAction'; columnId: string; featureIds: string[] }
