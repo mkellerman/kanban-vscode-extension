@@ -524,7 +524,7 @@ export class KanbanPanel {
     const boardViewMode: BoardViewMode = this._context.workspaceState.get('kanban-markdown.boardViewMode', 'standard')
     const collapsedEpics: string[] = this._context.workspaceState.get('kanban-markdown.collapsedEpics', [])
 
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    const workspaceRoot = this._repo.getEffectiveRoot()
     const features = this._repo.features.map(f => ({
       ...f,
       filePath: workspaceRoot ? path.relative(workspaceRoot, f.filePath) : f.filePath

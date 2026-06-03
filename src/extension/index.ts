@@ -1,5 +1,4 @@
 import * as vscode from 'vscode'
-import * as path from 'path'
 import { generateKeyBetween } from 'fractional-indexing'
 import { KanbanPanel } from './KanbanPanel'
 import { SidebarViewProvider } from './SidebarViewProvider'
@@ -70,9 +69,11 @@ async function createFeatureFromPrompts(repo: FeatureRepository): Promise<void> 
   })
 
   // Create the feature file
-  const config = vscode.workspace.getConfiguration('kanban-markdown')
-  const featuresDirectory = config.get<string>('featuresDirectory') || '.kanban/features'
-  const featuresDir = path.join(workspaceFolders[0].uri.fsPath, featuresDirectory)
+  const featuresDir = repo.getFeaturesDir()
+  if (!featuresDir) {
+    vscode.window.showErrorMessage(t('ext.noWorkspace'))
+    return
+  }
   await vscode.workspace.fs.createDirectory(vscode.Uri.file(featuresDir))
   await ensureStatusSubfolders(featuresDir)
 
