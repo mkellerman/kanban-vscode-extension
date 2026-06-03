@@ -115,6 +115,7 @@
 
   "epic.noEpic": "Sin épica",
   "epic.emptyHint": "Asigna una épica a una tarjeta para ver carriles aquí.",
+  "epic.filterNoMatch": "Ningún carril coincide con el filtro de épico actual.",
 
   "labels.manage": "Gestionar etiquetas",
   "labels.confirmRename": "Confirmar renombrado",

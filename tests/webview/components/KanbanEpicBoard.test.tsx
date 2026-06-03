@@ -92,10 +92,17 @@ describe('KanbanEpicBoard — epic filter lane visibility', () => {
     expect(screen.getByTestId('kanban-board-lane-__null__')).toBeInTheDocument()
   })
 
-  it('shows empty state when the filter matches no lanes', () => {
+  it('shows filter-no-match message when the filter matches no lanes', () => {
     useStore.setState({ epicFilter: 'Nonexistent' })
     setup()
-    // All lane boards absent; the empty-state message appears instead
     expect(screen.queryByTestId(/kanban-board-lane/)).not.toBeInTheDocument()
+    expect(screen.getByText('No lanes match the current epic filter.')).toBeInTheDocument()
+  })
+
+  it('shows the empty-board hint when epicFilter is all and there are no epics', () => {
+    useStore.setState({ epicFilter: 'all', features: [] })
+    setup()
+    expect(screen.queryByTestId(/kanban-board-lane/)).not.toBeInTheDocument()
+    expect(screen.getByText('Assign an epic on a ticket to see swim lanes here.')).toBeInTheDocument()
   })
 })

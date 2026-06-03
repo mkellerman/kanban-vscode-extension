@@ -115,6 +115,7 @@
 
   "epic.noEpic": "No epic",
   "epic.emptyHint": "Assign an epic on a ticket to see swim lanes here.",
+  "epic.filterNoMatch": "No lanes match the current epic filter.",
 
   "labels.manage": "Manage Labels",
   "labels.confirmRename": "Confirm rename",

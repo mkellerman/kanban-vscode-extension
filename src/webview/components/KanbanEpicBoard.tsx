@@ -50,10 +50,11 @@ export function KanbanEpicBoard({ onFeatureClick, onAddFeature, onMoveFeature }:
   const isVertical = layout === 'vertical'
 
   if (lanes.length === 0) {
+    const msg = epicFilter !== 'all' ? t('epic.filterNoMatch') : t('epic.emptyHint')
     return (
       <div className="h-full overflow-auto p-4">
         <p className="text-sm" style={{ color: 'var(--vscode-descriptionForeground)' }}>
-          {t('epic.emptyHint')}
+          {msg}
         </p>
       </div>
     )

@@ -115,6 +115,7 @@
 
   "epic.noEpic": "Sem épico",
   "epic.emptyHint": "Atribua um épico a um cartão para ver faixas aqui.",
+  "epic.filterNoMatch": "Nenhuma faixa corresponde ao filtro de épico atual.",
 
   "labels.manage": "Gerir etiquetas",
   "labels.confirmRename": "Confirmar renomeação",
