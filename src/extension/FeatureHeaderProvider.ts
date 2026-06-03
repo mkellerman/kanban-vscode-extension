@@ -2,7 +2,11 @@ import * as vscode from 'vscode'
 import * as crypto from 'crypto'
 import * as path from 'path'
 import type { FeatureFrontmatter, EditorExtensionMessage, EditorWebviewMessage } from '../shared/editorTypes'
-import type { FeatureStatus, Priority, AIAgent } from '../shared/types'
+import type { Feature, AIAgent, KanbanColumn } from '../shared/types'
+import { getTitleFromContent, DEFAULT_COLUMNS } from '../shared/types'
+import { parseFeatureFile, serializeFeature } from '../shared/featureFrontmatter'
+import { buildPrompt, PromptContext } from './ai/promptBuilder'
+import { t } from './l10n'
 
 /**
  * Provides a webview panel that shows feature metadata (frontmatter) as a header.
@@ -98,21 +102,38 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
           break
 
         case 'startWithAI': {
+          if (!vscode.workspace.isTrusted) {
+            vscode.window.showWarningMessage(t('panel.aiRequiresTrust'))
+            return
+          }
+
           if (!this._currentDocument) return
           await this._currentDocument.save()
 
-          const fullText = this._currentDocument.getText()
-          const { frontmatter: fm, content: docContent } = this._parseDocument(fullText)
+          const parsedFeature = parseFeatureFile(this._currentDocument.getText(), this._currentDocument.uri.fsPath)
+          if (!parsedFeature) return
+          const fm = this._extractFrontmatter(parsedFeature)
+          const docContent = parsedFeature.content
 
-          // Parse title from the first # heading in content
-          const titleMatch = docContent.match(/^#\s+(.+)$/m)
-          const title = titleMatch ? titleMatch[1].trim() : 'Untitled'
+          const workspaceRoot =
+            vscode.workspace.getWorkspaceFolder(this._currentDocument.uri)?.uri.fsPath
+            ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+            ?? null
 
-          const labels = fm.labels.length > 0 ? ` [${fm.labels.join(', ')}]` : ''
-          const description = docContent.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
-          const shortDesc = description.length > 200 ? description.substring(0, 200) + '...' : description
+          const config = vscode.workspace.getConfiguration('kanban-markdown')
+          const columns = config.get<KanbanColumn[]>('columns', DEFAULT_COLUMNS)
+          const column = columns.find(c => c.id === fm.status)
+            ?? { id: fm.status, name: fm.status, color: '' }
 
-          const prompt = `Implement this feature: "${title}" (${fm.priority} priority)${labels}. ${shortDesc} See full details in: ${this._currentDocument.uri.fsPath}`
+          const ctx: PromptContext = {
+            title: getTitleFromContent(docContent),
+            status: fm.status,
+            priority: fm.priority,
+            labels: fm.labels,
+            content: docContent,
+            filePath: this._currentDocument.uri.fsPath
+          }
+          const prompt = buildPrompt(ctx, column, this._extensionUri.fsPath, workspaceRoot, column.prompt)
 
           const agent: AIAgent = message.agent || 'claude'
           const permissionMode = message.permissionMode || 'default'
@@ -159,10 +180,11 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
           }
           const terminal = vscode.window.createTerminal({
             name: agentNames[agent] || 'AI Agent',
-            cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+            shellPath: agent,
+            shellArgs: args,
+            cwd: workspaceRoot ?? undefined
           })
           terminal.show()
-          terminal.sendText([this._shellQuote(agent), ...args.map(a => this._shellQuote(a))].join(' '))
           break
         }
       }
@@ -209,7 +231,12 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
   private _updateViewForCurrentEditor(): void {
     if (!this._view || !this._currentDocument) return
 
-    const { frontmatter } = this._parseDocument(this._currentDocument.getText())
+    const parsed = parseFeatureFile(this._currentDocument.getText(), this._currentDocument.uri.fsPath)
+    if (!parsed) {
+      this._hideView()
+      return
+    }
+    const frontmatter = this._extractFrontmatter(parsed)
     const fileName = this._currentDocument.uri.path.split('/').pop()?.replace(/\.md$/, '') || 'Untitled'
 
     const message: EditorExtensionMessage = {
@@ -236,8 +263,15 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
   private async _updateFrontmatter(frontmatter: FeatureFrontmatter): Promise<void> {
     if (!this._currentDocument) return
 
-    const { content } = this._parseDocument(this._currentDocument.getText())
-    const newText = this._serializeDocument(frontmatter, content)
+    const parsed = parseFeatureFile(this._currentDocument.getText(), this._currentDocument.uri.fsPath)
+    const content = parsed ? parsed.content : ''
+    const feature: Feature = {
+      ...frontmatter,
+      modified: new Date().toISOString(),
+      content,
+      filePath: this._currentDocument.uri.fsPath
+    }
+    const newText = serializeFeature(feature)
 
     const edit = new vscode.WorkspaceEdit()
     edit.replace(
@@ -248,99 +282,25 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
     await vscode.workspace.applyEdit(edit)
   }
 
-  private _parseDocument(text: string): { frontmatter: FeatureFrontmatter; content: string } {
-    text = text.replace(/\r\n/g, '\n')
-    const frontmatterMatch = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
-
-    if (!frontmatterMatch) {
-      return {
-        frontmatter: this._getDefaultFrontmatter(),
-        content: text
-      }
-    }
-
-    const frontmatterText = frontmatterMatch[1]
-    const content = frontmatterMatch[2] || ''
-
-    const getValue = (key: string): string => {
-      const match = frontmatterText.match(new RegExp(`^${key}:\\s*(.*)$`, 'm'))
-      if (!match) return ''
-      const value = match[1].trim().replace(/^["']|["']$/g, '')
-      return value === 'null' ? '' : value
-    }
-
-    const getArrayValue = (key: string): string[] => {
-      const match = frontmatterText.match(new RegExp(`^${key}:\\s*\\[([^\\]]*)\\]`, 'm'))
-      if (!match) return []
-      return match[1].split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
-    }
-
-    const frontmatter: FeatureFrontmatter = {
-      id: getValue('id') || 'unknown',
-      status: (getValue('status') as FeatureStatus) || 'backlog',
-      priority: (getValue('priority') as Priority) || 'medium',
-      assignee: getValue('assignee') || null,
-      epic: getValue('epic') || null,
-      dueDate: getValue('dueDate') || null,
-      created: getValue('created') || new Date().toISOString(),
-      modified: getValue('modified') || new Date().toISOString(),
-      completedAt: getValue('completedAt') || null,
-      labels: getArrayValue('labels'),
-      order: getValue('order') || 'a0'
-    }
-
-    return { frontmatter, content: content.trim() }
-  }
-
-  private _getDefaultFrontmatter(): FeatureFrontmatter {
-    const now = new Date().toISOString()
+  // Adapts Feature (which includes filePath and content) to FeatureFrontmatter for webview messaging
+  private _extractFrontmatter(feature: Feature): FeatureFrontmatter {
     return {
-      id: 'unknown',
-      status: 'backlog',
-      priority: 'medium',
-      assignee: null,
-      epic: null,
-      dueDate: null,
-      created: now,
-      modified: now,
-      completedAt: null,
-      labels: [],
-      order: 'a0'
+      id: feature.id,
+      status: feature.status,
+      priority: feature.priority,
+      assignee: feature.assignee,
+      epic: feature.epic,
+      dueDate: feature.dueDate,
+      created: feature.created,
+      modified: feature.modified,
+      completedAt: feature.completedAt,
+      labels: feature.labels,
+      order: feature.order
     }
-  }
-
-  private _serializeDocument(frontmatter: FeatureFrontmatter, content: string): string {
-    const updatedFrontmatter = {
-      ...frontmatter,
-      modified: new Date().toISOString()
-    }
-
-    const frontmatterLines = [
-      '---',
-      `id: "${updatedFrontmatter.id}"`,
-      `status: "${updatedFrontmatter.status}"`,
-      `priority: "${updatedFrontmatter.priority}"`,
-      `assignee: ${updatedFrontmatter.assignee ? `"${updatedFrontmatter.assignee}"` : 'null'}`,
-      `epic: ${updatedFrontmatter.epic ? `"${updatedFrontmatter.epic}"` : 'null'}`,
-      `dueDate: ${updatedFrontmatter.dueDate ? `"${updatedFrontmatter.dueDate}"` : 'null'}`,
-      `created: "${updatedFrontmatter.created}"`,
-      `modified: "${updatedFrontmatter.modified}"`,
-      `completedAt: ${updatedFrontmatter.completedAt ? `"${updatedFrontmatter.completedAt}"` : 'null'}`,
-      `labels: [${frontmatter.labels.map((l: string) => `"${l}"`).join(', ')}]`,
-      `order: "${frontmatter.order}"`,
-      '---',
-      ''
-    ].join('\n')
-
-    return frontmatterLines + content
   }
 
   private _getNonce(): string {
     return crypto.randomBytes(24).toString('base64url')
-  }
-
-  private _shellQuote(arg: string): string {
-    return "'" + arg.replace(/'/g, "'\\''") + "'"
   }
 
   private _getHtmlForWebview(webview: vscode.Webview): string {

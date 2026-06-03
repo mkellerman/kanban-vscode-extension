@@ -2,8 +2,9 @@ import * as vscode from 'vscode'
 import * as crypto from 'crypto'
 import * as path from 'path'
 import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing'
-import { getTitleFromContent, generateFeatureFilename } from '../shared/types'
+import { getTitleFromContent, generateFeatureFilename, DEFAULT_COLUMNS } from '../shared/types'
 import type { Feature, FeatureStatus, Priority, KanbanColumn, FeatureFrontmatter, CardDisplaySettings, FilenamePattern, AIAgent, AIPermissionMode, BoardViewMode } from '../shared/types'
+import { buildPrompt, PromptContext } from './ai/promptBuilder'
 import { ensureStatusSubfolders, moveFeatureFile, getFeatureFilePath, getStatusFromPath, fileExists } from './featureFileUtils'
 import { parseFeatureFile, serializeFeature } from '../shared/featureFrontmatter'
 import { featureMatchesEpicLane } from '../shared/epicLane'
@@ -261,7 +262,7 @@ export class KanbanPanel {
         if (this._currentEditingFeatureId && uri) {
           const editingFeature = this._features.find(f => f.id === this._currentEditingFeatureId)
           if (editingFeature && editingFeature.filePath === uri.fsPath) {
-            const currentContent = this._serializeFeature(editingFeature)
+            const currentContent = serializeFeature(editingFeature)
             if (currentContent !== this._lastWrittenContent) {
               // External change detected — refresh the editor
               this._sendFeatureContent(this._currentEditingFeatureId)
@@ -334,10 +335,6 @@ export class KanbanPanel {
     return crypto.randomBytes(24).toString('base64url')
   }
 
-  private _shellQuote(arg: string): string {
-    return "'" + arg.replace(/'/g, "'\\''") + "'"
-  }
-
   private _getWorkspaceFeaturesDir(): string | null {
     const workspaceFolders = vscode.workspace.workspaceFolders
     if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -388,7 +385,7 @@ export class KanbanPanel {
               const filePath = path.join(subdir, name)
               try {
                 const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath)))
-                const feature = this._parseFeatureFile(content, filePath)
+                const feature = parseFeatureFile(content, filePath)
                 const status = feature?.status || 'backlog'
                 // Move to done/ if status is done, otherwise move to root
                 await moveFeatureFile(filePath, featuresDir, status)
@@ -421,7 +418,7 @@ export class KanbanPanel {
           const filePath = path.join(featuresDir, name)
           try {
             const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath)))
-            const feature = this._parseFeatureFile(content, filePath)
+            const feature = parseFeatureFile(content, filePath)
             if (feature?.status === 'done') {
               await moveFeatureFile(filePath, featuresDir, 'done')
             }
@@ -442,7 +439,7 @@ export class KanbanPanel {
         if (fileType !== vscode.FileType.File || !file.endsWith('.md')) continue
         const filePath = path.join(featuresDir, file)
         const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath)))
-        const feature = this._parseFeatureFile(content, filePath)
+        const feature = parseFeatureFile(content, filePath)
         if (feature) features.push(feature)
       }
 
@@ -454,7 +451,7 @@ export class KanbanPanel {
           if (fileType !== vscode.FileType.File || !file.endsWith('.md')) continue
           const filePath = path.join(doneDir, file)
           const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath)))
-          const feature = this._parseFeatureFile(content, filePath)
+          const feature = parseFeatureFile(content, filePath)
           if (feature) features.push(feature)
         }
       } catch {
@@ -512,7 +509,7 @@ export class KanbanPanel {
         }
 
         for (const f of migrationWrites) {
-          const content = this._serializeFeature(f)
+          const content = serializeFeature(f)
           await vscode.workspace.fs.writeFile(vscode.Uri.file(f.filePath), new TextEncoder().encode(content))
         }
       }
@@ -521,14 +518,6 @@ export class KanbanPanel {
     } catch {
       this._features = []
     }
-  }
-
-  private _parseFeatureFile(content: string, filePath: string): Feature | null {
-    return parseFeatureFile(content, filePath)
-  }
-
-  private _serializeFeature(feature: Feature): string {
-    return serializeFeature(feature)
   }
 
   public triggerCreateDialog(): void {
@@ -590,7 +579,7 @@ export class KanbanPanel {
     }
 
     await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(feature.filePath)))
-    const content = this._serializeFeature(feature)
+    const content = serializeFeature(feature)
     await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
 
     this._features.push(feature)
@@ -626,7 +615,7 @@ export class KanbanPanel {
     feature.order = generateKeyBetween(before, after)
 
     // Only the moved feature needs to be written
-    const content = this._serializeFeature(feature)
+    const content = serializeFeature(feature)
     await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
 
     // Only move file when crossing the done boundary
@@ -679,7 +668,7 @@ export class KanbanPanel {
         feature.completedAt = newStatus === 'done' ? new Date().toISOString() : null
         feature.order = newKeys[i]
 
-        const content = this._serializeFeature(feature)
+        const content = serializeFeature(feature)
         await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
 
         if (crossingDoneBoundary) {
@@ -794,7 +783,7 @@ export class KanbanPanel {
     }
 
     // Persist to file
-    const content = this._serializeFeature(feature)
+    const content = serializeFeature(feature)
     await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
 
     // Only move file when crossing the done boundary
@@ -881,7 +870,7 @@ export class KanbanPanel {
     }
 
     // Save to file
-    const fileContent = this._serializeFeature(feature)
+    const fileContent = serializeFeature(feature)
     this._lastWrittenContent = fileContent
     await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(fileContent))
 
@@ -907,6 +896,11 @@ export class KanbanPanel {
     agent?: AIAgent,
     permissionMode?: AIPermissionMode
   ): Promise<void> {
+    if (!vscode.workspace.isTrusted) {
+      vscode.window.showWarningMessage(t('panel.aiRequiresTrust'))
+      return
+    }
+
     // Find the currently editing feature
     const feature = this._features.find(f => f.id === this._currentEditingFeatureId)
     if (!feature) {
@@ -914,18 +908,27 @@ export class KanbanPanel {
       return
     }
 
-    // Parse title from the first # heading in content
-    const titleMatch = feature.content.match(/^#\s+(.+)$/m)
-    const title = titleMatch ? titleMatch[1].trim() : getTitleFromContent(feature.content)
+    const workspaceRoot =
+      vscode.workspace.getWorkspaceFolder(vscode.Uri.file(feature.filePath))?.uri.fsPath
+      ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      ?? null
 
-    const labels = feature.labels.length > 0 ? ` [${feature.labels.join(', ')}]` : ''
-    const description = feature.content.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
-    const shortDesc = description.length > 200 ? description.substring(0, 200) + '...' : description
+    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const columns = config.get<KanbanColumn[]>('columns', DEFAULT_COLUMNS)
+    const column = columns.find(c => c.id === feature.status)
+      ?? { id: feature.status, name: feature.status, color: '' }
 
-    const prompt = `Implement this feature: "${title}" (${feature.priority} priority)${labels}. ${shortDesc} See full details in: ${feature.filePath}`
+    const ctx: PromptContext = {
+      title: getTitleFromContent(feature.content),
+      status: feature.status,
+      priority: feature.priority,
+      labels: feature.labels,
+      content: feature.content,
+      filePath: feature.filePath
+    }
+    const prompt = buildPrompt(ctx, column, this._extensionUri.fsPath, workspaceRoot, column.prompt)
 
     // Use provided agent or fall back to config
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
     const selectedAgent = agent || config.get<string>('aiAgent') || 'claude'
     const selectedPermissionMode = permissionMode || 'default'
 
@@ -971,10 +974,11 @@ export class KanbanPanel {
     }
     const terminal = vscode.window.createTerminal({
       name: agentNames[selectedAgent] || 'AI Agent',
-      cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      shellPath: selectedAgent,
+      shellArgs: args,
+      cwd: workspaceRoot ?? undefined
     })
     terminal.show()
-    terminal.sendText([this._shellQuote(selectedAgent), ...args.map(a => this._shellQuote(a))].join(' '))
   }
 
   private async _deleteLabel(labelName: string): Promise<void> {
@@ -1002,7 +1006,7 @@ export class KanbanPanel {
         feature.labels.splice(idx, 1)
         feature.modified = new Date().toISOString()
 
-        const content = this._serializeFeature(feature)
+        const content = serializeFeature(feature)
         await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
       }
     }
@@ -1029,7 +1033,7 @@ export class KanbanPanel {
       }
       feature.modified = new Date().toISOString()
 
-      const content = this._serializeFeature(feature)
+      const content = serializeFeature(feature)
       await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
       updatedCount++
     }
@@ -1122,7 +1126,7 @@ export class KanbanPanel {
         feature.id = newFilename
         feature.filePath = newFilePath
 
-        const serialized = this._serializeFeature(feature)
+        const serialized = serializeFeature(feature)
         await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(newFilePath)))
         await vscode.workspace.fs.writeFile(vscode.Uri.file(newFilePath), new TextEncoder().encode(serialized))
         await vscode.workspace.fs.delete(vscode.Uri.file(oldPath))
