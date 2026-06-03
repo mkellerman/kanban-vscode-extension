@@ -196,6 +196,10 @@
               "color": {
                 "type": "string",
                 "description": "%config.columns.color.description%"
+              },
+              "prompt": {
+                "type": "string",
+                "description": "%config.columns.prompt.description%"
               }
             },
             "required": [
@@ -358,6 +362,7 @@
     "react-dom": "^18.2.0",
     "tailwind-merge": "^2.2.0",
     "tiptap-markdown": "^0.9.0",
+    "yaml": "^2.9.0",
     "zustand": "^5.0.10"
   }
 }

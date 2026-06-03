@@ -1,6 +1,15 @@
 import * as path from 'path'
+import { parse, Document, YAMLMap, YAMLSeq, Scalar, Pair } from 'yaml'
 import type { Feature, FeatureStatus, Priority } from './types'
 
+/**
+ * Parses a markdown file with YAML frontmatter into a Feature object.
+ * Extracts metadata from the frontmatter block and markdown content.
+ * If no id field is present, uses the filename (without .md extension) as the id.
+ * @param content The full file content (frontmatter + markdown body)
+ * @param filePath The file path, used for id fallback and stored in Feature
+ * @returns Feature object or null if file lacks frontmatter
+ */
 export function parseFeatureFile(content: string, filePath: string): Feature | null {
   content = content.replace(/\r\n/g, '\n')
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
@@ -9,53 +18,81 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
   const frontmatter = frontmatterMatch[1]
   const body = frontmatterMatch[2] || ''
 
-  const getValue = (key: string): string => {
-    const match = frontmatter.match(new RegExp(`^${key}:\\s*(.*)$`, 'm'))
-    if (!match) return ''
-    const value = match[1].trim().replace(/^["']|["']$/g, '')
-    return value === 'null' ? '' : value
-  }
+  const parsed = parse(frontmatter) as Record<string, unknown>
 
-  const getArrayValue = (key: string): string[] => {
-    const match = frontmatter.match(new RegExp(`^${key}:\\s*\\[([^\\]]*)\\]`, 'm'))
-    if (!match) return []
-    return match[1].split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
+  const getString = (key: string): string | null => {
+    const val = parsed[key]
+    if (val === null || val === undefined || val === '') return null
+    return String(val)
   }
 
   return {
-    id: getValue('id') || path.basename(filePath, '.md'),
-    status: (getValue('status') as FeatureStatus) || 'backlog',
-    priority: (getValue('priority') as Priority) || 'medium',
-    assignee: getValue('assignee') || null,
-    epic: getValue('epic') || null,
-    dueDate: getValue('dueDate') || null,
-    created: getValue('created') || new Date().toISOString(),
-    modified: getValue('modified') || new Date().toISOString(),
-    completedAt: getValue('completedAt') || null,
-    labels: getArrayValue('labels'),
-    order: getValue('order') || 'a0',
+    id: getString('id') || path.basename(filePath, '.md'),
+    status: (getString('status') as FeatureStatus) || 'backlog',
+    priority: (getString('priority') as Priority) || 'medium',
+    assignee: getString('assignee'),
+    epic: getString('epic'),
+    dueDate: getString('dueDate'),
+    created: getString('created') || new Date().toISOString(),
+    modified: getString('modified') || new Date().toISOString(),
+    completedAt: getString('completedAt'),
+    labels: Array.isArray(parsed['labels']) ? (parsed['labels'] as string[]) : [],
+    order: getString('order') || 'a0',
     content: body.trim(),
     filePath
   }
 }
 
+/**
+ * Serializes a Feature object into a markdown file with YAML frontmatter.
+ * Converts the Feature's metadata into YAML frontmatter followed by the content body.
+ * @param feature The Feature object to serialize
+ * @returns The complete file content (frontmatter + markdown body)
+ */
 export function serializeFeature(feature: Feature): string {
-  const frontmatter = [
-    '---',
-    `id: "${feature.id}"`,
-    `status: "${feature.status}"`,
-    `priority: "${feature.priority}"`,
-    `assignee: ${feature.assignee ? `"${feature.assignee}"` : 'null'}`,
-    `epic: ${feature.epic ? `"${feature.epic}"` : 'null'}`,
-    `dueDate: ${feature.dueDate ? `"${feature.dueDate}"` : 'null'}`,
-    `created: "${feature.created}"`,
-    `modified: "${feature.modified}"`,
-    `completedAt: ${feature.completedAt ? `"${feature.completedAt}"` : 'null'}`,
-    `labels: [${feature.labels.map(l => `"${l}"`).join(', ')}]`,
-    `order: "${feature.order}"`,
-    '---',
-    ''
-  ].join('\n')
+  const frontmatterObj: Record<string, unknown> = {
+    id: feature.id,
+    status: feature.status,
+    priority: feature.priority,
+    assignee: feature.assignee,
+    epic: feature.epic,
+    dueDate: feature.dueDate,
+    created: feature.created,
+    modified: feature.modified,
+    completedAt: feature.completedAt,
+    labels: feature.labels,
+    order: feature.order,
+  }
 
-  return frontmatter + feature.content
+  const doc = new Document()
+  const map = new YAMLMap()
+
+  for (const [key, value] of Object.entries(frontmatterObj)) {
+    const k = new Scalar(key)
+    k.type = 'PLAIN'
+
+    let v: Scalar | YAMLSeq
+    if (value === null || value === undefined) {
+      v = new Scalar(null)
+    } else if (Array.isArray(value)) {
+      const seq = new YAMLSeq()
+      seq.flow = true
+      for (const item of value as string[]) {
+        const s = new Scalar(item)
+        s.type = 'QUOTE_DOUBLE'
+        seq.add(s)
+      }
+      v = seq
+    } else {
+      v = new Scalar(value as string)
+      v.type = 'QUOTE_DOUBLE'
+    }
+
+    map.add(new Pair(k, v))
+  }
+
+  doc.contents = map
+  const yamlStr = doc.toString({ flowCollectionPadding: false })
+
+  return `---\n${yamlStr}---\n${feature.content}`
 }

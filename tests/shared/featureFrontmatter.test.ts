@@ -247,3 +247,51 @@ describe('round-trip: serializeFeature → parseFeatureFile', () => {
     expect(recovered.completedAt).toBe('2026-02-28T18:00:00.000Z')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Round-trip: special characters (adversarial cases)
+// ---------------------------------------------------------------------------
+
+describe('round-trip: special characters', () => {
+  it('round-trips assignee with embedded double quotes', () => {
+    const original = makeFeature({ assignee: 'Alice "Al" Smith' })
+    const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
+    expect(recovered.assignee).toBe('Alice "Al" Smith')
+  })
+
+  it('round-trips epic with embedded double quotes', () => {
+    const original = makeFeature({ epic: 'Payments: "Phase 1"' })
+    const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
+    expect(recovered.epic).toBe('Payments: "Phase 1"')
+  })
+
+  it('round-trips a single label containing a comma', () => {
+    const original = makeFeature({ labels: ['bug, regression'] })
+    const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
+    expect(recovered.labels).toEqual(['bug, regression'])
+  })
+
+  it('round-trips a label containing a closing bracket', () => {
+    const original = makeFeature({ labels: ['fix [regression]'] })
+    const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
+    expect(recovered.labels).toEqual(['fix [regression]'])
+  })
+
+  it('round-trips a label with embedded double quotes', () => {
+    const original = makeFeature({ labels: ["it's \"quoted\""] })
+    const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
+    expect(recovered.labels).toEqual(["it's \"quoted\""])
+  })
+
+  it('round-trips a unicode label', () => {
+    const original = makeFeature({ labels: ['支払い'] })
+    const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
+    expect(recovered.labels).toEqual(['支払い'])
+  })
+
+  it('round-trips a value containing backslashes', () => {
+    const original = makeFeature({ assignee: 'path\\to\\file' })
+    const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
+    expect(recovered.assignee).toBe('path\\to\\file')
+  })
+})
