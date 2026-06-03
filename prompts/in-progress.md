@@ -1,0 +1,1 @@
+Continue implementing: "{{title}}" ({{priority}} priority){{labels}}. Pick up where work left off. {{description}} {{filePath}}
