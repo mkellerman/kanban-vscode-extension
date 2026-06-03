@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { KanbanColumn } from './KanbanColumn'
 import { CollapsedColumn } from './CollapsedColumn'
 import { useStore } from '../store'
@@ -25,8 +25,32 @@ export function KanbanBoard({ onFeatureClick, onAddFeature, onMoveFeature, epicF
   const layout = useStore((s) => s.layout)
   const collapsedColumns = useStore((s) => s.collapsedColumns)
   const toggleColumnCollapsed = useStore((s) => s.toggleColumnCollapsed)
+  const features = useStore((s) => s.features)
+  const searchQuery = useStore((s) => s.searchQuery)
+  const priorityFilter = useStore((s) => s.priorityFilter)
+  const assigneeFilter = useStore((s) => s.assigneeFilter)
+  const labelFilter = useStore((s) => s.labelFilter)
+  const dueDateFilter = useStore((s) => s.dueDateFilter)
   const [draggedFeature, setDraggedFeature] = useState<Feature | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
+
+  const filteredByColumn = useMemo(
+    () => new Map(columns.map(col => [
+      col.id,
+      getFilteredFeaturesByStatus(col.id as FeatureStatus, epicFilter)
+    ])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [features, searchQuery, priorityFilter, assigneeFilter, labelFilter, dueDateFilter, columns, epicFilter]
+  )
+
+  const allByColumn = useMemo(
+    () => new Map(columns.map(col => [
+      col.id,
+      getFeaturesByStatus(col.id as FeatureStatus, epicFilter)
+    ])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [features, columns, epicFilter]
+  )
 
   const handleDragStart = useCallback((e: React.DragEvent, feature: Feature) => {
     setDraggedFeature(feature)
@@ -61,7 +85,7 @@ export function KanbanBoard({ onFeatureClick, onAddFeature, onMoveFeature, epicF
       e.preventDefault()
       if (!draggedFeature) return
 
-      const filteredFeatures = getFilteredFeaturesByStatus(columnId as FeatureStatus, epicFilter)
+      const filteredFeatures = filteredByColumn.get(columnId) ?? []
       let filteredInsertIndex: number
 
       if (dropTarget && dropTarget.columnId === columnId) {
@@ -86,7 +110,7 @@ export function KanbanBoard({ onFeatureClick, onAddFeature, onMoveFeature, epicF
       }
 
       // Translate filtered index to unfiltered index
-      const allFeatures = getFeaturesByStatus(columnId as FeatureStatus, epicFilter)
+      const allFeatures = (allByColumn.get(columnId) ?? [])
         .filter((f) => f.id !== draggedFeature.id)
       const filteredWithoutDragged = filteredFeatures.filter((f) => f.id !== draggedFeature.id)
 
@@ -110,7 +134,7 @@ export function KanbanBoard({ onFeatureClick, onAddFeature, onMoveFeature, epicF
       setDraggedFeature(null)
       setDropTarget(null)
     },
-    [draggedFeature, dropTarget, getFilteredFeaturesByStatus, getFeaturesByStatus, onMoveFeature, epicFilter]
+    [draggedFeature, dropTarget, filteredByColumn, allByColumn, onMoveFeature, epicFilter]
   )
 
   const handleDragEnd = useCallback(() => {
@@ -153,7 +177,7 @@ export function KanbanBoard({ onFeatureClick, onAddFeature, onMoveFeature, epicF
             <CollapsedColumn
               key={column.id}
               column={column}
-              featureCount={getFeaturesByStatus(column.id as FeatureStatus, epicFilter).length}
+              featureCount={allByColumn.get(column.id)?.length ?? 0}
               onExpand={() => handleToggleCollapse(column.id)}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
@@ -163,7 +187,7 @@ export function KanbanBoard({ onFeatureClick, onAddFeature, onMoveFeature, epicF
             <KanbanColumn
               key={column.id}
               column={column}
-              features={getFilteredFeaturesByStatus(column.id as FeatureStatus, epicFilter)}
+              features={filteredByColumn.get(column.id) ?? []}
               otherColumns={columns.filter((c) => c.id !== column.id)}
               onFeatureClick={onFeatureClick}
               onAddFeature={onAddFeature}
