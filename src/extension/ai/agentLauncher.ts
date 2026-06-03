@@ -17,6 +17,7 @@ const APPROVAL_MODE: Record<string, string> = {
 }
 
 export function launchAgentTerminal(
+  // agent may be a config-sourced string; allow-list handles unknown values
   agent: string,
   permissionMode: string,
   prompt: string,
@@ -24,10 +25,13 @@ export function launchAgentTerminal(
 ): void {
   const safeAgent = VALID_AGENTS.has(agent) ? agent : 'claude'
 
-  let args: string[]
+  // safeAgent is always one of the four VALID_AGENTS strings (or the 'claude' fallback)
+  let args: string[] = [prompt]
   switch (safeAgent) {
     case 'claude': {
       args = []
+      // claude --permission-mode accepts: plan, acceptEdits, bypassPermissions
+      // (omit flag entirely for 'default' to use the CLI's default behavior)
       if (permissionMode !== 'default') {
         args.push('--permission-mode', permissionMode)
       }
@@ -41,8 +45,8 @@ export function launchAgentTerminal(
     }
     case 'copilot':
     case 'opencode':
-    default:
       args = [prompt]
+      break
   }
 
   const terminal = vscode.window.createTerminal({

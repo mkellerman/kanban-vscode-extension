@@ -68,6 +68,12 @@ describe('launchAgentTerminal — claude agent', () => {
     expect(opts.shellArgs).toEqual(['--permission-mode', 'bypassPermissions', 'do the thing'])
   })
 
+  it('with permissionMode "plan": args includes --permission-mode plan', () => {
+    launchAgentTerminal('claude', 'plan', 'do the thing', undefined)
+    const opts = getLastTerminalOpts()
+    expect(opts.shellArgs).toEqual(['--permission-mode', 'plan', 'do the thing'])
+  })
+
   it('sets shellPath to "claude"', () => {
     launchAgentTerminal('claude', 'default', 'prompt', undefined)
     const opts = getLastTerminalOpts()
