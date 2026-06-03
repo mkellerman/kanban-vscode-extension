@@ -144,7 +144,8 @@ export function KanbanColumn({
                   <>
                     <hr className="my-1 border-zinc-200 dark:border-zinc-700" />
                     <button
-                      className={`w-full text-left px-3 py-1.5 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 ${features.length === 0 ? 'opacity-40 pointer-events-none' : ''}`}
+                      className={`w-full text-left px-3 py-1.5 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed`}
+                      disabled={features.length === 0}
                       onClick={() => { onLaneAction(); setMenuOpen(false) }}
                     >
                       {t('column.scrumMaster')}
