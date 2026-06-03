@@ -686,6 +686,7 @@ export class KanbanPanel {
     const newStatus = targetColumnId as FeatureStatus
     const crossingDoneBoundary = oldStatus === 'done' || newStatus === 'done' as string
 
+    let failedCount = 0
     this._migrating = crossingDoneBoundary
     try {
       for (let i = 0; i < sourceFeatures.length; i++) {
@@ -696,13 +697,20 @@ export class KanbanPanel {
         feature.order = newKeys[i]
 
         const content = this._serializeFeature(feature)
-        await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
+        try {
+          await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
+        } catch (err) {
+          console.error('[kanban-markdown] writeFile failed for', feature.id, err)
+          failedCount++
+          continue
+        }
 
         if (crossingDoneBoundary) {
           try {
             const newPath = await moveFeatureFile(feature.filePath, featuresDir, targetColumnId)
             feature.filePath = newPath
-          } catch {
+          } catch (err) {
+            console.error('[kanban-markdown] moveFeatureFile failed:', err)
             // Will reconcile on next load
           }
         }
@@ -711,6 +719,13 @@ export class KanbanPanel {
       this._migrating = false
     }
 
+    if (failedCount > 0) {
+      const msg = failedCount === 1
+        ? t('panel.moveAllFailedOne')
+        : t('panel.moveAllFailedOther', { count: failedCount })
+      vscode.window.showWarningMessage(msg)
+      await this._loadFeatures()
+    }
     this._sendFeaturesToWebview()
   }
 
@@ -1028,6 +1043,7 @@ export class KanbanPanel {
     )
     if (confirm !== removeButton) return
 
+    let failedCount = 0
     for (const feature of affectedFeatures) {
       const idx = feature.labels.indexOf(trimmed)
       if (idx !== -1) {
@@ -1035,10 +1051,23 @@ export class KanbanPanel {
         feature.modified = new Date().toISOString()
 
         const content = this._serializeFeature(feature)
-        await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
+        try {
+          await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
+        } catch (err) {
+          console.error('[kanban-markdown] writeFile failed for', feature.id, err)
+          failedCount++
+          continue
+        }
       }
     }
 
+    if (failedCount > 0) {
+      const msg = failedCount === 1
+        ? t('panel.deleteLabelFailedOne')
+        : t('panel.deleteLabelFailedOther', { count: failedCount })
+      vscode.window.showWarningMessage(msg)
+      await this._loadFeatures()
+    }
     this._sendFeaturesToWebview()
   }
 
@@ -1048,6 +1077,7 @@ export class KanbanPanel {
     if (!trimmedOld || !trimmedNew || trimmedOld === trimmedNew) return
 
     let updatedCount = 0
+    let failedCount = 0
     for (const feature of this._features) {
       const idx = feature.labels.indexOf(trimmedOld)
       if (idx === -1) continue
@@ -1062,11 +1092,24 @@ export class KanbanPanel {
       feature.modified = new Date().toISOString()
 
       const content = this._serializeFeature(feature)
-      await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
-      updatedCount++
+      try {
+        await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
+        updatedCount++
+      } catch (err) {
+        console.error('[kanban-markdown] writeFile failed for', feature.id, err)
+        failedCount++
+        continue
+      }
     }
 
-    if (updatedCount > 0) {
+    if (failedCount > 0) {
+      const msg = failedCount === 1
+        ? t('panel.renameLabelFailedOne')
+        : t('panel.renameLabelFailedOther', { count: failedCount })
+      vscode.window.showWarningMessage(msg)
+      await this._loadFeatures()
+      this._sendFeaturesToWebview()
+    } else if (updatedCount > 0) {
       this._sendFeaturesToWebview()
     }
   }
