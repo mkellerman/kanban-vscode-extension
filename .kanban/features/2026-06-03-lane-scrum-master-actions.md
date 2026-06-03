@@ -1,15 +1,16 @@
 ---
 id: "2026-06-03-lane-scrum-master-actions"
-status: "todo"
+status: "review"
 priority: "medium"
 assignee: null
 epic: "Workflow automation"
 dueDate: null
 created: "2026-06-03T00:00:00.000Z"
-modified: "2026-06-03T14:00:00.000Z"
+modified: "2026-06-03T18:45:00.000Z"
 completedAt: null
 labels: ["ux", "workflow", "automation"]
 order: "a5"
+worktree: "/Users/me/Documents/GitHub/kanban-vscode-extension/.claude/worktrees/story+2026-06-03-lane-scrum-master-actions"
 ---
 
 # Add lane-level scrum master actions to the Kanban board

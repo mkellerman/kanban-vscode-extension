@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import type { KanbanColumn } from '../../shared/types'
+import type { Feature, KanbanColumn } from '../../shared/types'
 
 export interface PromptContext {
   title: string
@@ -95,4 +95,47 @@ export function buildPrompt(
   // Level 4: generic fallback
   const fallback = `Implement this feature: "{{title}}" ({{priority}} priority){{labels}}. {{description}} {{filePath}}`
   return substitute(fallback, ctx, column)
+}
+
+export function buildLanePrompt(
+  features: Feature[],
+  column: KanbanColumn,
+  extensionRoot: string,
+  workspaceRoot: string | null
+): string {
+  const featurePaths = features.map(f => {
+    if (!workspaceRoot) return f.filePath
+    const rel = path.relative(workspaceRoot, f.filePath)
+    return rel.startsWith('..') ? f.filePath : rel
+  }).join('\n')
+
+  const substituteLane = (template: string): string => {
+    const vars: Record<string, string> = {
+      columnName: column.name,
+      count: String(features.length),
+      featurePaths
+    }
+    return template.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '')
+  }
+
+  // Level 1: local .kanban/instructions/{columnId}-lane.md
+  if (workspaceRoot !== null) {
+    const local = resolveLocalTemplate(workspaceRoot, column.id + '-lane')
+    if (local) return substituteLane(local)
+  }
+
+  // Level 2: bundled prompts/{columnId}-lane.md
+  try {
+    const bundled = fs.readFileSync(
+      path.join(extensionRoot, 'prompts', column.id + '-lane.md'), 'utf8'
+    )
+    if (bundled.trim()) return substituteLane(bundled)
+  } catch {
+    // fall through
+  }
+
+  // Level 3: generic fallback
+  return substituteLane(
+    `You are a scrum master reviewing the {{columnName}} lane ({{count}} stories).\nStories to review:\n{{featurePaths}}\nAssess each story's health for this stage and identify issues that need resolution.`
+  )
 }

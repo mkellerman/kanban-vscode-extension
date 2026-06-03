@@ -15,6 +15,7 @@ interface KanbanColumnProps {
   onCollapse: () => void
   onMoveAllCards: (targetColumnId: string) => void
   onArchiveAllCards?: () => void
+  onLaneAction?: () => void
   onDragStart: (e: React.DragEvent, feature: Feature) => void
   onDragOver: (e: React.DragEvent) => void
   onDragOverCard: (e: React.DragEvent, columnId: string, cardIndex: number) => void
@@ -34,6 +35,7 @@ export function KanbanColumn({
   onCollapse,
   onMoveAllCards,
   onArchiveAllCards,
+  onLaneAction,
   onDragStart,
   onDragOver,
   onDragOverCard,
@@ -137,6 +139,18 @@ export function KanbanColumn({
                   >
                     {t('column.archiveAllCards')}
                   </button>
+                )}
+                {onLaneAction && (
+                  <>
+                    <hr className="my-1 border-zinc-200 dark:border-zinc-700" />
+                    <button
+                      className={`w-full text-left px-3 py-1.5 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed`}
+                      disabled={features.length === 0}
+                      onClick={() => { onLaneAction(); setMenuOpen(false) }}
+                    >
+                      {t('column.scrumMaster')}
+                    </button>
+                  </>
                 )}
               </div>
             )}

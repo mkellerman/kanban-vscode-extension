@@ -31,6 +31,7 @@ export function KanbanBoard({ onFeatureClick, onAddFeature, onMoveFeature, epicF
   const assigneeFilter = useStore((s) => s.assigneeFilter)
   const labelFilter = useStore((s) => s.labelFilter)
   const dueDateFilter = useStore((s) => s.dueDateFilter)
+  const showBuildWithAI = useStore((s) => s.cardSettings.showBuildWithAI)
   const [draggedFeature, setDraggedFeature] = useState<Feature | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
 
@@ -167,6 +168,11 @@ export function KanbanBoard({ onFeatureClick, onAddFeature, onMoveFeature, epicF
     vscode.postMessage({ type: 'archiveAllCards', sourceColumnId })
   }, [])
 
+  const handleLaneAction = useCallback((columnId: string) => {
+    const featureIds = filteredByColumn.get(columnId)?.map(f => f.id) ?? []
+    vscode.postMessage({ type: 'laneAction', columnId, featureIds })
+  }, [filteredByColumn])
+
   const isVertical = layout === 'vertical'
 
   return (
@@ -194,6 +200,7 @@ export function KanbanBoard({ onFeatureClick, onAddFeature, onMoveFeature, epicF
               onCollapse={() => handleToggleCollapse(column.id)}
               onMoveAllCards={(targetColumnId) => handleMoveAllCards(column.id, targetColumnId)}
               onArchiveAllCards={column.id === 'done' ? () => handleArchiveAllCards(column.id) : undefined}
+              onLaneAction={showBuildWithAI ? () => handleLaneAction(column.id) : undefined}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDragOverCard={handleDragOverCard}

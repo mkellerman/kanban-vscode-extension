@@ -1,6 +1,11 @@
+---
+status: "review"
+worktree: "/Users/me/Documents/GitHub/kanban-vscode-extension/.claude/worktrees/story+2026-06-03-lane-scrum-master-actions"
+---
+
 # Lane-Level Scrum Master Actions Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add a "Scrum Master" menu item to each Kanban column's three-dots header menu that launches an agent terminal with a lane-level review prompt covering all currently-visible (filtered) stories in that lane.
 
@@ -39,7 +44,7 @@
 **Files:**
 - Modify: `src/shared/types.ts:144`
 
-- [ ] **Step 1: Add the new message variant**
+- [x] **Step 1: Add the new message variant**
 
 Open `src/shared/types.ts`. The `WebviewMessage` union currently ends with:
 ```ts
@@ -51,14 +56,14 @@ Append the new variant after that line:
 | { type: 'laneAction'; columnId: string; featureIds: string[] }
 ```
 
-- [ ] **Step 2: Run typecheck to confirm no errors**
+- [x] **Step 2: Run typecheck to confirm no errors**
 
 ```bash
 pnpm typecheck
 ```
 Expected: no errors
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/shared/types.ts
@@ -72,7 +77,7 @@ git commit -m "feat: add laneAction to WebviewMessage type"
 **Files:**
 - Modify: `tests/extension/ai/promptBuilder.test.ts`
 
-- [ ] **Step 1: Add `buildLanePrompt` import and test fixtures**
+- [x] **Step 1: Add `buildLanePrompt` import and test fixtures**
 
 At the top of `tests/extension/ai/promptBuilder.test.ts`, update the imports section. Change:
 ```ts
@@ -101,7 +106,7 @@ const FEAT_B: Feature = {
 }
 ```
 
-- [ ] **Step 2: Append the new test suites at the end of the file**
+- [x] **Step 2: Append the new test suites at the end of the file**
 
 ```ts
 // ---------------------------------------------------------------------------
@@ -216,7 +221,7 @@ describe('buildLanePrompt — resolution chain', () => {
 })
 ```
 
-- [ ] **Step 3: Run tests to confirm they fail**
+- [x] **Step 3: Run tests to confirm they fail**
 
 ```bash
 pnpm test -- tests/extension/ai/promptBuilder.test.ts
@@ -230,7 +235,7 @@ Expected: FAIL — `buildLanePrompt is not a function` (it doesn't exist yet)
 **Files:**
 - Modify: `src/extension/ai/promptBuilder.ts`
 
-- [ ] **Step 1: Add `Feature` to the type import**
+- [x] **Step 1: Add `Feature` to the type import**
 
 Change line 1 from:
 ```ts
@@ -241,7 +246,7 @@ to:
 import type { Feature, KanbanColumn } from '../../shared/types'
 ```
 
-- [ ] **Step 2: Add `buildLanePrompt` after `buildPrompt`**
+- [x] **Step 2: Add `buildLanePrompt` after `buildPrompt`**
 
 Append this function at the end of `src/extension/ai/promptBuilder.ts`:
 ```ts
@@ -287,14 +292,14 @@ export function buildLanePrompt(
 }
 ```
 
-- [ ] **Step 3: Run the new tests to confirm they pass**
+- [x] **Step 3: Run the new tests to confirm they pass**
 
 ```bash
 pnpm test -- tests/extension/ai/promptBuilder.test.ts
 ```
 Expected: all `buildLanePrompt` tests PASS; pre-existing `buildPrompt` tests also PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/extension/ai/promptBuilder.ts tests/extension/ai/promptBuilder.test.ts
@@ -308,7 +313,7 @@ git commit -m "feat: add buildLanePrompt to promptBuilder"
 **Files:**
 - Modify: `tests/extension/AgentLauncher.test.ts`
 
-- [ ] **Step 1: Update the `promptBuilder` mock to include `buildLanePrompt`**
+- [x] **Step 1: Update the `promptBuilder` mock to include `buildLanePrompt`**
 
 At the top of `tests/extension/AgentLauncher.test.ts`, find:
 ```ts
@@ -328,7 +333,7 @@ vi.mock('../../src/extension/ai/promptBuilder', () => ({
 }))
 ```
 
-- [ ] **Step 2: Add fixture data and new test suite**
+- [x] **Step 2: Add fixture data and new test suite**
 
 After the `REVIEW_FEATURE` constant and before `beforeEach`, add:
 ```ts
@@ -351,7 +356,7 @@ to:
 import type { Feature, KanbanColumn } from '../../src/shared/types'
 ```
 
-- [ ] **Step 3: Append the new test suite at the end of the file**
+- [x] **Step 3: Append the new test suite at the end of the file**
 
 ```ts
 describe('AgentLauncher.launchLane()', () => {
@@ -398,7 +403,7 @@ describe('AgentLauncher.launchLane()', () => {
 })
 ```
 
-- [ ] **Step 4: Run tests to confirm they fail**
+- [x] **Step 4: Run tests to confirm they fail**
 
 ```bash
 pnpm test -- tests/extension/AgentLauncher.test.ts
@@ -412,7 +417,7 @@ Expected: FAIL — `launcher.launchLane is not a function`
 **Files:**
 - Modify: `src/extension/AgentLauncher.ts`
 
-- [ ] **Step 1: Add `buildLanePrompt` to the import**
+- [x] **Step 1: Add `buildLanePrompt` to the import**
 
 Change line 5 from:
 ```ts
@@ -423,7 +428,7 @@ to:
 import { buildPrompt, buildLanePrompt, type PromptContext } from './ai/promptBuilder'
 ```
 
-- [ ] **Step 2: Add the `launchLane` method to the `AgentLauncher` class**
+- [x] **Step 2: Add the `launchLane` method to the `AgentLauncher` class**
 
 After the closing brace of the `launch()` method, add:
 ```ts
@@ -458,14 +463,14 @@ After the closing brace of the `launch()` method, add:
   }
 ```
 
-- [ ] **Step 3: Run the tests to confirm they pass**
+- [x] **Step 3: Run the tests to confirm they pass**
 
 ```bash
 pnpm test -- tests/extension/AgentLauncher.test.ts
 ```
 Expected: all `launchLane` tests PASS; pre-existing `launch` tests also PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/extension/AgentLauncher.ts tests/extension/AgentLauncher.test.ts
@@ -479,7 +484,7 @@ git commit -m "feat: add AgentLauncher.launchLane() for lane-level scrum master 
 **Files:**
 - Create: `tests/extension/KanbanPanel.laneAction.test.ts`
 
-- [ ] **Step 1: Create the test file**
+- [x] **Step 1: Create the test file**
 
 Create `tests/extension/KanbanPanel.laneAction.test.ts` with the following content:
 
@@ -730,7 +735,7 @@ describe('KanbanPanel laneAction handling', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to confirm they fail**
+- [x] **Step 2: Run tests to confirm they fail**
 
 ```bash
 pnpm test -- tests/extension/KanbanPanel.laneAction.test.ts
@@ -744,7 +749,7 @@ Expected: FAIL — `launcher.launchLane is not a function` on the mock, or `lane
 **Files:**
 - Modify: `src/extension/KanbanPanel.ts`
 
-- [ ] **Step 1: Add `DEFAULT_COLUMNS` to the import in `KanbanPanel.ts`**
+- [x] **Step 1: Add `DEFAULT_COLUMNS` to the import in `KanbanPanel.ts`**
 
 Find line 4 in `src/extension/KanbanPanel.ts`:
 ```ts
@@ -755,7 +760,7 @@ Change to:
 import { getTitleFromContent, generateFeatureFilename, DEFAULT_COLUMNS } from '../shared/types'
 ```
 
-- [ ] **Step 2: Add the `laneAction` case to the message handler**
+- [x] **Step 2: Add the `laneAction` case to the message handler**
 
 In `src/extension/KanbanPanel.ts`, find the `case 'startWithAI':` block (around line 198). After its closing `break` and before the closing `}` of the `switch`, insert:
 
@@ -784,21 +789,21 @@ Note: `Feature` and `KanbanColumn` are already imported at the top of the file. 
 
 The panel currently holds `private _launcher: AgentLauncher` — since `AgentLauncher` is the concrete class with `launchLane`, no interface change is needed.
 
-- [ ] **Step 3: Run the tests to confirm they pass**
+- [x] **Step 3: Run the tests to confirm they pass**
 
 ```bash
 pnpm test -- tests/extension/KanbanPanel.laneAction.test.ts
 ```
 Expected: all tests PASS
 
-- [ ] **Step 4: Run the full test suite to confirm no regressions**
+- [x] **Step 4: Run the full test suite to confirm no regressions**
 
 ```bash
 pnpm test
 ```
 Expected: all tests PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/extension/KanbanPanel.ts tests/extension/KanbanPanel.laneAction.test.ts
@@ -814,35 +819,35 @@ git commit -m "feat: handle laneAction message in KanbanPanel"
 - Modify: `l10n/bundle.l10n.es.json`
 - Modify: `l10n/bundle.l10n.pt.json`
 
-- [ ] **Step 1: Add English key**
+- [x] **Step 1: Add English key**
 
 In `l10n/bundle.l10n.en.json`, find `"column.archiveAllCards": "Archive all cards in this list"` and add the new key after it:
 ```json
 "column.scrumMaster": "Scrum Master"
 ```
 
-- [ ] **Step 2: Add Spanish key**
+- [x] **Step 2: Add Spanish key**
 
 In `l10n/bundle.l10n.es.json`, find `"column.archiveAllCards"` and add after it:
 ```json
 "column.scrumMaster": "Scrum Master"
 ```
 
-- [ ] **Step 3: Add Portuguese key**
+- [x] **Step 3: Add Portuguese key**
 
 In `l10n/bundle.l10n.pt.json`, find `"column.archiveAllCards"` and add after it:
 ```json
 "column.scrumMaster": "Scrum Master"
 ```
 
-- [ ] **Step 4: Verify i18n consistency**
+- [x] **Step 4: Verify i18n consistency**
 
 ```bash
 pnpm check-l10n
 ```
 Expected: no errors
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add l10n/bundle.l10n.en.json l10n/bundle.l10n.es.json l10n/bundle.l10n.pt.json
@@ -856,14 +861,14 @@ git commit -m "i18n: add column.scrumMaster translation key"
 **Files:**
 - Modify: `src/webview/components/KanbanColumn.tsx`
 
-- [ ] **Step 1: Add `onLaneAction` to the props interface**
+- [x] **Step 1: Add `onLaneAction` to the props interface**
 
 In `src/webview/components/KanbanColumn.tsx`, find the `KanbanColumnProps` interface (line 9). Add the new optional prop after `onArchiveAllCards`:
 ```ts
   onLaneAction?: () => void
 ```
 
-- [ ] **Step 2: Destructure the new prop**
+- [x] **Step 2: Destructure the new prop**
 
 In the `KanbanColumn` function signature destructure (line 28), add `onLaneAction` after `onArchiveAllCards`:
 ```ts
@@ -872,7 +877,7 @@ In the `KanbanColumn` function signature destructure (line 28), add `onLaneActio
   onDragStart,
 ```
 
-- [ ] **Step 3: Add the menu item with a divider**
+- [x] **Step 3: Add the menu item with a divider**
 
 In the dropdown menu JSX (after the `{onArchiveAllCards && (...)}` block, before the closing `</div>` of the menu), add:
 ```tsx
@@ -891,14 +896,14 @@ In the dropdown menu JSX (after the `{onArchiveAllCards && (...)}` block, before
 
 The full menu block currently ends at line 141 (`</div>`). Place the new JSX between the `{onArchiveAllCards && (...)}` closing brace and the outermost closing `</div>` of the menu div.
 
-- [ ] **Step 4: Run typecheck to confirm the prop types are correct**
+- [x] **Step 4: Run typecheck to confirm the prop types are correct**
 
 ```bash
 pnpm typecheck
 ```
 Expected: no errors
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/webview/components/KanbanColumn.tsx
@@ -912,14 +917,14 @@ git commit -m "feat: add Scrum Master menu item to KanbanColumn"
 **Files:**
 - Modify: `src/webview/components/KanbanBoard.tsx`
 
-- [ ] **Step 1: Read the `showBuildWithAI` flag from the store**
+- [x] **Step 1: Read the `showBuildWithAI` flag from the store**
 
 In `src/webview/components/KanbanBoard.tsx`, after the existing `useStore` calls (around line 33), add:
 ```ts
   const showBuildWithAI = useStore((s) => s.cardSettings.showBuildWithAI)
 ```
 
-- [ ] **Step 2: Add the `handleLaneAction` handler**
+- [x] **Step 2: Add the `handleLaneAction` handler**
 
 After the `handleArchiveAllCards` callback (around line 168), add:
 ```ts
@@ -929,28 +934,28 @@ After the `handleArchiveAllCards` callback (around line 168), add:
   }, [filteredByColumn])
 ```
 
-- [ ] **Step 3: Pass `onLaneAction` to each `KanbanColumn`**
+- [x] **Step 3: Pass `onLaneAction` to each `KanbanColumn`**
 
 In the JSX where `<KanbanColumn>` is rendered (around line 187), add the new prop after `onArchiveAllCards`:
 ```tsx
               onLaneAction={showBuildWithAI ? () => handleLaneAction(column.id) : undefined}
 ```
 
-- [ ] **Step 4: Run typecheck**
+- [x] **Step 4: Run typecheck**
 
 ```bash
 pnpm typecheck
 ```
 Expected: no errors
 
-- [ ] **Step 5: Run the full test suite**
+- [x] **Step 5: Run the full test suite**
 
 ```bash
 pnpm test
 ```
 Expected: all tests PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/webview/components/KanbanBoard.tsx
@@ -968,7 +973,7 @@ git commit -m "feat: wire laneAction handler in KanbanBoard"
 - Create: `prompts/review-lane.md`
 - Create: `prompts/done-lane.md`
 
-- [ ] **Step 1: Create `prompts/backlog-lane.md`**
+- [x] **Step 1: Create `prompts/backlog-lane.md`**
 
 ```markdown
 You are a scrum master reviewing the {{columnName}} lane ({{count}} stories).
@@ -985,7 +990,7 @@ For each story, read the feature file and surface:
 Reference `.kanban/instructions.md` for board conventions.
 ```
 
-- [ ] **Step 2: Create `prompts/todo-lane.md`**
+- [x] **Step 2: Create `prompts/todo-lane.md`**
 
 ```markdown
 You are a scrum master reviewing the {{columnName}} lane ({{count}} stories).
@@ -1002,7 +1007,7 @@ For each story, read the feature file and check readiness for planning:
 Reference `.kanban/instructions.md` for board conventions.
 ```
 
-- [ ] **Step 3: Create `prompts/in-progress-lane.md`**
+- [x] **Step 3: Create `prompts/in-progress-lane.md`**
 
 ```markdown
 You are a scrum master reviewing the {{columnName}} lane ({{count}} stories).
@@ -1019,7 +1024,7 @@ For each story, read the feature file and surface:
 Reference `.kanban/instructions.md` for board conventions.
 ```
 
-- [ ] **Step 4: Create `prompts/review-lane.md`**
+- [x] **Step 4: Create `prompts/review-lane.md`**
 
 ```markdown
 You are a scrum master reviewing the {{columnName}} lane ({{count}} stories).
@@ -1036,7 +1041,7 @@ For each story, read the feature file and surface:
 Reference `.kanban/instructions.md` for board conventions.
 ```
 
-- [ ] **Step 5: Create `prompts/done-lane.md`**
+- [x] **Step 5: Create `prompts/done-lane.md`**
 
 ```markdown
 You are a scrum master reviewing the {{columnName}} lane ({{count}} stories).
@@ -1053,21 +1058,21 @@ For each story, read the feature file and confirm:
 Reference `.kanban/instructions.md` for board conventions.
 ```
 
-- [ ] **Step 6: Run the full test suite one final time**
+- [x] **Step 6: Run the full test suite one final time**
 
 ```bash
 pnpm test
 ```
 Expected: all tests PASS
 
-- [ ] **Step 7: Run typecheck**
+- [x] **Step 7: Run typecheck**
 
 ```bash
 pnpm typecheck
 ```
 Expected: no errors
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add prompts/backlog-lane.md prompts/todo-lane.md prompts/in-progress-lane.md prompts/review-lane.md prompts/done-lane.md
