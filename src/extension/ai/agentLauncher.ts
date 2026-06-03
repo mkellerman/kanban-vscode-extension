@@ -42,6 +42,8 @@ export function launchAgentTerminal(
       break
     }
     case 'codex': {
+      // APPROVAL_MODE covers all four VALID_PERMISSION_MODES; ?? 'ask' is unreachable
+      // under the current allow-list — kept as defense-in-depth.
       const approvalMode = APPROVAL_MODE[safeMode] ?? 'ask'
       args = ['--ask-for-approval', approvalMode, prompt]
       break
@@ -54,6 +56,10 @@ export function launchAgentTerminal(
 
   const terminal = vscode.window.createTerminal({
     name: AGENT_NAMES[safeAgent] || 'AI Agent',
+    // TODO: on Windows, PATH resolution for agent binaries installed via nvm or
+    // package managers may fail when VS Code is launched from the Dock rather
+    // than a shell. Resolving the full path via `which`/`where` is deferred to
+    // the extract-feature-repository-service-2026-06-02 story.
     shellPath: safeAgent,
     shellArgs: args,
     cwd

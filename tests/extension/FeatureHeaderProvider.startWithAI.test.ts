@@ -8,24 +8,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // ---------------------------------------------------------------------------
 // Hoist shared mocks so they are available inside vi.mock factories
 // ---------------------------------------------------------------------------
-const { mockSendText, mockShow, mockCreateTerminal, mockPostMessage,
+const { mockShow, mockCreateTerminal, mockPostMessage,
         mockGetConfiguration, mockGetWorkspaceFolder, mockShowWarningMessage,
         mockIsTrusted } = vi.hoisted(() => {
-  const mockSendText = vi.fn()
   const mockShow = vi.fn()
-  const mockCreateTerminal = vi.fn(() => ({ show: mockShow, sendText: mockSendText }))
+  const mockCreateTerminal = vi.fn(() => ({ show: mockShow }))
   const mockPostMessage = vi.fn()
   const mockGetConfiguration = vi.fn()
   const mockGetWorkspaceFolder = vi.fn()
   const mockShowWarningMessage = vi.fn()
   const mockIsTrusted = { value: true }
-  return { mockSendText, mockShow, mockCreateTerminal, mockPostMessage,
+  return { mockShow, mockCreateTerminal, mockPostMessage,
            mockGetConfiguration, mockGetWorkspaceFolder, mockShowWarningMessage,
            mockIsTrusted }
 })
 
 // keep linter quiet on unused vars — they are declared for completeness
-void mockSendText
 void mockShow
 void mockPostMessage
 
