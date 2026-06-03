@@ -224,6 +224,10 @@ export class KanbanPanel {
           if (currentSerialized !== this._lastSentEditorContent) {
             this._sendFeatureContent(this._currentEditingFeatureId)
           }
+        } else {
+          // Feature was deleted externally — clear editing state so saves don't silently fail
+          this._currentEditingFeatureId = null
+          this._panel.webview.postMessage({ type: 'featureDeleted' })
         }
       }
     }, null, this._disposables)
@@ -307,9 +311,6 @@ export class KanbanPanel {
     return crypto.randomBytes(24).toString('base64url')
   }
 
-  private _shellQuote(arg: string): string {
-    return "'" + arg.replace(/'/g, "'\\''") + "'"
-  }
 
   public triggerCreateDialog(): void {
     this._panel.webview.postMessage({ type: 'triggerCreateDialog' })

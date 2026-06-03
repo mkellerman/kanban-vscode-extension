@@ -71,7 +71,7 @@ async function createFeatureFromPrompts(repo: FeatureRepository): Promise<void> 
 
   // Create the feature file
   const config = vscode.workspace.getConfiguration('kanban-markdown')
-  const featuresDirectory = config.get<string>('featuresDirectory') || '.devtool/features'
+  const featuresDirectory = config.get<string>('featuresDirectory') || '.kanban/features'
   const featuresDir = path.join(workspaceFolders[0].uri.fsPath, featuresDirectory)
   await vscode.workspace.fs.createDirectory(vscode.Uri.file(featuresDir))
   await ensureStatusSubfolders(featuresDir)
@@ -116,7 +116,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   const sidebarProvider = new SidebarViewProvider(context.extensionUri, context, repo)
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(SidebarViewProvider.viewType, sidebarProvider)
+    vscode.window.registerWebviewViewProvider(SidebarViewProvider.viewType, sidebarProvider),
+    { dispose: () => sidebarProvider.dispose() }
   )
 
   context.subscriptions.push(

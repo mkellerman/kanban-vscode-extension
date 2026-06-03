@@ -370,6 +370,7 @@ export class FeatureRepository implements vscode.Disposable {
   async deleteFeature(featureId: string): Promise<void> {
     const feature = this._features.find(f => f.id === featureId)
     if (!feature) return
+    this._lastWrittenContents.delete(feature.filePath)
     await this._fs.delete(vscode.Uri.file(feature.filePath))
     this._features = this._features.filter(f => f.id !== featureId)
     this._emitter.fire(this._features)
@@ -447,6 +448,7 @@ export class FeatureRepository implements vscode.Disposable {
           targetPath = path.join(archivedDir, `${base}-${counter++}${ext}`)
         }
         try {
+          this._lastWrittenContents.delete(feature.filePath)
           await this._fs.rename(vscode.Uri.file(feature.filePath), vscode.Uri.file(targetPath))
           archivedIds.add(feature.id)
         } catch {
