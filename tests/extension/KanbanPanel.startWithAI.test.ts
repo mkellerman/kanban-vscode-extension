@@ -276,7 +276,10 @@ describe('KanbanPanel._startWithAI wiring', () => {
     await panelAny._startWithAI()
 
     expect(mockCreateTerminal).toHaveBeenCalledWith(
-      expect.objectContaining({ cwd: '/custom-workspace' })
+      expect.objectContaining({
+        cwd: '/custom-workspace',
+        name: 'Review: Feat'
+      })
     )
   })
 })

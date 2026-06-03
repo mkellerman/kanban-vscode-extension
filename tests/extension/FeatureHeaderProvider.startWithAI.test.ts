@@ -269,7 +269,10 @@ describe('FeatureHeaderProvider startWithAI wiring', () => {
     await capturedMessageHandler!({ type: 'startWithAI', agent: 'claude', permissionMode: 'default' })
 
     expect(mockCreateTerminal).toHaveBeenCalledWith(
-      expect.objectContaining({ cwd: '/custom-workspace' })
+      expect.objectContaining({
+        cwd: '/custom-workspace',
+        name: 'Review: My Review Feature'
+      })
     )
   })
 })

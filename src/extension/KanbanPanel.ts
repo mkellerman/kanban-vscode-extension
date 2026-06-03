@@ -932,8 +932,9 @@ export class KanbanPanel {
     // Use provided agent or fall back to config
     const selectedAgent = agent || config.get<string>('aiAgent') || 'claude'
     const selectedPermissionMode = permissionMode || 'default'
+    const terminalTitle = `${column.name}: ${ctx.title}`
 
-    launchAgentTerminal(selectedAgent, selectedPermissionMode, prompt, workspaceRoot ?? undefined)
+    launchAgentTerminal(selectedAgent, selectedPermissionMode, prompt, workspaceRoot ?? undefined, terminalTitle)
   }
 
   private async _deleteLabel(labelName: string): Promise<void> {

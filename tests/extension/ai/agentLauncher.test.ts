@@ -185,6 +185,32 @@ describe('launchAgentTerminal — unknown agent falls back to claude', () => {
   })
 })
 
+describe('launchAgentTerminal — terminalTitle override', () => {
+  it('uses terminalTitle as the terminal name when provided', () => {
+    launchAgentTerminal('claude', 'default', 'prompt', undefined, 'To Do: My Story')
+    const opts = getLastTerminalOpts()
+    expect(opts.name).toBe('To Do: My Story')
+  })
+
+  it('falls back to agent name when terminalTitle is omitted', () => {
+    launchAgentTerminal('claude', 'default', 'prompt', undefined)
+    const opts = getLastTerminalOpts()
+    expect(opts.name).toBe('Claude Code')
+  })
+
+  it('falls back to agent name when terminalTitle is undefined', () => {
+    launchAgentTerminal('claude', 'default', 'prompt', undefined, undefined)
+    const opts = getLastTerminalOpts()
+    expect(opts.name).toBe('Claude Code')
+  })
+
+  it('uses terminalTitle for non-claude agents too', () => {
+    launchAgentTerminal('codex', 'default', 'prompt', undefined, 'In Progress: Add auth')
+    const opts = getLastTerminalOpts()
+    expect(opts.name).toBe('In Progress: Add auth')
+  })
+})
+
 describe('launchAgentTerminal — cwd and terminal behavior', () => {
   it('passes cwd through to createTerminal', () => {
     launchAgentTerminal('claude', 'default', 'prompt', '/my/workspace')

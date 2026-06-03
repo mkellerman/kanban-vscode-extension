@@ -138,8 +138,9 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
 
           const agent: AIAgent = message.agent || 'claude'
           const permissionMode = message.permissionMode || 'default'
+          const terminalTitle = `${column.name}: ${ctx.title}`
 
-          launchAgentTerminal(agent, permissionMode, prompt, workspaceRoot ?? undefined)
+          launchAgentTerminal(agent, permissionMode, prompt, workspaceRoot ?? undefined, terminalTitle)
           break
         }
       }

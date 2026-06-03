@@ -4,13 +4,13 @@
 
 **Goal:** Change the extension's default features directory from `.devtool/features` to `.kanban/features`, update all occurrences across source, config, docs, and tests, and rename this repo's own data folder.
 
-**Architecture:** Pure string replacement across 9 files — no new logic, no migration code. All source files use the same `config.get<string>('featuresDirectory') || '<default>'` pattern; only the default value changes. The repo's own `.devtool/features/` directory is renamed via `git mv` to preserve history.
+**Architecture:** Pure string replacement across 14 locations in 11 files — no new logic, no migration code. All source files use the same `config.get<string>('featuresDirectory') || '<default>'` pattern; only the default value changes. Test files carry hardcoded path strings that are updated for consistency. The repo's own `.devtool/features/` directory is renamed via `git mv` to preserve history.
 
 **Tech Stack:** TypeScript, VS Code extension API, Vitest
 
 ---
 
-### Task 1: Update `package.json` and the 4 source files
+### Task 1: Update `package.json`, source files, and `README.md`
 
 **Files:**
 - Modify: `package.json:99`
@@ -18,6 +18,7 @@
 - Modify: `src/extension/FeatureHeaderProvider.ts:169`
 - Modify: `src/extension/SidebarViewProvider.ts:147`
 - Modify: `src/extension/index.ts:71`
+- Modify: `README.md:165,191`
 
 - [ ] **Step 1: Update `package.json` default**
 
@@ -76,6 +77,15 @@ const featuresDirectory = config.get<string>('featuresDirectory') || '.kanban/fe
 
 - [ ] **Step 6: Update `README.md`**
 
+In `README.md` line 165, change:
+```markdown
+Features live in `.devtool/features/` by default, organized into subfolders by status.
+```
+to:
+```markdown
+Features live in `.kanban/features/` by default, organized into subfolders by status.
+```
+
 In `README.md` line 191, change:
 ```markdown
 | `featuresDirectory` | `.devtool/features` | Directory for feature files (relative to workspace root) |
@@ -98,7 +108,10 @@ git commit -m "feat: change default featuresDirectory from .devtool/features to 
 
 **Files:**
 - Modify: `tests/extension/featureFileUtils.test.ts:27`
-- Modify: `tests/extension/FeatureHeaderProvider.startWithAI.test.ts:174,220,312`
+- Modify: `tests/extension/FeatureHeaderProvider.startWithAI.test.ts:106,174,220,312`
+- Modify: `tests/extension/KanbanPanel.startWithAI.test.ts:165,187,222,264,306`
+- Modify: `tests/extension/ai/promptBuilder.test.ts:30,115,122`
+- Modify: `tests/shared/featureFrontmatter.test.ts:9`
 - Modify: `tests/integration/suite/extension.test.ts:139`
 
 - [ ] **Step 1: Update `featureFileUtils.test.ts` constant**
@@ -112,9 +125,18 @@ to:
 const FEATURES_DIR = '/workspace/.kanban/features'
 ```
 
-- [ ] **Step 2: Update `FeatureHeaderProvider.startWithAI.test.ts` mock returns**
+- [ ] **Step 2: Update `FeatureHeaderProvider.startWithAI.test.ts`**
 
-In `tests/extension/FeatureHeaderProvider.startWithAI.test.ts`, change all three occurrences of:
+In `tests/extension/FeatureHeaderProvider.startWithAI.test.ts` line 106, change:
+```typescript
+const FEATURE_PATH = '/workspace/.devtool/features/my-feat.md'
+```
+to:
+```typescript
+const FEATURE_PATH = '/workspace/.kanban/features/my-feat.md'
+```
+
+In the same file, change all three occurrences at lines 174, 220, and 312:
 ```typescript
 if (key === 'featuresDirectory') return '.devtool/features'
 ```
@@ -123,9 +145,98 @@ to:
 if (key === 'featuresDirectory') return '.kanban/features'
 ```
 
-These appear at lines 174, 220, and 312.
+- [ ] **Step 3: Update `KanbanPanel.startWithAI.test.ts`**
 
-- [ ] **Step 3: Update `extension.test.ts` constant**
+In `tests/extension/KanbanPanel.startWithAI.test.ts`, change all five occurrences of `.devtool/features` to `.kanban/features`:
+
+Line 165:
+```typescript
+filePath: `${WORKSPACE_ROOT}/.devtool/features/my-review-feature.md`
+```
+to:
+```typescript
+filePath: `${WORKSPACE_ROOT}/.kanban/features/my-review-feature.md`
+```
+
+Line 187:
+```typescript
+expect(ctx.filePath).toBe(`${WORKSPACE_ROOT}/.devtool/features/my-review-feature.md`)
+```
+to:
+```typescript
+expect(ctx.filePath).toBe(`${WORKSPACE_ROOT}/.kanban/features/my-review-feature.md`)
+```
+
+Line 222:
+```typescript
+filePath: `${WORKSPACE_ROOT}/.devtool/features/feat.md`
+```
+to:
+```typescript
+filePath: `${WORKSPACE_ROOT}/.kanban/features/feat.md`
+```
+
+Line 264:
+```typescript
+filePath: '/custom-workspace/.devtool/features/feat.md'
+```
+to:
+```typescript
+filePath: '/custom-workspace/.kanban/features/feat.md'
+```
+
+Line 306:
+```typescript
+filePath: `${WORKSPACE_ROOT}/.devtool/features/security-test.md`
+```
+to:
+```typescript
+filePath: `${WORKSPACE_ROOT}/.kanban/features/security-test.md`
+```
+
+- [ ] **Step 4: Update `promptBuilder.test.ts`**
+
+In `tests/extension/ai/promptBuilder.test.ts`, change three occurrences of `.devtool/features`.
+
+Line 30 (in `baseCtx`):
+```typescript
+filePath: '/workspace/.devtool/features/my-feature.md'
+```
+to:
+```typescript
+filePath: '/workspace/.kanban/features/my-feature.md'
+```
+
+Line 115 (in expect assertion):
+```typescript
+expect(result).toContain('\nSee full details in: /workspace/.devtool/features/my-feature.md')
+```
+to:
+```typescript
+expect(result).toContain('\nSee full details in: /workspace/.kanban/features/my-feature.md')
+```
+
+Line 122 (in expect assertion):
+```typescript
+expect(result).toContain('See file at /workspace/.devtool/features/my-feature.md for details')
+```
+to:
+```typescript
+expect(result).toContain('See file at /workspace/.kanban/features/my-feature.md for details')
+```
+
+- [ ] **Step 5: Update `featureFrontmatter.test.ts` fixture path**
+
+In `tests/shared/featureFrontmatter.test.ts` line 9, change:
+```typescript
+const FIXTURE_PATH = '/workspace/.devtool/features/my-feature-2026-02-23.md'
+```
+to:
+```typescript
+const FIXTURE_PATH = '/workspace/.kanban/features/my-feature-2026-02-23.md'
+```
+
+- [ ] **Step 6: Update `extension.test.ts` constant**
 
 In `tests/integration/suite/extension.test.ts` line 139, change:
 ```typescript
@@ -136,7 +247,7 @@ to:
 const featuresDir = '/workspace/.kanban/features'
 ```
 
-- [ ] **Step 4: Run tests to confirm nothing broke**
+- [ ] **Step 7: Run tests to confirm nothing broke**
 
 ```bash
 cd /Users/me/Documents/GitHub/kanban-vscode-extension && npm test
@@ -144,10 +255,10 @@ cd /Users/me/Documents/GitHub/kanban-vscode-extension && npm test
 
 Expected: all tests pass. These changes are path string updates only — no logic changed.
 
-- [ ] **Step 5: Commit test changes**
+- [ ] **Step 8: Commit test changes**
 
 ```bash
-git add tests/extension/featureFileUtils.test.ts tests/extension/FeatureHeaderProvider.startWithAI.test.ts tests/integration/suite/extension.test.ts
+git add tests/extension/featureFileUtils.test.ts tests/extension/FeatureHeaderProvider.startWithAI.test.ts tests/extension/KanbanPanel.startWithAI.test.ts tests/extension/ai/promptBuilder.test.ts tests/shared/featureFrontmatter.test.ts tests/integration/suite/extension.test.ts
 git commit -m "test: update hardcoded .devtool/features paths to .kanban/features"
 ```
 

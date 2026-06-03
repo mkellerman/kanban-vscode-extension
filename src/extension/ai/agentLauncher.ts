@@ -23,7 +23,8 @@ export function launchAgentTerminal(
   agent: string,
   permissionMode: string,
   prompt: string,
-  cwd: string | undefined
+  cwd: string | undefined,
+  terminalTitle?: string
 ): void {
   const safeAgent = VALID_AGENTS.has(agent) ? agent : 'claude'
   const safeMode = VALID_PERMISSION_MODES.has(permissionMode) ? permissionMode : 'default'
@@ -55,7 +56,7 @@ export function launchAgentTerminal(
   }
 
   const terminal = vscode.window.createTerminal({
-    name: AGENT_NAMES[safeAgent] || 'AI Agent',
+    name: terminalTitle ?? AGENT_NAMES[safeAgent] ?? 'AI Agent',
     // TODO: on Windows, PATH resolution for agent binaries installed via nvm or
     // package managers may fail when VS Code is launched from the Dock rather
     // than a shell. Resolving the full path via `which`/`where` is deferred to
