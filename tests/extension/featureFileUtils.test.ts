@@ -34,6 +34,10 @@ const FEATURES_DIR = '/workspace/.devtool/features'
 function makeFs(existing: Set<string> = new Set()): FsAdapter & {
   rename: ReturnType<typeof vi.fn>
   createDirectory: ReturnType<typeof vi.fn>
+  readFile: ReturnType<typeof vi.fn>
+  writeFile: ReturnType<typeof vi.fn>
+  readDirectory: ReturnType<typeof vi.fn>
+  delete: ReturnType<typeof vi.fn>
 } {
   return {
     stat: vi.fn((uri: { fsPath: string }) => {
@@ -41,7 +45,11 @@ function makeFs(existing: Set<string> = new Set()): FsAdapter & {
       return Promise.reject(new Error('ENOENT'))
     }),
     rename: vi.fn(() => Promise.resolve()),
-    createDirectory: vi.fn(() => Promise.resolve())
+    createDirectory: vi.fn(() => Promise.resolve()),
+    readFile: vi.fn(() => Promise.resolve(new Uint8Array())),
+    writeFile: vi.fn(() => Promise.resolve()),
+    readDirectory: vi.fn(() => Promise.resolve([])),
+    delete: vi.fn(() => Promise.resolve())
   }
 }
 
