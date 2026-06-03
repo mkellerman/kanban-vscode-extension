@@ -43,8 +43,8 @@ The extension always binds to `workspaceFolders[0]`. Switching to a different re
 setRoot(path: string | null): Promise<void>
 ```
 
-- Stores `_rootOverride: string | null`.
-- `getFeaturesDir()` returns `_rootOverride` when set, otherwise falls back to the existing workspace-config logic (`kanban-markdown.featuresDirectory` + `workspaceFolders[0]`).
+- Stores `_rootOverride: string | null` — a **workspace root path** (e.g. `/Users/me/other-repo`), not the full features directory.
+- `getFeaturesDir()` uses `_rootOverride` as the workspace root when set, still appending the `featuresDirectory` config sub-path (e.g. `.kanban/features`). Falls back to `workspaceFolders[0]` when `_rootOverride` is null.
 - `setRoot` disposes the current `FileSystemWatcher`, sets the override, then calls `load()`.
 - `load()` fires `onDidChange` when complete. All three providers already subscribe to `onDidChange` and update for free — no re-injection required.
 - `setRoot(null)` clears the override and reloads from workspace config.
