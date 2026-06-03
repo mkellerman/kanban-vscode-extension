@@ -140,3 +140,4 @@ export type WebviewMessage =
   | { type: 'archiveAllCards'; sourceColumnId: string }
   | { type: 'renameLabel'; oldName: string; newName: string }
   | { type: 'deleteLabel'; labelName: string }
+  | { type: 'startWithAI'; agent?: AIAgent; permissionMode?: AIPermissionMode }

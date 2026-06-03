@@ -317,7 +317,7 @@ describe('KanbanPanel._startWithAI security', () => {
 
     // Make buildPrompt return a string containing metacharacters so we can
     // confirm they survive unescaped into shellArgs.
-    const dangerousPrompt = `hello "world" \`cmd\` $HOME; rm -rf . && echo | test`
+    const dangerousPrompt = `hello "world" 'single' \`cmd\` $HOME; rm -rf . && echo | test`
     mockBuildPrompt.mockReturnValueOnce(dangerousPrompt)
 
     const extensionUri = { fsPath: EXTENSION_ROOT } as import('vscode').Uri

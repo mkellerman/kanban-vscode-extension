@@ -16,6 +16,8 @@ const APPROVAL_MODE: Record<string, string> = {
   'bypassPermissions': 'full-auto'
 }
 
+const VALID_PERMISSION_MODES = new Set(['default', 'plan', 'acceptEdits', 'bypassPermissions'])
+
 export function launchAgentTerminal(
   // agent may be a config-sourced string; allow-list handles unknown values
   agent: string,
@@ -24,6 +26,7 @@ export function launchAgentTerminal(
   cwd: string | undefined
 ): void {
   const safeAgent = VALID_AGENTS.has(agent) ? agent : 'claude'
+  const safeMode = VALID_PERMISSION_MODES.has(permissionMode) ? permissionMode : 'default'
 
   // safeAgent is always one of the four VALID_AGENTS strings (or the 'claude' fallback)
   let args: string[] = [prompt]
@@ -32,14 +35,14 @@ export function launchAgentTerminal(
       args = []
       // claude --permission-mode accepts: plan, acceptEdits, bypassPermissions
       // (omit flag entirely for 'default' to use the CLI's default behavior)
-      if (permissionMode !== 'default') {
-        args.push('--permission-mode', permissionMode)
+      if (safeMode !== 'default') {
+        args.push('--permission-mode', safeMode)
       }
       args.push(prompt)
       break
     }
     case 'codex': {
-      const approvalMode = APPROVAL_MODE[permissionMode] || 'suggest'
+      const approvalMode = APPROVAL_MODE[safeMode] ?? 'ask'
       args = ['--ask-for-approval', approvalMode, prompt]
       break
     }
