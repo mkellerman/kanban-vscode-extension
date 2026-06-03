@@ -1,15 +1,16 @@
 ---
 id: "document-consistency-model-2026-06-02"
-status: "backlog"
+status: "todo"
 priority: "medium"
 assignee: null
 epic: "Architecture remediation"
 dueDate: null
 created: "2026-06-02T18:00:00.000Z"
-modified: "2026-06-02T18:00:00.000Z"
+modified: "2026-06-03T14:30:00.000Z"
 completedAt: null
 labels: ["documentation", "architecture"]
 order: "a4"
+blockedBy: []
 ---
 
 # Define and document the board's consistency model
@@ -22,10 +23,17 @@ The host keeps features in memory as the source of truth and reconciles external
 
 ## Acceptance criteria
 
-- [ ] A short design doc describes the source of truth, the write path, the reconcile path, and the known last-write-wins behaviour.
-- [ ] The echo-suppression mechanisms (`_migrating`, `_lastWrittenContent`, debounce) are documented in one place with their invariants.
-- [ ] A decision is recorded on whether to move to a single state owner (e.g. the FeatureRepository) shared across providers and windows.
-- [ ] Known race conditions are listed with their current mitigation or accepted risk.
+- [ ] A doc exists at `docs/architecture/consistency-model.md` with sections: _Source of Truth_, _Write Path_, _Reconcile / Reload Path_, _Echo Suppression Invariants_, _Known Race Conditions_.
+- [ ] _Echo Suppression Invariants_ documents `_migrating`, `_lastWrittenContents`, and the **100 ms** debounce with preconditions, postconditions, and failure modes for each.
+- [ ] _Source of Truth_ documents `FeatureRepository` as the single in-memory owner and explains how centralising the watcher, echo-suppression sentinel, and write API there eliminates the previous per-provider fragility.
+- [ ] _Known Race Conditions_ covers (a) concurrent native-editor + board edit within the debounce window and (b) concurrent agent file write + board edit within the debounce window — each entry states its current mitigation, accepted-risk note, and recommended fix.
+
+## Context & constraints
+
+- Design spec: `docs/superpowers/specs/2026-06-03-consistency-model-design.md`
+- Debounce is **100 ms** (the story's original context section said 300 ms — that is out of date; use the code value)
+- No source changes required — pure documentation story
+- `extract-feature-repository-service-2026-06-02` is the prerequisite that established `FeatureRepository` as single owner; document the resulting architecture as implemented
 
 ## Affected files
 
@@ -35,4 +43,4 @@ The host keeps features in memory as the source of truth and reconciles external
 
 ## Notes
 
-Pairs naturally with the FeatureRepository card, which would give the model a single owner.
+`extract-feature-repository-service-2026-06-02` completed on 2026-06-03 and established `FeatureRepository` as the single state owner. This story documents the resulting architecture as implemented, not a proposed future state.
