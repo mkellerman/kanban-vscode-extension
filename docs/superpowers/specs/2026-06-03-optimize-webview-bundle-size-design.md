@@ -21,10 +21,12 @@ Convert the static import of `FeatureEditor` to a dynamic import so Vite emits i
 
 ```tsx
 // Before
-import FeatureEditor from './components/FeatureEditor'
+import { FeatureEditor } from './components/FeatureEditor'
 
-// After
-const FeatureEditor = React.lazy(() => import('./components/FeatureEditor'))
+// After — React.lazy requires a default export, so re-map the named export
+const FeatureEditor = React.lazy(() =>
+  import('./components/FeatureEditor').then(m => ({ default: m.FeatureEditor }))
+)
 ```
 
 Wrap the usage site in `<Suspense fallback={null}>`. Vite automatically splits `FeatureEditor` and all its Tiptap dependencies into a separate chunk that loads only when a user first opens the editor. No changes to `FeatureEditor.tsx` itself.
