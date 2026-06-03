@@ -9,4 +9,4 @@ For each story, read the feature file and surface:
 - Newly introduced blockers not yet captured in `blockedBy`
 - Stories that appear stalled or at risk
 
-Reference `.kanban/instructions.md` for board conventions.
+If present, reference `.kanban/instructions.md` for board conventions.

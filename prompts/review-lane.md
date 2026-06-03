@@ -9,4 +9,4 @@ For each story, read the feature file and surface:
 - Failing checks or missing test coverage notes
 - Go/no-go decisions that need to be made before merging
 
-Reference `.kanban/instructions.md` for board conventions.
+If present, reference `.kanban/instructions.md` for board conventions.

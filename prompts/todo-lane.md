@@ -9,4 +9,4 @@ For each story, read the feature file and check readiness for planning:
 - Dependencies on stories still in backlog
 - No implementation plan yet written
 
-Reference `.kanban/instructions.md` for board conventions.
+If present, reference `.kanban/instructions.md` for board conventions.

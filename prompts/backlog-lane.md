@@ -9,4 +9,4 @@ For each story, read the feature file and surface:
 - Duplicate stories covering the same scope
 - Stories lacking enough context to plan
 
-Reference `.kanban/instructions.md` for board conventions.
+If present, reference `.kanban/instructions.md` for board conventions.

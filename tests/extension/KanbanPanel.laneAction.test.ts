@@ -241,4 +241,37 @@ describe('KanbanPanel laneAction handling', () => {
     // column.id must be 'backlog' even when config has no columns
     expect(column.id).toBe('backlog')
   })
+
+  it('does NOT call launchLane when featureIds is an empty array', async () => {
+    mockGetConfiguration.mockReturnValue(makeConfigMock())
+
+    const repo = makeRepo()
+    const launcher = makeLauncher()
+    KanbanPanel.createOrShow(
+      { fsPath: '/ext' } as import('vscode').Uri,
+      makeContext(), repo as never, launcher as never
+    )
+
+    const handler = captureMessageHandler.get()!
+    await handler({ type: 'laneAction', columnId: 'backlog', featureIds: [] })
+
+    expect(launcher.launchLane).not.toHaveBeenCalled()
+  })
+
+  it('does NOT crash when featureIds is not an array (malformed message)', async () => {
+    mockGetConfiguration.mockReturnValue(makeConfigMock())
+
+    const repo = makeRepo()
+    const launcher = makeLauncher()
+    KanbanPanel.createOrShow(
+      { fsPath: '/ext' } as import('vscode').Uri,
+      makeContext(), repo as never, launcher as never
+    )
+
+    const handler = captureMessageHandler.get()!
+    await expect(
+      handler({ type: 'laneAction', columnId: 'backlog', featureIds: undefined })
+    ).resolves.not.toThrow()
+    expect(launcher.launchLane).not.toHaveBeenCalled()
+  })
 })

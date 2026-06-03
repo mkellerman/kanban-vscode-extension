@@ -103,9 +103,11 @@ export function buildLanePrompt(
   extensionRoot: string,
   workspaceRoot: string | null
 ): string {
-  const featurePaths = features.map(f =>
-    workspaceRoot ? path.relative(workspaceRoot, f.filePath) : f.filePath
-  ).join('\n')
+  const featurePaths = features.map(f => {
+    if (!workspaceRoot) return f.filePath
+    const rel = path.relative(workspaceRoot, f.filePath)
+    return rel.startsWith('..') ? f.filePath : rel
+  }).join('\n')
 
   const substituteLane = (template: string): string => {
     const vars: Record<string, string> = {

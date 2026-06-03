@@ -9,4 +9,4 @@ For each story, read the feature file and confirm:
 - Any follow-up stories or retrospective notes have been captured
 - No loose ends remain in `blockedBy` that dependent stories are waiting on
 
-Reference `.kanban/instructions.md` for board conventions.
+If present, reference `.kanban/instructions.md` for board conventions.

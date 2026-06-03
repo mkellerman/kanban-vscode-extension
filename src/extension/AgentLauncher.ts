@@ -1,3 +1,4 @@
+import * as path from 'path'
 import * as vscode from 'vscode'
 import type { Feature, KanbanColumn } from '../shared/types'
 import { getTitleFromContent, DEFAULT_COLUMNS } from '../shared/types'
@@ -57,11 +58,13 @@ export class AgentLauncher {
     }
 
     const firstFilePath = features[0]?.filePath
-    const workspaceRoot = firstFilePath
-      ? (vscode.workspace.getWorkspaceFolder(vscode.Uri.file(firstFilePath))?.uri.fsPath
-        ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-        ?? null)
+    const workspaceFolder = firstFilePath
+      ? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(firstFilePath))?.uri.fsPath ?? null
       : null
+    const workspaceRoot = workspaceFolder
+    const cwd = workspaceFolder
+      ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      ?? (firstFilePath ? path.dirname(firstFilePath) : undefined)
 
     const prompt = buildLanePrompt(features, column, this._extensionUri.fsPath, workspaceRoot)
     const terminalTitle = `Scrum Master: ${column.name}`
@@ -70,7 +73,7 @@ export class AgentLauncher {
       agent || 'claude',
       permissionMode || 'default',
       prompt,
-      workspaceRoot ?? undefined,
+      cwd,
       terminalTitle
     )
   }

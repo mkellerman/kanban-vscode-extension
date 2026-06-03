@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Feature, KanbanColumn } from '../../src/shared/types'
 
-const { mockCreateTerminal, mockShowWarningMessage, mockShow, mockIsTrusted } = vi.hoisted(() => {
+const { mockCreateTerminal, mockShowWarningMessage, mockShow, mockIsTrusted, mockGetWorkspaceFolder } = vi.hoisted(() => {
   const mockShow = vi.fn()
   const mockCreateTerminal = vi.fn(() => ({ show: mockShow }))
   const mockShowWarningMessage = vi.fn()
   const mockIsTrusted = { value: true }
-  return { mockCreateTerminal, mockShowWarningMessage, mockShow, mockIsTrusted }
+  const mockGetWorkspaceFolder = vi.fn(() => ({ uri: { fsPath: '/workspace' } }))
+  return { mockCreateTerminal, mockShowWarningMessage, mockShow, mockIsTrusted, mockGetWorkspaceFolder }
 })
 
 vi.mock('vscode', () => ({
@@ -14,7 +15,7 @@ vi.mock('vscode', () => ({
   workspace: {
     get isTrusted() { return mockIsTrusted.value },
     workspaceFolders: [{ uri: { fsPath: '/workspace' } }],
-    getWorkspaceFolder: vi.fn(() => ({ uri: { fsPath: '/workspace' } })),
+    getWorkspaceFolder: mockGetWorkspaceFolder,
     getConfiguration: vi.fn(() => ({
       get: (key: string, def: unknown) => key === 'columns' ? [
         { id: 'backlog', name: 'Backlog', color: '#6b7280' },
@@ -152,5 +153,13 @@ describe('AgentLauncher.launchLane()', () => {
     const launcher = new AgentLauncher({ fsPath: '/ext' } as import('vscode').Uri)
     launcher.launchLane([BACKLOG_FEATURE], BACKLOG_COLUMN, 'claude', 'default')
     expect(mockBuildPrompt).not.toHaveBeenCalled()
+  })
+
+  it('falls back to workspaceFolders[0] for cwd when getWorkspaceFolder returns null', () => {
+    mockGetWorkspaceFolder.mockReturnValueOnce(null)
+    const launcher = new AgentLauncher({ fsPath: '/ext' } as import('vscode').Uri)
+    launcher.launchLane([BACKLOG_FEATURE], BACKLOG_COLUMN, 'claude', 'default')
+    const opts = mockCreateTerminal.mock.calls[0][0]
+    expect(opts.cwd).toBe('/workspace')
   })
 })

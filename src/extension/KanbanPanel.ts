@@ -213,6 +213,7 @@ export class KanbanPanel {
               vscode.window.showWarningMessage(t('panel.aiRequiresTrust'))
               return
             }
+            if (!Array.isArray(message.featureIds)) return
             const laneFeatures = (message.featureIds as string[])
               .map((id: string) => this._repo.features.find(f => f.id === id))
               .filter((f): f is Feature => f !== undefined)

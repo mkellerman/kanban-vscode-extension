@@ -616,6 +616,23 @@ describe('buildLanePrompt — variable substitution', () => {
     expect(lines).toContain('.kanban/features/feat-a.md')
     expect(lines).toContain('.kanban/features/feat-b.md')
   })
+
+  it('uses absolute path for a feature whose filePath escapes workspaceRoot (multi-root)', () => {
+    vi.mocked(fs.realpathSync).mockImplementation(() => { throw new Error('ENOENT') })
+    vi.mocked(fs.readFileSync).mockImplementation((p) => {
+      if (String(p).endsWith('backlog-lane.md')) return '{{featurePaths}}'
+      throw new Error('ENOENT')
+    })
+    const otherRootFeature: Feature = {
+      ...FEAT_A,
+      id: 'feat-other',
+      filePath: '/other-workspace/.kanban/features/feat-other.md'
+    }
+    const result = buildLanePrompt([FEAT_A, otherRootFeature], backlogColumn, EXTENSION_ROOT, WORKSPACE_ROOT)
+    expect(result).toContain('.kanban/features/feat-a.md')
+    expect(result).toContain('/other-workspace/.kanban/features/feat-other.md')
+    expect(result).not.toContain('../../other-workspace')
+  })
 })
 
 // ---------------------------------------------------------------------------
