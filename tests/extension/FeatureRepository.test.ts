@@ -366,3 +366,76 @@ describe('FeatureRepository.deleteFeature()', () => {
     expect(listener).toHaveBeenCalledOnce()
   })
 })
+
+describe('FeatureRepository.moveAllFeatures()', () => {
+  let memFs: MemoryFs
+
+  beforeEach(async () => {
+    memFs = new MemoryFs()
+    vi.useFakeTimers()
+    memFs.write(`${FEATURES_DIR}/feat-a.md`, makeFeatureMd({ id: 'feat-a', status: 'backlog', order: 'a0' }))
+    memFs.write(`${FEATURES_DIR}/feat-b.md`, makeFeatureMd({ id: 'feat-b', status: 'backlog', order: 'a1' }))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('moves all features in the source column to the target column', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    await repo.moveAllFeatures('backlog', 'todo')
+    expect(repo.features.every(f => f.status === 'todo')).toBe(true)
+  })
+
+  it('fires onDidChange after moveAllFeatures', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    const listener = vi.fn()
+    repo.onDidChange(listener)
+    listener.mockClear()
+    await repo.moveAllFeatures('backlog', 'in-progress')
+    expect(listener).toHaveBeenCalledOnce()
+  })
+})
+
+describe('FeatureRepository.archiveFeatures()', () => {
+  let memFs: MemoryFs
+
+  beforeEach(async () => {
+    memFs = new MemoryFs()
+    vi.useFakeTimers()
+    memFs.write(`${FEATURES_DIR}/feat-a.md`, makeFeatureMd({ id: 'feat-a', status: 'backlog' }))
+    memFs.write(`${FEATURES_DIR}/feat-b.md`, makeFeatureMd({ id: 'feat-b', status: 'todo' }))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('moves source column features to archived/ and removes from memory', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    const { failedCount } = await repo.archiveFeatures('backlog')
+    expect(failedCount).toBe(0)
+    expect(repo.features.every(f => f.status !== 'backlog')).toBe(true)
+    expect(memFs.has(`${FEATURES_DIR}/archived/feat-a.md`)).toBe(true)
+  })
+
+  it('returns failedCount > 0 when a rename fails', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    // Corrupt the fs adapter to make rename fail for feat-a
+    const origRename = memFs.rename.bind(memFs)
+    memFs.rename = async (src, tgt) => {
+      if (src.fsPath.includes('feat-a')) throw new Error('rename failed')
+      return origRename(src, tgt)
+    }
+    const { failedCount } = await repo.archiveFeatures('backlog')
+    expect(failedCount).toBe(1)
+  })
+
+  it('fires onDidChange after archiveFeatures', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    const listener = vi.fn()
+    repo.onDidChange(listener)
+    listener.mockClear()
+    await repo.archiveFeatures('backlog')
+    expect(listener).toHaveBeenCalledOnce()
+  })
+})

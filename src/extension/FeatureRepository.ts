@@ -4,6 +4,7 @@ import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing'
 import type { Feature, FeatureStatus, Priority, FilenamePattern } from '../shared/types'
 import { getTitleFromContent, generateFeatureFilename } from '../shared/types'
 import { parseFeatureFile, serializeFeature } from '../shared/featureFrontmatter'
+import { featureMatchesEpicLane } from '../shared/epicLane'
 import {
   ensureStatusSubfolders,
   moveFeatureFile,
@@ -367,6 +368,93 @@ export class FeatureRepository implements vscode.Disposable {
     await this._fs.delete(vscode.Uri.file(feature.filePath))
     this._features = this._features.filter(f => f.id !== featureId)
     this._emitter.fire(this._features)
+  }
+
+  async moveAllFeatures(
+    sourceColumnId: string,
+    targetColumnId: string,
+    epicLane?: string | null
+  ): Promise<void> {
+    const featuresDir = this.getFeaturesDir()
+    if (!featuresDir) return
+
+    const source = this._features
+      .filter(f => f.status === sourceColumnId && featureMatchesEpicLane(f, epicLane))
+      .sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
+    if (source.length === 0) return
+
+    const targetTail = this._features
+      .filter(f => f.status === targetColumnId)
+      .sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
+
+    const lastOrder = targetTail[targetTail.length - 1]?.order ?? null
+    const keys = generateNKeysBetween(lastOrder, null, source.length)
+
+    const crossingDone = sourceColumnId === 'done' || targetColumnId === 'done'
+    this._migrating = crossingDone
+    try {
+      for (let i = 0; i < source.length; i++) {
+        const f = source[i]
+        f.status = targetColumnId as FeatureStatus
+        f.modified = new Date().toISOString()
+        f.completedAt = targetColumnId === 'done' ? f.modified : null
+        f.order = keys[i]
+
+        const serialized = serializeFeature(f)
+        this._lastWrittenContents.set(f.filePath, serialized)
+        await this._fs.writeFile(vscode.Uri.file(f.filePath), new TextEncoder().encode(serialized))
+
+        if (crossingDone) {
+          try {
+            f.filePath = await moveFeatureFile(f.filePath, featuresDir, targetColumnId, this._fs)
+          } catch { /* reconcile on next load */ }
+        }
+      }
+    } finally {
+      this._migrating = false
+    }
+
+    this._emitter.fire(this._features)
+  }
+
+  async archiveFeatures(sourceColumnId: string): Promise<{ failedCount: number }> {
+    const featuresDir = this.getFeaturesDir()
+    if (!featuresDir) return { failedCount: 0 }
+
+    const source = this._features.filter(f => f.status === sourceColumnId)
+    if (source.length === 0) return { failedCount: 0 }
+
+    const archivedDir = path.join(featuresDir, 'archived')
+    await this._fs.createDirectory(vscode.Uri.file(archivedDir))
+
+    this._migrating = true
+    const archivedIds = new Set<string>()
+    let failedCount = 0
+
+    try {
+      for (const feature of source) {
+        const filename = path.basename(feature.filePath)
+        const ext = path.extname(filename)
+        const base = path.basename(filename, ext)
+        let targetPath = path.join(archivedDir, filename)
+        let counter = 1
+        while (await fileExists(targetPath, this._fs)) {
+          targetPath = path.join(archivedDir, `${base}-${counter++}${ext}`)
+        }
+        try {
+          await this._fs.rename(vscode.Uri.file(feature.filePath), vscode.Uri.file(targetPath))
+          archivedIds.add(feature.id)
+        } catch {
+          failedCount++
+        }
+      }
+      this._features = this._features.filter(f => !archivedIds.has(f.id))
+    } finally {
+      this._migrating = false
+    }
+
+    this._emitter.fire(this._features)
+    return { failedCount }
   }
 
   dispose(): void {
