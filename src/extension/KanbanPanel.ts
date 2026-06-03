@@ -518,7 +518,9 @@ export class KanbanPanel {
       }
 
       this._features = features.sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
-    } catch {
+    } catch (err) {
+      console.error('[kanban-markdown] _loadFeatures failed:', err)
+      vscode.window.showErrorMessage(t('panel.loadFailed', { error: String(err) }))
       this._features = []
     }
   }
