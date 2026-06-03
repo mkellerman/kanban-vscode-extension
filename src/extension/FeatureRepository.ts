@@ -1,12 +1,14 @@
 import * as vscode from 'vscode'
 import * as path from 'path'
-import { generateNKeysBetween } from 'fractional-indexing'
-import type { Feature, FeatureStatus, Priority } from '../shared/types'
+import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing'
+import type { Feature, FeatureStatus, Priority, FilenamePattern } from '../shared/types'
+import { getTitleFromContent, generateFeatureFilename } from '../shared/types'
 import { parseFeatureFile, serializeFeature } from '../shared/featureFrontmatter'
 import {
   ensureStatusSubfolders,
   moveFeatureFile,
   getStatusFromPath,
+  getFeatureFilePath,
   fileExists,
   type FsAdapter
 } from './featureFileUtils'
@@ -231,6 +233,140 @@ export class FeatureRepository implements vscode.Disposable {
       }
       await this.load()
     }, 100)
+  }
+
+  async createFeature(data: CreateFeatureData): Promise<Feature> {
+    const featuresDir = this.getFeaturesDir()
+    if (!featuresDir) throw new Error('No workspace open')
+
+    await this._fs.createDirectory(vscode.Uri.file(featuresDir))
+    await ensureStatusSubfolders(featuresDir, this._fs)
+
+    const title = getTitleFromContent(data.content)
+    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const pattern = config.get<FilenamePattern>('filenamePattern', 'name-date')
+    const now = new Date().toISOString()
+    const addToTop = config.get<boolean>('addNewCardsToTop', false)
+
+    const inStatus = this._features
+      .filter(f => f.status === data.status)
+      .sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
+    const newOrder = addToTop
+      ? generateKeyBetween(null, inStatus[0]?.order ?? null)
+      : generateKeyBetween(inStatus[inStatus.length - 1]?.order ?? null, null)
+
+    const filename = generateFeatureFilename(title, pattern)
+    let filePath = getFeatureFilePath(featuresDir, data.status, filename)
+    let uniqueName = filename
+    let counter = 1
+    while (await fileExists(filePath, this._fs)) {
+      uniqueName = `${filename}-${counter++}`
+      filePath = getFeatureFilePath(featuresDir, data.status, uniqueName)
+    }
+
+    const feature: Feature = {
+      id: uniqueName,
+      status: data.status,
+      priority: data.priority,
+      assignee: data.assignee,
+      epic: data.epic ? data.epic.trim() || null : null,
+      dueDate: data.dueDate,
+      created: now,
+      modified: now,
+      completedAt: data.status === 'done' ? now : null,
+      labels: data.labels,
+      order: newOrder,
+      content: data.content,
+      filePath
+    }
+
+    const serialized = serializeFeature(feature)
+    this._lastWrittenContents.set(filePath, serialized)
+    await this._fs.createDirectory(vscode.Uri.file(path.dirname(filePath)))
+    await this._fs.writeFile(vscode.Uri.file(filePath), new TextEncoder().encode(serialized))
+
+    this._features.push(feature)
+    this._features.sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
+    this._emitter.fire(this._features)
+    return feature
+  }
+
+  async updateFeature(featureId: string, updates: Partial<Feature>): Promise<void> {
+    const feature = this._features.find(f => f.id === featureId)
+    if (!feature) return
+
+    const featuresDir = this.getFeaturesDir()
+    if (!featuresDir) return
+
+    const oldStatus = feature.status
+    Object.assign(feature, updates)
+    feature.modified = new Date().toISOString()
+    if (updates.status !== undefined && oldStatus !== feature.status) {
+      feature.completedAt = feature.status === 'done' ? feature.modified : null
+    }
+
+    const serialized = serializeFeature(feature)
+    this._lastWrittenContents.set(feature.filePath, serialized)
+    await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
+
+    if (oldStatus !== feature.status && (oldStatus === 'done' || feature.status === 'done')) {
+      this._migrating = true
+      try {
+        feature.filePath = await moveFeatureFile(feature.filePath, featuresDir, feature.status, this._fs)
+      } catch { /* reconcile on next load */ } finally {
+        this._migrating = false
+      }
+    }
+
+    this._emitter.fire(this._features)
+  }
+
+  async moveFeature(featureId: string, newStatus: string, newOrder: number): Promise<void> {
+    const feature = this._features.find(f => f.id === featureId)
+    if (!feature) return
+
+    const featuresDir = this.getFeaturesDir()
+    if (!featuresDir) return
+
+    const oldStatus = feature.status
+    feature.status = newStatus as FeatureStatus
+    feature.modified = new Date().toISOString()
+    if (oldStatus !== newStatus) {
+      feature.completedAt = newStatus === 'done' ? feature.modified : null
+    }
+
+    const targetCol = this._features
+      .filter(f => f.status === newStatus && f.id !== featureId)
+      .sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
+    const clamped = Math.max(0, Math.min(newOrder, targetCol.length))
+    feature.order = generateKeyBetween(
+      clamped > 0 ? targetCol[clamped - 1].order : null,
+      clamped < targetCol.length ? targetCol[clamped].order : null
+    )
+
+    const serialized = serializeFeature(feature)
+    this._lastWrittenContents.set(feature.filePath, serialized)
+    await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
+
+    const crossingDone = oldStatus !== newStatus && (oldStatus === 'done' || newStatus === 'done')
+    if (crossingDone) {
+      this._migrating = true
+      try {
+        feature.filePath = await moveFeatureFile(feature.filePath, featuresDir, newStatus, this._fs)
+      } catch { /* reconcile on next load */ } finally {
+        this._migrating = false
+      }
+    }
+
+    this._emitter.fire(this._features)
+  }
+
+  async deleteFeature(featureId: string): Promise<void> {
+    const feature = this._features.find(f => f.id === featureId)
+    if (!feature) return
+    await this._fs.delete(vscode.Uri.file(feature.filePath))
+    this._features = this._features.filter(f => f.id !== featureId)
+    this._emitter.fire(this._features)
   }
 
   dispose(): void {

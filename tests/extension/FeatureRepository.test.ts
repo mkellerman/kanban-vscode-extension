@@ -216,3 +216,153 @@ describe('FeatureRepository.load() — Phase 2: reads root and done/ files', () 
     expect(repo.features[1].id).toBe('feat-b')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Write methods
+// ---------------------------------------------------------------------------
+
+describe('FeatureRepository.createFeature()', () => {
+  let memFs: MemoryFs
+
+  beforeEach(() => { memFs = new MemoryFs(); vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('writes a new .md file and adds the feature to the in-memory list', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    await repo.createFeature({
+      status: 'backlog', priority: 'medium', content: '# New Feature\n\nDesc.',
+      assignee: null, epic: null, dueDate: null, labels: []
+    })
+    expect(repo.features).toHaveLength(1)
+    expect(memFs.list().some(p => p.includes(FEATURES_DIR))).toBe(true)
+  })
+
+  it('fires onDidChange after createFeature', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    const listener = vi.fn()
+    repo.onDidChange(listener)
+    listener.mockClear()
+    await repo.createFeature({
+      status: 'backlog', priority: 'low', content: '# Feat',
+      assignee: null, epic: null, dueDate: null, labels: []
+    })
+    expect(listener).toHaveBeenCalledOnce()
+  })
+
+  it('places new feature in done/ when status is "done"', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    await repo.createFeature({
+      status: 'done', priority: 'low', content: '# Done Feat',
+      assignee: null, epic: null, dueDate: null, labels: []
+    })
+    const paths = memFs.list()
+    expect(paths.some(p => p.includes('/done/'))).toBe(true)
+  })
+})
+
+describe('FeatureRepository.updateFeature()', () => {
+  let memFs: MemoryFs
+
+  beforeEach(async () => {
+    memFs = new MemoryFs()
+    vi.useFakeTimers()
+    memFs.write(`${FEATURES_DIR}/feat-a.md`, makeFeatureMd({ id: 'feat-a', priority: 'low' }))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('updates priority in memory and on disk', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    await repo.updateFeature('feat-a', { priority: 'high' })
+    expect(repo.features[0].priority).toBe('high')
+    expect(memFs.read(`${FEATURES_DIR}/feat-a.md`)).toContain('priority: "high"')
+  })
+
+  it('fires onDidChange after updateFeature', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    const listener = vi.fn()
+    repo.onDidChange(listener)
+    listener.mockClear()
+    await repo.updateFeature('feat-a', { priority: 'critical' })
+    expect(listener).toHaveBeenCalledOnce()
+  })
+
+  it('is a no-op for unknown featureId', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    const listener = vi.fn()
+    repo.onDidChange(listener)
+    listener.mockClear()
+    await repo.updateFeature('does-not-exist', { priority: 'high' })
+    expect(listener).not.toHaveBeenCalled()
+  })
+})
+
+describe('FeatureRepository.moveFeature()', () => {
+  let memFs: MemoryFs
+
+  beforeEach(async () => {
+    memFs = new MemoryFs()
+    vi.useFakeTimers()
+    memFs.write(`${FEATURES_DIR}/feat-a.md`, makeFeatureMd({ id: 'feat-a', status: 'backlog', order: 'a0' }))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('updates status in memory after moveFeature', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    await repo.moveFeature('feat-a', 'in-progress', 0)
+    expect(repo.features[0].status).toBe('in-progress')
+  })
+
+  it('moves file to done/ when crossing the done boundary', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    await repo.moveFeature('feat-a', 'done', 0)
+    expect(memFs.has(`${FEATURES_DIR}/done/feat-a.md`)).toBe(true)
+    expect(memFs.has(`${FEATURES_DIR}/feat-a.md`)).toBe(false)
+  })
+
+  it('fires onDidChange after moveFeature', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    const listener = vi.fn()
+    repo.onDidChange(listener)
+    listener.mockClear()
+    await repo.moveFeature('feat-a', 'todo', 0)
+    expect(listener).toHaveBeenCalledOnce()
+  })
+})
+
+describe('FeatureRepository.deleteFeature()', () => {
+  let memFs: MemoryFs
+
+  beforeEach(async () => {
+    memFs = new MemoryFs()
+    vi.useFakeTimers()
+    memFs.write(`${FEATURES_DIR}/feat-a.md`, makeFeatureMd({ id: 'feat-a' }))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('removes feature from memory and deletes the file', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    await repo.deleteFeature('feat-a')
+    expect(repo.features).toHaveLength(0)
+    expect(memFs.has(`${FEATURES_DIR}/feat-a.md`)).toBe(false)
+  })
+
+  it('fires onDidChange after deleteFeature', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    const listener = vi.fn()
+    repo.onDidChange(listener)
+    listener.mockClear()
+    await repo.deleteFeature('feat-a')
+    expect(listener).toHaveBeenCalledOnce()
+  })
+})
