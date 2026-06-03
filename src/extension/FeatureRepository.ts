@@ -1,5 +1,6 @@
 import * as vscode from 'vscode'
 import * as path from 'path'
+import { t } from './l10n'
 import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing'
 import type { Feature, FeatureStatus, Priority, FilenamePattern } from '../shared/types'
 import { getTitleFromContent, generateFeatureFilename } from '../shared/types'
@@ -216,8 +217,9 @@ export class FeatureRepository implements vscode.Disposable {
       if (myVersion === this._loadVersion) {
         this._features = features.sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
       }
-    } catch {
+    } catch (err) {
       if (myVersion === this._loadVersion) {
+        vscode.window.showErrorMessage(t('panel.loadFailed', { error: String(err) }))
         this._features = []
       }
     }
@@ -314,7 +316,13 @@ export class FeatureRepository implements vscode.Disposable {
     const serialized = serializeFeature(feature)
     this._lastWrittenContents.set(filePath, serialized)
     await this._fs.createDirectory(vscode.Uri.file(path.dirname(filePath)))
-    await this._fs.writeFile(vscode.Uri.file(filePath), new TextEncoder().encode(serialized))
+    try {
+      await this._fs.writeFile(vscode.Uri.file(filePath), new TextEncoder().encode(serialized))
+    } catch (err) {
+      console.error('[kanban-markdown] writeFile failed:', err)
+      vscode.window.showErrorMessage(t('panel.createFailed', { error: String(err) }))
+      throw err
+    }
 
     this._features.push(feature)
     this._features.sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
@@ -341,7 +349,14 @@ export class FeatureRepository implements vscode.Disposable {
     try {
       const serialized = serializeFeature(feature)
       this._lastWrittenContents.set(feature.filePath, serialized)
-      await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
+      try {
+        await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
+      } catch (err) {
+        console.error('[kanban-markdown] writeFile failed:', err)
+        vscode.window.showErrorMessage(t('panel.saveFailed', { error: String(err) }))
+        await this.load()
+        return
+      }
 
       if (crossingDoneUpdate) {
         try {
@@ -383,7 +398,14 @@ export class FeatureRepository implements vscode.Disposable {
     try {
       const serialized = serializeFeature(feature)
       this._lastWrittenContents.set(feature.filePath, serialized)
-      await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
+      try {
+        await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
+      } catch (err) {
+        console.error('[kanban-markdown] writeFile failed:', err)
+        vscode.window.showErrorMessage(t('panel.moveFailed', { error: String(err) }))
+        await this.load()
+        return
+      }
 
       if (crossingDone) {
         try {
@@ -428,6 +450,7 @@ export class FeatureRepository implements vscode.Disposable {
 
     const crossingDone = sourceColumnId === 'done' || targetColumnId === 'done'
     this._migrating = crossingDone
+    let failedCount = 0
     try {
       for (let i = 0; i < source.length; i++) {
         const f = source[i]
@@ -438,7 +461,13 @@ export class FeatureRepository implements vscode.Disposable {
 
         const serialized = serializeFeature(f)
         this._lastWrittenContents.set(f.filePath, serialized)
-        await this._fs.writeFile(vscode.Uri.file(f.filePath), new TextEncoder().encode(serialized))
+        try {
+          await this._fs.writeFile(vscode.Uri.file(f.filePath), new TextEncoder().encode(serialized))
+        } catch (err) {
+          console.error('[kanban-markdown] writeFile failed for', f.id, err)
+          failedCount++
+          continue
+        }
 
         if (crossingDone) {
           try {
@@ -448,6 +477,15 @@ export class FeatureRepository implements vscode.Disposable {
       }
     } finally {
       this._migrating = false
+    }
+
+    if (failedCount > 0) {
+      const msg = failedCount === 1
+        ? t('panel.moveAllFailedOne')
+        : t('panel.moveAllFailedOther', { count: failedCount })
+      vscode.window.showWarningMessage(msg)
+      await this.load()
+      return
     }
 
     this._emitter.fire(this._features)
@@ -500,6 +538,7 @@ export class FeatureRepository implements vscode.Disposable {
     if (!trimOld || !trimNew || trimOld === trimNew) return 0
 
     let count = 0
+    let failedCount = 0
     for (const feature of this._features) {
       const idx = feature.labels.indexOf(trimOld)
       if (idx === -1) continue
@@ -511,11 +550,24 @@ export class FeatureRepository implements vscode.Disposable {
       feature.modified = new Date().toISOString()
       const serialized = serializeFeature(feature)
       this._lastWrittenContents.set(feature.filePath, serialized)
-      await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
-      count++
+      try {
+        await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
+        count++
+      } catch (err) {
+        console.error('[kanban-markdown] writeFile failed for', feature.id, err)
+        failedCount++
+      }
     }
 
-    if (count > 0) this._emitter.fire(this._features)
+    if (failedCount > 0) {
+      const msg = failedCount === 1
+        ? t('panel.renameLabelFailedOne')
+        : t('panel.renameLabelFailedOther', { count: failedCount })
+      vscode.window.showWarningMessage(msg)
+      await this.load()
+    } else if (count > 0) {
+      this._emitter.fire(this._features)
+    }
     return count
   }
 
@@ -524,6 +576,7 @@ export class FeatureRepository implements vscode.Disposable {
     if (!trimmed) return
 
     let changed = false
+    let failedCount = 0
     for (const feature of this._features) {
       const idx = feature.labels.indexOf(trimmed)
       if (idx === -1) continue
@@ -531,11 +584,24 @@ export class FeatureRepository implements vscode.Disposable {
       feature.modified = new Date().toISOString()
       const serialized = serializeFeature(feature)
       this._lastWrittenContents.set(feature.filePath, serialized)
-      await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
-      changed = true
+      try {
+        await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
+        changed = true
+      } catch (err) {
+        console.error('[kanban-markdown] writeFile failed for', feature.id, err)
+        failedCount++
+      }
     }
 
-    if (changed) this._emitter.fire(this._features)
+    if (failedCount > 0) {
+      const msg = failedCount === 1
+        ? t('panel.deleteLabelFailedOne')
+        : t('panel.deleteLabelFailedOther', { count: failedCount })
+      vscode.window.showWarningMessage(msg)
+      await this.load()
+    } else if (changed) {
+      this._emitter.fire(this._features)
+    }
   }
 
   async migrateFilenames(pattern: FilenamePattern): Promise<{ renamed: number; skipped: number }> {

@@ -111,7 +111,7 @@ export class KanbanPanel {
           case 'createFeature': {
             const created = await this._repo.createFeature(message.data as CreateFeatureData)
             const createConfig = vscode.workspace.getConfiguration('kanban-markdown')
-            if (createConfig.get<boolean>('markdownEditorMode', false)) {
+            if (created && createConfig.get<boolean>('markdownEditorMode', false)) {
               this._openFeatureInNativeEditor(created.id)
             }
             break
