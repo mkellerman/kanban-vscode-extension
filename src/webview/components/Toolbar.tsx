@@ -48,9 +48,12 @@ export function Toolbar({
     setLabelFilter,
     dueDateFilter,
     setDueDateFilter,
+    epicFilter,
+    setEpicFilter,
     clearAllFilters,
     getUniqueAssignees,
     getUniqueLabels,
+    getUniqueEpics,
     hasActiveFilters,
     layout,
     toggleLayout,
@@ -61,6 +64,7 @@ export function Toolbar({
   const dueDateOptions = getDueDateOptions()
   const assignees = getUniqueAssignees()
   const labels = getUniqueLabels()
+  const epics = getUniqueEpics()
   const filtersActive = hasActiveFilters()
 
   const [labelManagerOpen, setLabelManagerOpen] = useState(false)
@@ -133,6 +137,21 @@ export function Toolbar({
           </optgroup>
         )}
       </select>
+      )}
+
+      {/* Epic Filter */}
+      {cardSettings.showEpic && (
+        <select
+          value={epicFilter}
+          onChange={(e) => setEpicFilter(e.target.value)}
+          className={selectClassName}
+        >
+          <option value="all">{t('toolbar.allEpics')}</option>
+          <option value="no-epic">{t('toolbar.noEpic')}</option>
+          {epics.map((epic) => (
+            <option key={epic} value={epic}>{epic}</option>
+          ))}
+        </select>
       )}
 
       {/* Due Date Filter */}
