@@ -29,7 +29,7 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
 
   const getString = (key: string): string | null => {
     const val = parsed[key]
-    if (val === null || val === undefined || val === '' || val === 'null') return null
+    if (val === null || val === undefined || val === '') return null
     return String(val)
   }
 
@@ -44,7 +44,9 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
     modified: getString('modified') || new Date().toISOString(),
     completedAt: getString('completedAt'),
     labels: Array.isArray(parsed['labels'])
-      ? (parsed['labels'] as unknown[]).map(String).filter(s => s !== '' && s !== 'null')
+      ? (parsed['labels'] as unknown[])
+          .filter((item): item is string | number | boolean => item !== null && item !== undefined && item !== '')
+          .map(String)
       : [],
     order: getString('order') || 'a0',
     content: body.trim(),

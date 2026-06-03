@@ -100,16 +100,6 @@ describe('parseFeatureFile', () => {
       expect(feature.assignee).toBeNull()
     })
 
-    it('returns null assignee when frontmatter value is the quoted string "null"', () => {
-      const content = makeFrontmatter({ assignee: '"null"' }) + ''
-      expect(parseFeatureFile(content, FIXTURE_PATH)!.assignee).toBeNull()
-    })
-
-    it('returns null epic when frontmatter value is the quoted string "null"', () => {
-      const content = makeFrontmatter({ epic: '"null"' }) + ''
-      expect(parseFeatureFile(content, FIXTURE_PATH)!.epic).toBeNull()
-    })
-
     it('returns null dueDate when frontmatter value is null', () => {
       const content = makeFrontmatter({ dueDate: 'null' }) + ''
       expect(parseFeatureFile(content, FIXTURE_PATH)!.dueDate).toBeNull()
@@ -317,5 +307,17 @@ describe('round-trip: special characters', () => {
     const original = makeFeature({ assignee: 'path\\to\\file' })
     const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
     expect(recovered.assignee).toBe('path\\to\\file')
+  })
+
+  it('round-trips an epic with the literal string value "null"', () => {
+    const original = makeFeature({ epic: 'null' })
+    const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
+    expect(recovered.epic).toBe('null')
+  })
+
+  it('round-trips a label literally named "null"', () => {
+    const original = makeFeature({ labels: ['null'] })
+    const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
+    expect(recovered.labels).toEqual(['null'])
   })
 })
