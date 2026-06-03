@@ -20,6 +20,7 @@ export class KanbanPanel {
   private _disposables: vscode.Disposable[] = []
   private _currentEditingFeatureId: string | null = null
   private _lastSentEditorContent: string = ''
+  private _savingFeatureContent = false
   private _onDisposeCallbacks: (() => void)[] = []
 
   public static createOrShow(
@@ -108,12 +109,10 @@ export class KanbanPanel {
             await this._repo.load()
             break
           case 'createFeature': {
-            await this._repo.createFeature(message.data as CreateFeatureData)
+            const created = await this._repo.createFeature(message.data as CreateFeatureData)
             const createConfig = vscode.workspace.getConfiguration('kanban-markdown')
             if (createConfig.get<boolean>('markdownEditorMode', false)) {
-              const features = this._repo.features
-              const created = features[features.length - 1]
-              if (created) this._openFeatureInNativeEditor(created.id)
+              this._openFeatureInNativeEditor(created.id)
             }
             break
           }
@@ -218,7 +217,7 @@ export class KanbanPanel {
     // Subscribe to repo changes
     this._repo.onDidChange(newFeatures => {
       this._sendFeaturesToWebview()
-      if (this._currentEditingFeatureId) {
+      if (this._currentEditingFeatureId && !this._savingFeatureContent) {
         const feature = newFeatures.find(f => f.id === this._currentEditingFeatureId)
         if (feature) {
           const currentSerialized = serializeFeature(feature)
@@ -425,7 +424,12 @@ export class KanbanPanel {
       dueDate: frontmatter.dueDate,
       labels: frontmatter.labels
     }
-    await this._repo.updateFeature(featureId, updates)
+    this._savingFeatureContent = true
+    try {
+      await this._repo.updateFeature(featureId, updates)
+    } finally {
+      this._savingFeatureContent = false
+    }
     const feature = this._repo.features.find(f => f.id === featureId)
     if (feature) this._lastSentEditorContent = serializeFeature(feature)
   }

@@ -306,17 +306,20 @@ export class FeatureRepository implements vscode.Disposable {
       feature.completedAt = feature.status === 'done' ? feature.modified : null
     }
 
-    const serialized = serializeFeature(feature)
-    this._lastWrittenContents.set(feature.filePath, serialized)
-    await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
+    const crossingDoneUpdate = oldStatus !== feature.status && (oldStatus === 'done' || feature.status === 'done')
+    if (crossingDoneUpdate) this._migrating = true
+    try {
+      const serialized = serializeFeature(feature)
+      this._lastWrittenContents.set(feature.filePath, serialized)
+      await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
 
-    if (oldStatus !== feature.status && (oldStatus === 'done' || feature.status === 'done')) {
-      this._migrating = true
-      try {
-        feature.filePath = await moveFeatureFile(feature.filePath, featuresDir, feature.status, this._fs)
-      } catch { /* reconcile on next load */ } finally {
-        this._migrating = false
+      if (crossingDoneUpdate) {
+        try {
+          feature.filePath = await moveFeatureFile(feature.filePath, featuresDir, feature.status, this._fs)
+        } catch { /* reconcile on next load */ }
       }
+    } finally {
+      if (crossingDoneUpdate) this._migrating = false
     }
 
     this._emitter.fire(this._features)
@@ -345,18 +348,20 @@ export class FeatureRepository implements vscode.Disposable {
       clamped < targetCol.length ? targetCol[clamped].order : null
     )
 
-    const serialized = serializeFeature(feature)
-    this._lastWrittenContents.set(feature.filePath, serialized)
-    await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
-
     const crossingDone = oldStatus !== newStatus && (oldStatus === 'done' || newStatus === 'done')
-    if (crossingDone) {
-      this._migrating = true
-      try {
-        feature.filePath = await moveFeatureFile(feature.filePath, featuresDir, newStatus, this._fs)
-      } catch { /* reconcile on next load */ } finally {
-        this._migrating = false
+    if (crossingDone) this._migrating = true
+    try {
+      const serialized = serializeFeature(feature)
+      this._lastWrittenContents.set(feature.filePath, serialized)
+      await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
+
+      if (crossingDone) {
+        try {
+          feature.filePath = await moveFeatureFile(feature.filePath, featuresDir, newStatus, this._fs)
+        } catch { /* reconcile on next load */ }
       }
+    } finally {
+      if (crossingDone) this._migrating = false
     }
 
     this._emitter.fire(this._features)
