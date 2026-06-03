@@ -106,7 +106,7 @@ export class KanbanPanel {
         switch (message.type) {
           case 'ready':
             await this._loadFeatures()
-            this._sendFeaturesToWebview()
+            this._initWebview()
             break
           case 'createFeature': {
             await this._createFeature(message.data)
@@ -220,9 +220,9 @@ export class KanbanPanel {
         if (e.affectsConfiguration('kanban-markdown.featuresDirectory')) {
           // Features directory changed - need to reload everything
           this._setupFileWatcher()
-          this._loadFeatures().then(() => this._sendFeaturesToWebview())
+          this._loadFeatures().then(() => this._initWebview())
         } else {
-          this._sendFeaturesToWebview()
+          this._initWebview()
           if (e.affectsConfiguration('kanban-markdown.filenamePattern')) {
             this._promptFilenamePatternMigration()
           }
@@ -231,7 +231,7 @@ export class KanbanPanel {
           }
         }
       } else if (e.affectsConfiguration('chat.disableAIFeatures')) {
-        this._sendFeaturesToWebview()
+        this._initWebview()
       }
     }, null, this._disposables)
   }
@@ -257,7 +257,7 @@ export class KanbanPanel {
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(async () => {
         await this._loadFeatures()
-        this._sendFeaturesToWebview()
+        this._refreshFeatures()
 
         // If the changed file is the currently-edited feature, check for external changes
         if (this._currentEditingFeatureId && uri) {
@@ -584,7 +584,7 @@ export class KanbanPanel {
     await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
 
     this._features.push(feature)
-    this._sendFeaturesToWebview()
+    this._patchFeatures({ add: [feature] })
   }
 
   private async _moveFeature(featureId: string, newStatus: string, newOrder: number): Promise<void> {
@@ -633,7 +633,7 @@ export class KanbanPanel {
       }
     }
 
-    this._sendFeaturesToWebview()
+    this._patchFeatures({ update: [feature] })
   }
 
   private async _moveAllCards(
@@ -685,7 +685,7 @@ export class KanbanPanel {
       this._migrating = false
     }
 
-    this._sendFeaturesToWebview()
+    this._refreshFeatures()
   }
 
   private async _archiveAllCards(sourceColumnId: string): Promise<void> {
@@ -751,7 +751,7 @@ export class KanbanPanel {
       vscode.window.showWarningMessage(failMsg)
     }
 
-    this._sendFeaturesToWebview()
+    this._refreshFeatures()
   }
 
   private async _deleteFeature(featureId: string): Promise<void> {
@@ -761,7 +761,7 @@ export class KanbanPanel {
     try {
       await vscode.workspace.fs.delete(vscode.Uri.file(feature.filePath))
       this._features = this._features.filter(f => f.id !== featureId)
-      this._sendFeaturesToWebview()
+      this._patchFeatures({ remove: [featureId] })
     } catch (err) {
       vscode.window.showErrorMessage(t('panel.deleteFailed', { error: String(err) }))
     }
@@ -801,7 +801,7 @@ export class KanbanPanel {
       }
     }
 
-    this._sendFeaturesToWebview()
+    this._patchFeatures({ update: [feature] })
   }
 
   private async _openFeatureInNativeEditor(featureId: string): Promise<void> {
@@ -889,8 +889,7 @@ export class KanbanPanel {
       }
     }
 
-    // Update all features in webview
-    this._sendFeaturesToWebview()
+    this._patchFeatures({ update: [feature] })
   }
 
   private async _startWithAI(
@@ -967,7 +966,7 @@ export class KanbanPanel {
       }
     }
 
-    this._sendFeaturesToWebview()
+    this._refreshFeatures()
   }
 
   private async _renameLabel(oldName: string, newName: string): Promise<void> {
@@ -995,7 +994,7 @@ export class KanbanPanel {
     }
 
     if (updatedCount > 0) {
-      this._sendFeaturesToWebview()
+      this._refreshFeatures()
     }
   }
 
@@ -1093,7 +1092,7 @@ export class KanbanPanel {
     }
 
     await this._loadFeatures()
-    this._sendFeaturesToWebview()
+    this._refreshFeatures()
 
     const msg = skipped > 0
       ? t('panel.renameResultWithSkipped', { renamed, skipped })
@@ -1101,7 +1100,12 @@ export class KanbanPanel {
     vscode.window.showInformationMessage(`Kanban Markdown: ${msg}`)
   }
 
-  private _sendFeaturesToWebview(): void {
+  private _relativizeFeature(f: Feature): Feature {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    return workspaceRoot ? { ...f, filePath: path.relative(workspaceRoot, f.filePath) } : f
+  }
+
+  private _initWebview(): void {
     const config = vscode.workspace.getConfiguration('kanban-markdown')
 
     const defaultColumns: KanbanColumn[] = [
@@ -1131,15 +1135,9 @@ export class KanbanPanel {
     const boardViewMode: BoardViewMode = this._context.workspaceState.get('kanban-markdown.boardViewMode', 'standard')
     const collapsedEpics: string[] = this._context.workspaceState.get('kanban-markdown.collapsedEpics', [])
 
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-    const features = this._features.map(f => ({
-      ...f,
-      filePath: workspaceRoot ? path.relative(workspaceRoot, f.filePath) : f.filePath
-    }))
-
     this._panel.webview.postMessage({
       type: 'init',
-      features,
+      features: this._features.map(f => this._relativizeFeature(f)),
       columns,
       settings,
       collapsedColumns,
@@ -1149,4 +1147,21 @@ export class KanbanPanel {
       translations: getBundle()
     })
   }
+
+  private _refreshFeatures(): void {
+    this._panel.webview.postMessage({
+      type: 'featuresUpdated',
+      features: this._features.map(f => this._relativizeFeature(f))
+    })
+  }
+
+  private _patchFeatures(patch: { add?: Feature[]; update?: Feature[]; remove?: string[] }): void {
+    this._panel.webview.postMessage({
+      type: 'featurePatch',
+      add: patch.add?.map(f => this._relativizeFeature(f)),
+      update: patch.update?.map(f => this._relativizeFeature(f)),
+      remove: patch.remove
+    })
+  }
+
 }

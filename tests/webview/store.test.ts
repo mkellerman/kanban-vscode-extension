@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useStore } from '../../src/webview/store'
-import type { Feature } from '../../src/shared/types'
+import type { Feature, FeatureStatus } from '../../src/shared/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -67,6 +67,33 @@ describe('updateFeature', () => {
     useStore.getState().addFeature(makeFeature({ id: 'b', status: 'done' }))
     useStore.getState().updateFeature('a', { status: 'in-progress' })
     expect(useStore.getState().features.find(f => f.id === 'b')!.status).toBe('done')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Combined patch operations (mirrors featurePatch message handler)
+// ---------------------------------------------------------------------------
+
+describe('combined update + remove', () => {
+  it('applies update and remove independently', () => {
+    useStore.getState().addFeature(makeFeature({ id: 'keep', priority: 'low' }))
+    useStore.getState().addFeature(makeFeature({ id: 'drop', priority: 'medium' }))
+    useStore.getState().updateFeature('keep', { priority: 'critical' })
+    useStore.getState().removeFeature('drop')
+    const state = useStore.getState().features
+    expect(state).toHaveLength(1)
+    expect(state[0].id).toBe('keep')
+    expect(state[0].priority).toBe('critical')
+  })
+})
+
+describe('updateFeature with unknown id', () => {
+  it('is a no-op — array unchanged', () => {
+    useStore.getState().addFeature(makeFeature({ id: 'real' }))
+    useStore.getState().updateFeature('ghost', { priority: 'high' })
+    const state = useStore.getState().features
+    expect(state).toHaveLength(1)
+    expect(state[0].id).toBe('real')
   })
 })
 
@@ -277,5 +304,68 @@ describe('epic lane filtering', () => {
     useStore.getState().addFeature(makeFeature({ id: 'b', status: 'todo', epic: null }))
     const lane = useStore.getState().getFilteredFeaturesByStatus('todo', null)
     expect(lane.map(f => f.id)).toEqual(['b'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Large fixture — correctness at scale (1 000 cards)
+// ---------------------------------------------------------------------------
+
+function makeLargeFixture(count: number): Feature[] {
+  const statuses: FeatureStatus[] = ['backlog', 'todo', 'in-progress', 'review', 'done']
+  const priorities = ['low', 'medium', 'high', 'critical'] as const
+  return Array.from({ length: count }, (_, i) => ({
+    id: `f${i}`,
+    status: statuses[i % statuses.length],
+    priority: priorities[i % priorities.length],
+    assignee: i % 3 === 0 ? `user${i % 5}` : null,
+    epic: i % 4 === 0 ? `epic${i % 3}` : null,
+    dueDate: null,
+    created: '2026-01-01T00:00:00.000Z',
+    modified: '2026-01-01T00:00:00.000Z',
+    completedAt: null,
+    labels: i % 2 === 0 ? ['a'] : ['b'],
+    order: `a${String(i).padStart(6, '0')}`,
+    content: `# Feature ${i}`,
+    filePath: `/workspace/features/f${i}.md`
+  }))
+}
+
+describe('large fixture — patch correctness at 1 000 cards', () => {
+  it('maintains correct count and field values through add/update/remove sequence', () => {
+    const fixtures = makeLargeFixture(1000)
+    useStore.setState({ features: fixtures })
+
+    // add 5 new features
+    const newFeatures = Array.from({ length: 5 }, (_, i) =>
+      makeFeature({ id: `new${i}`, status: 'todo', order: `z${i}` })
+    )
+    newFeatures.forEach(f => useStore.getState().addFeature(f))
+    expect(useStore.getState().features).toHaveLength(1005)
+
+    // update first 10 original features
+    for (let i = 0; i < 10; i++) {
+      useStore.getState().updateFeature(`f${i}`, { priority: 'critical' })
+    }
+    for (let i = 0; i < 10; i++) {
+      expect(useStore.getState().features.find(f => f.id === `f${i}`)!.priority).toBe('critical')
+    }
+
+    // remove 20 original features
+    for (let i = 10; i < 30; i++) {
+      useStore.getState().removeFeature(`f${i}`)
+    }
+    expect(useStore.getState().features).toHaveLength(985)
+    for (let i = 10; i < 30; i++) {
+      expect(useStore.getState().features.find(f => f.id === `f${i}`)).toBeUndefined()
+    }
+
+    // verify getFilteredFeaturesByStatus returns the correct subset
+    const todoFeatures = useStore.getState().getFilteredFeaturesByStatus('todo')
+    const expectedTodoIds = useStore.getState().features
+      .filter(f => f.status === 'todo')
+      .map(f => f.id)
+      .sort()
+    expect(todoFeatures.map(f => f.id).sort()).toEqual(expectedTodoIds)
   })
 })

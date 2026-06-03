@@ -25,7 +25,10 @@ function App(): React.JSX.Element {
     setCollapsedEpics,
     boardViewMode,
     setBoardViewMode,
-    setLocale
+    setLocale,
+    addFeature,
+    updateFeature,
+    removeFeature
   } = useStore()
 
   const [createFeatureOpen, setCreateFeatureOpen] = useState(false)
@@ -224,6 +227,13 @@ function App(): React.JSX.Element {
         case 'featuresUpdated':
           setFeatures(message.features)
           break
+        case 'featurePatch': {
+          const { add, update, remove } = message
+          if (add) add.forEach(f => addFeature(f))
+          if (update) update.forEach(f => updateFeature(f.id, f))
+          if (remove) remove.forEach(id => removeFeature(id))
+          break
+        }
         case 'triggerCreateDialog':
           setCreateFeatureStatus('backlog')
           setCreateFeatureOpen(true)
@@ -249,7 +259,7 @@ function App(): React.JSX.Element {
     vscode.postMessage({ type: 'ready' })
 
     return () => window.removeEventListener('message', handleMessage)
-  }, [setFeatures, setColumns, setCardSettings, setCollapsedColumns, setCollapsedEpics, setBoardViewMode, setLocale])
+  }, [setFeatures, setColumns, setCardSettings, setCollapsedColumns, setCollapsedEpics, setBoardViewMode, setLocale, addFeature, updateFeature, removeFeature])
 
   const handleFeatureClick = (feature: Feature): void => {
     // Request feature content for inline editing
