@@ -1,4 +1,4 @@
-import { Search, X, Columns, Rows, Settings, Tags, Layers } from 'lucide-react'
+import { Search, X, Columns, Rows, Settings, Tags, Layers, Folder } from 'lucide-react'
 import { useStore, type DueDateFilter } from '../store'
 import type { BoardViewMode, Priority } from '../../shared/types'
 import { useState } from 'react'
@@ -54,7 +54,8 @@ export function Toolbar({
     hasActiveFilters,
     layout,
     toggleLayout,
-    cardSettings
+    cardSettings,
+    activeFolderName
   } = useStore()
 
   const priorities = getPriorities()
@@ -210,9 +211,17 @@ export function Toolbar({
         <Settings size={16} />
       </button>
 
-      {/* Keyboard hint */}
-      <div className="ml-auto text-xs text-zinc-400">
-        {t('toolbar.pressKeyToAdd').split('{key}')[0]}<kbd className="px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-700 rounded">n</kbd>{t('toolbar.pressKeyToAdd').split('{key}')[1]}
+      {/* Active folder + keyboard hint */}
+      <div className="ml-auto flex items-center gap-3 text-xs text-zinc-400">
+        {activeFolderName && (
+          <span className="flex items-center gap-1">
+            <Folder size={12} />
+            {activeFolderName}
+          </span>
+        )}
+        <span>
+          {t('toolbar.pressKeyToAdd').split('{key}')[0]}<kbd className="px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-700 rounded">n</kbd>{t('toolbar.pressKeyToAdd').split('{key}')[1]}
+        </span>
       </div>
     </div>
   )
