@@ -4,6 +4,7 @@ import type { Feature, Priority } from '../../shared/types'
 import { epicThemeFromName } from '../../shared/epicColor'
 import { useStore } from '../store'
 import { t } from '../lib/i18n'
+import { parseDueDateLocal, isOverdue, isToday } from '../../shared/dateUtils'
 
 interface FeatureCardProps {
   feature: Feature
@@ -48,14 +49,21 @@ export function FeatureCard({ feature, onClick, isDragging }: FeatureCardProps) 
 
   const formatDueDate = (dateStr: string | null) => {
     if (!dateStr) return null
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diff = date.getTime() - now.getTime()
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
+    const date = parseDueDateLocal(dateStr)
+    if (!date) return null
 
-    if (days < 0) return { text: t('card.overdue'), className: 'text-red-500' }
-    if (days === 0) return { text: t('card.today'), className: 'text-orange-500' }
-    if (days === 1) return { text: t('card.tomorrow'), className: 'text-yellow-600 dark:text-yellow-400' }
+    if (isOverdue(date)) return { text: t('card.overdue'), className: 'text-red-500' }
+    if (isToday(date)) return { text: t('card.today'), className: 'text-orange-500' }
+
+    const tomorrow = new Date()
+    tomorrow.setHours(0, 0, 0, 0)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    if (date.getTime() === tomorrow.getTime()) return { text: t('card.tomorrow'), className: 'text-yellow-600 dark:text-yellow-400' }
+
+    const todayMidnight = new Date()
+    todayMidnight.setHours(0, 0, 0, 0)
+    const days = Math.round((date.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24))
+
     if (days <= 7) return { text: t('card.daysShort', { days }), className: 'text-zinc-500 dark:text-zinc-400' }
 
     return {

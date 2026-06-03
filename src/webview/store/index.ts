@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Feature, FeatureStatus, KanbanColumn, Priority, CardDisplaySettings, BoardViewMode } from '../../shared/types'
 import { featureMatchesEpicLane } from '../../shared/epicLane'
+import { parseDueDateLocal, isOverdue, isToday, isThisWeek } from '../../shared/dateUtils'
 
 export type DueDateFilter = 'all' | 'overdue' | 'today' | 'this-week' | 'no-date'
 export type LayoutMode = 'horizontal' | 'vertical'
@@ -60,32 +61,6 @@ const getInitialDarkMode = (): boolean => {
   return false
 }
 
-const isToday = (date: Date): boolean => {
-  const today = new Date()
-  return (
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate()
-  )
-}
-
-const isThisWeek = (date: Date): boolean => {
-  const today = new Date()
-  const startOfWeek = new Date(today)
-  startOfWeek.setDate(today.getDate() - today.getDay())
-  startOfWeek.setHours(0, 0, 0, 0)
-
-  const endOfWeek = new Date(startOfWeek)
-  endOfWeek.setDate(startOfWeek.getDate() + 7)
-
-  return date >= startOfWeek && date < endOfWeek
-}
-
-const isOverdue = (date: Date): boolean => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return date < today
-}
 
 export const useStore = create<KanbanState>((set, get) => ({
   features: [],
@@ -222,7 +197,8 @@ export const useStore = create<KanbanState>((set, get) => ({
           } else if (!f.dueDate) {
             return false
           } else {
-            const dueDate = new Date(f.dueDate)
+            const dueDate = parseDueDateLocal(f.dueDate)
+            if (!dueDate) return true
             if (dueDateFilter === 'overdue' && !isOverdue(dueDate)) return false
             if (dueDateFilter === 'today' && !isToday(dueDate)) return false
             if (dueDateFilter === 'this-week' && !isThisWeek(dueDate)) return false
