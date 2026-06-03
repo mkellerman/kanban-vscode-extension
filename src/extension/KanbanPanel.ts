@@ -1,7 +1,7 @@
 import * as vscode from 'vscode'
 import * as crypto from 'crypto'
 import * as path from 'path'
-import { getTitleFromContent, generateFeatureFilename } from '../shared/types'
+import { getTitleFromContent, generateFeatureFilename, DEFAULT_COLUMNS } from '../shared/types'
 import type { Feature, FeatureStatus, Priority, KanbanColumn, FeatureFrontmatter, CardDisplaySettings, FilenamePattern, BoardViewMode } from '../shared/types'
 import { serializeFeature } from '../shared/featureFrontmatter'
 import { t, getBundle, getEffectiveLocale, reloadBundle, getAllDefaultColumnNames, getDefaultColumnNamesForLocale } from './l10n'
@@ -206,6 +206,24 @@ export class KanbanPanel {
               const agent = message.agent || config.get<string>('aiAgent') || 'claude'
               this._launcher.launch(feature, agent, message.permissionMode || 'default')
             }
+            break
+          }
+          case 'laneAction': {
+            if (!vscode.workspace.isTrusted) {
+              vscode.window.showWarningMessage(t('panel.aiRequiresTrust'))
+              return
+            }
+            const laneFeatures = (message.featureIds as string[])
+              .map((id: string) => this._repo.features.find(f => f.id === id))
+              .filter((f): f is Feature => f !== undefined)
+            if (laneFeatures.length === 0) return
+            const laneConfig = vscode.workspace.getConfiguration('kanban-markdown')
+            const laneColumns = laneConfig.get<KanbanColumn[]>('columns', DEFAULT_COLUMNS)
+            const laneColumn = laneColumns.find(c => c.id === message.columnId)
+              ?? DEFAULT_COLUMNS.find(c => c.id === message.columnId)
+              ?? { id: message.columnId, name: message.columnId, color: '' }
+            const laneAgent = laneConfig.get<string>('aiAgent') || 'claude'
+            this._launcher.launchLane(laneFeatures, laneColumn, laneAgent, 'default')
             break
           }
         }
