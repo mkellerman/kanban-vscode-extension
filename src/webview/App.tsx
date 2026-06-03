@@ -1,16 +1,22 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { lazy, Suspense, useEffect, useState, useRef, useCallback } from 'react'
 import { generateKeyBetween } from 'fractional-indexing'
 import { useStore } from './store'
 import { KanbanBoard } from './components/KanbanBoard'
 import { KanbanEpicBoard } from './components/KanbanEpicBoard'
-import { CreateFeatureDialog } from './components/CreateFeatureDialog'
-import { FeatureEditor } from './components/FeatureEditor'
 import { Toolbar } from './components/Toolbar'
 import { UndoToast } from './components/UndoToast'
 import type { Feature, FeatureStatus, Priority, ExtensionMessage, FeatureFrontmatter, AIAgent, AIPermissionMode, BoardViewMode } from '../shared/types'
 import { getTitleFromContent } from '../shared/types'
 import { vscode } from './vscodeApi'
 import { initLocale, t } from './lib/i18n'
+
+const FeatureEditor = lazy(() =>
+  import('./components/FeatureEditor').then(m => ({ default: m.FeatureEditor }))
+)
+
+const CreateFeatureDialog = lazy(() =>
+  import('./components/CreateFeatureDialog').then(m => ({ default: m.CreateFeatureDialog }))
+)
 
 function App(): React.JSX.Element {
 
@@ -381,27 +387,31 @@ function App(): React.JSX.Element {
         </div>
         {editingFeature && (
           <div className="w-1/2">
-            <FeatureEditor
-              featureId={editingFeature.id}
-              content={editingFeature.content}
-              frontmatter={editingFeature.frontmatter}
-              contentVersion={editingFeature.contentVersion}
-              onSave={handleSaveFeature}
-              onClose={handleCloseEditor}
-              onDelete={handleDeleteFeature}
-              onOpenFile={handleOpenFile}
-              onStartWithAI={handleStartWithAI}
-            />
+            <Suspense fallback={null}>
+              <FeatureEditor
+                featureId={editingFeature.id}
+                content={editingFeature.content}
+                frontmatter={editingFeature.frontmatter}
+                contentVersion={editingFeature.contentVersion}
+                onSave={handleSaveFeature}
+                onClose={handleCloseEditor}
+                onDelete={handleDeleteFeature}
+                onOpenFile={handleOpenFile}
+                onStartWithAI={handleStartWithAI}
+              />
+            </Suspense>
           </div>
         )}
       </div>
 
-      <CreateFeatureDialog
-        isOpen={createFeatureOpen}
-        onClose={() => setCreateFeatureOpen(false)}
-        onCreate={handleCreateFeature}
-        initialStatus={createFeatureStatus}
-      />
+      <Suspense fallback={null}>
+        <CreateFeatureDialog
+          isOpen={createFeatureOpen}
+          onClose={() => setCreateFeatureOpen(false)}
+          onCreate={handleCreateFeature}
+          initialStatus={createFeatureStatus}
+        />
+      </Suspense>
 
       {pendingDeletes.map((entry, i) => (
         <UndoToast
