@@ -145,7 +145,7 @@ to:
 if (key === 'featuresDirectory') return '.kanban/features'
 ```
 
-- [ ] **Step 3: Update `KanbanPanel.startWithAI.test.ts`**
+- [x] **Step 3: Update `KanbanPanel.startWithAI.test.ts`**
 
 In `tests/extension/KanbanPanel.startWithAI.test.ts`, change all five occurrences of `.devtool/features` to `.kanban/features`.
 

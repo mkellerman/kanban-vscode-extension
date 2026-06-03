@@ -16,3 +16,4 @@ coverage/
 
 .codegraphy/
 .codegraph/daemon.pid
+.superpowers/
