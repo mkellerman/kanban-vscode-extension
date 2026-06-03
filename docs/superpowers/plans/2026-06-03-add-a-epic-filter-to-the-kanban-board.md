@@ -1,6 +1,16 @@
+---
+id: "2026-06-03-add-a-epic-filter-to-the-kanban-board"
+status: "done"
+priority: "medium"
+created: "2026-06-03T17:30:00.000Z"
+modified: "2026-06-03T20:22:00.000Z"
+labels: ["filter", "webview"]
+worktree: "/Users/me/Documents/GitHub/kanban-vscode-extension/.claude/worktrees/story+2026-06-03-add-a-epic-filter-to-the-kanban-board"
+---
+
 # Epic Filter — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add an epic filter toolbar dropdown that works like the existing priority/assignee/label/due-date filters — backed by Zustand store state, applied in `getFilteredFeaturesByStatus`, and used in `KanbanEpicBoard` to hide non-matching swim lanes.
 
@@ -32,7 +42,7 @@
 - Modify: `tests/webview/store.test.ts`
 - Modify: `src/webview/store/index.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/webview/store.test.ts` (after the `getUniqueEpics` describe block):
 
@@ -59,7 +69,7 @@ describe('epicFilter state', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 pnpm test -- --reporter=verbose tests/webview/store.test.ts
@@ -67,7 +77,7 @@ pnpm test -- --reporter=verbose tests/webview/store.test.ts
 
 Expected: 3 failures — `epicFilter` property does not exist on state.
 
-- [ ] **Step 3: Add `epicFilter` to the store interface**
+- [x] **Step 3: Add `epicFilter` to the store interface**
 
 In `src/webview/store/index.ts`, add to the `KanbanState` interface (after `dueDateFilter: DueDateFilter`):
 
@@ -81,7 +91,7 @@ Add to the interface actions (after `setDueDateFilter`):
 setEpicFilter: (epic: string | 'all') => void
 ```
 
-- [ ] **Step 4: Add the state default and action**
+- [x] **Step 4: Add the state default and action**
 
 In `src/webview/store/index.ts`, add to the initial state object (after `dueDateFilter: 'all'`):
 
@@ -95,7 +105,7 @@ Add to the actions (after `setDueDateFilter`):
 setEpicFilter: (epic) => set({ epicFilter: epic }),
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 ```bash
 pnpm test -- --reporter=verbose tests/webview/store.test.ts
@@ -103,7 +113,7 @@ pnpm test -- --reporter=verbose tests/webview/store.test.ts
 
 Expected: 3 new tests pass, no regressions.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/webview/store/index.ts tests/webview/store.test.ts
@@ -118,7 +128,7 @@ git commit -m "feat: add epicFilter state and setEpicFilter to store"
 - Modify: `tests/webview/store.test.ts`
 - Modify: `src/webview/store/index.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/webview/store.test.ts` (after the `epicFilter state` describe block):
 
@@ -211,7 +221,7 @@ Also append to the `hasActiveFilters` describe block:
   })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 pnpm test -- --reporter=verbose tests/webview/store.test.ts
@@ -219,7 +229,7 @@ pnpm test -- --reporter=verbose tests/webview/store.test.ts
 
 Expected: 5 new failures — `epicFilter` not applied in `getFilteredFeaturesByStatus`, not cleared in `clearAllFilters`, not checked in `hasActiveFilters`.
 
-- [ ] **Step 3: Apply `epicFilter` in `getFilteredFeaturesByStatus`**
+- [x] **Step 3: Apply `epicFilter` in `getFilteredFeaturesByStatus`**
 
 In `src/webview/store/index.ts`, update `getFilteredFeaturesByStatus`. Find the destructure at the top of the function:
 
@@ -262,7 +272,7 @@ Then find the due date filter block (ends with `if (dueDateFilter === 'this-week
         }
 ```
 
-- [ ] **Step 4: Update `clearAllFilters`**
+- [x] **Step 4: Update `clearAllFilters`**
 
 Find `clearAllFilters` in `src/webview/store/index.ts`:
 
@@ -291,7 +301,7 @@ Replace it with:
     }),
 ```
 
-- [ ] **Step 5: Update `hasActiveFilters`**
+- [x] **Step 5: Update `hasActiveFilters`**
 
 Find `hasActiveFilters` in `src/webview/store/index.ts`. Replace the entire function:
 
@@ -316,7 +326,7 @@ Find `hasActiveFilters` in `src/webview/store/index.ts`. Replace the entire func
   }
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 ```bash
 pnpm test -- --reporter=verbose tests/webview/store.test.ts
@@ -324,7 +334,7 @@ pnpm test -- --reporter=verbose tests/webview/store.test.ts
 
 Expected: all tests pass, no regressions.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/webview/store/index.ts tests/webview/store.test.ts
@@ -342,7 +352,7 @@ git commit -m "feat: apply epicFilter in getFilteredFeaturesByStatus, clearAllFi
 
 No TDD here — these are data files loaded by the test setup (`tests/setup.ts` calls `l10n.config({ contents: enBundle })`). Adding the keys now ensures the Toolbar component tests in Task 4 can look up translated text.
 
-- [ ] **Step 1: Add keys to English bundle**
+- [x] **Step 1: Add keys to English bundle**
 
 In `l10n/bundle.l10n.en.json`, find the line:
 ```json
@@ -355,7 +365,7 @@ Add two new entries immediately before it:
   "toolbar.noEpic": "No Epic",
 ```
 
-- [ ] **Step 2: Add keys to Spanish bundle**
+- [x] **Step 2: Add keys to Spanish bundle**
 
 In `l10n/bundle.l10n.es.json`, find the line:
 ```json
@@ -368,7 +378,7 @@ Add two new entries immediately before it:
   "toolbar.noEpic": "Sin épico",
 ```
 
-- [ ] **Step 3: Add keys to Portuguese bundle**
+- [x] **Step 3: Add keys to Portuguese bundle**
 
 In `l10n/bundle.l10n.pt.json`, find the line:
 ```json
@@ -381,7 +391,7 @@ Add two new entries immediately before it:
   "toolbar.noEpic": "Sem épico",
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add l10n/bundle.l10n.en.json l10n/bundle.l10n.es.json l10n/bundle.l10n.pt.json
@@ -396,7 +406,7 @@ git commit -m "i18n: add toolbar.allEpics and toolbar.noEpic translation keys"
 - Create: `tests/webview/components/Toolbar.test.tsx`
 - Modify: `src/webview/components/Toolbar.tsx`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/webview/components/Toolbar.test.tsx`:
 
@@ -506,7 +516,7 @@ describe('Toolbar — epic filter', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 pnpm test -- --reporter=verbose tests/webview/components/Toolbar.test.tsx
@@ -514,7 +524,7 @@ pnpm test -- --reporter=verbose tests/webview/components/Toolbar.test.tsx
 
 Expected: 5 failures — the epic filter select is not rendered yet.
 
-- [ ] **Step 3: Update `Toolbar.tsx` — read epic filter from store**
+- [x] **Step 3: Update `Toolbar.tsx` — read epic filter from store**
 
 In `src/webview/components/Toolbar.tsx`, update the `useStore()` destructure (add three new entries):
 
@@ -549,7 +559,7 @@ After `const labels = getUniqueLabels()`, add:
   const epics = getUniqueEpics()
 ```
 
-- [ ] **Step 4: Add the epic filter `<select>` to the JSX**
+- [x] **Step 4: Add the epic filter `<select>` to the JSX**
 
 In `src/webview/components/Toolbar.tsx`, find the label filter block ending with `)}`:
 
@@ -581,7 +591,7 @@ Insert the epic filter block immediately after the label filter closing `)}` and
       )}
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 ```bash
 pnpm test -- --reporter=verbose tests/webview/components/Toolbar.test.tsx
@@ -589,7 +599,7 @@ pnpm test -- --reporter=verbose tests/webview/components/Toolbar.test.tsx
 
 Expected: all 5 tests pass.
 
-- [ ] **Step 6: Run the full test suite to check for regressions**
+- [x] **Step 6: Run the full test suite to check for regressions**
 
 ```bash
 pnpm test
@@ -597,7 +607,7 @@ pnpm test
 
 Expected: all tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/webview/components/Toolbar.tsx tests/webview/components/Toolbar.test.tsx
@@ -612,7 +622,7 @@ git commit -m "feat: add epic filter dropdown to Toolbar"
 - Create: `tests/webview/components/KanbanEpicBoard.test.tsx`
 - Modify: `src/webview/components/KanbanEpicBoard.tsx`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/webview/components/KanbanEpicBoard.test.tsx`:
 
@@ -720,7 +730,7 @@ describe('KanbanEpicBoard — epic filter lane visibility', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 pnpm test -- --reporter=verbose tests/webview/components/KanbanEpicBoard.test.tsx
@@ -728,7 +738,7 @@ pnpm test -- --reporter=verbose tests/webview/components/KanbanEpicBoard.test.ts
 
 Expected: 4 failures — `KanbanEpicBoard` doesn't yet read `epicFilter` from the store, so all lanes render regardless of the filter value.
 
-- [ ] **Step 3: Update `KanbanEpicBoard.tsx` — read `epicFilter` and filter lanes**
+- [x] **Step 3: Update `KanbanEpicBoard.tsx` — read `epicFilter` and filter lanes**
 
 In `src/webview/components/KanbanEpicBoard.tsx`, add `epicFilter` to the store reads (after `const toggleEpicCollapsed`):
 
@@ -753,7 +763,7 @@ Then replace the `lanes` useMemo with a version that filters:
   }, [features, getUniqueEpics, epicFilter])
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 pnpm test -- --reporter=verbose tests/webview/components/KanbanEpicBoard.test.tsx
@@ -761,7 +771,7 @@ pnpm test -- --reporter=verbose tests/webview/components/KanbanEpicBoard.test.ts
 
 Expected: all 4 tests pass.
 
-- [ ] **Step 5: Run the full test suite**
+- [x] **Step 5: Run the full test suite**
 
 ```bash
 pnpm test
@@ -769,7 +779,7 @@ pnpm test
 
 Expected: all tests pass, no regressions.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/webview/components/KanbanEpicBoard.tsx tests/webview/components/KanbanEpicBoard.test.tsx
@@ -780,7 +790,7 @@ git commit -m "feat: filter epic swim lanes by epicFilter in KanbanEpicBoard"
 
 ## Final Verification
 
-- [ ] **Build the webview to confirm no type errors**
+- [x] **Build the webview to confirm no type errors**
 
 ```bash
 pnpm run build:webview
@@ -788,7 +798,7 @@ pnpm run build:webview
 
 Expected: exits 0 with no TypeScript errors.
 
-- [ ] **Run full test suite one last time**
+- [x] **Run full test suite one last time**
 
 ```bash
 pnpm test

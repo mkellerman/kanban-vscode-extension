@@ -1,15 +1,16 @@
 ---
 id: "2026-06-03-add-a-epic-filter-to-the-kanban-board"
-status: "todo"
+status: "done"
 priority: "medium"
 assignee: null
 epic: null
 dueDate: null
 created: "2026-06-03T16:33:02.311Z"
-modified: "2026-06-03T17:10:00.000Z"
-completedAt: null
+modified: "2026-06-03T20:22:00.000Z"
+completedAt: "2026-06-03T20:22:00.000Z"
 labels: ["filter", "webview"]
 order: "a4V"
+worktree: "/Users/me/Documents/GitHub/kanban-vscode-extension/.claude/worktrees/story+2026-06-03-add-a-epic-filter-to-the-kanban-board"
 ---
 # Add an epic filter to the Kanban Board
 

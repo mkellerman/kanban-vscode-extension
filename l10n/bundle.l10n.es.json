@@ -55,6 +55,8 @@
   "toolbar.allLabels": "Todas las etiquetas",
   "toolbar.unlabeled": "Sin etiqueta",
   "toolbar.labelsGroup": "Etiquetas",
+  "toolbar.allEpics": "Todos los épicos",
+  "toolbar.noEpic": "Sin épico",
   "toolbar.allDates": "Todas las fechas",
   "toolbar.overdue": "Vencido",
   "toolbar.dueToday": "Vence hoy",
@@ -113,6 +115,7 @@
 
   "epic.noEpic": "Sin épica",
   "epic.emptyHint": "Asigna una épica a una tarjeta para ver carriles aquí.",
+  "epic.filterNoMatch": "Ningún carril coincide con el filtro de épico actual.",
 
   "labels.manage": "Gestionar etiquetas",
   "labels.confirmRename": "Confirmar renombrado",

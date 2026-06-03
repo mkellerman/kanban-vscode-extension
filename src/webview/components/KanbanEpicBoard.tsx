@@ -22,16 +22,22 @@ export function KanbanEpicBoard({ onFeatureClick, onAddFeature, onMoveFeature }:
   const getFilteredFeaturesByStatus = useStore(s => s.getFilteredFeaturesByStatus)
   const collapsedEpics = useStore(s => s.collapsedEpics)
   const toggleEpicCollapsed = useStore(s => s.toggleEpicCollapsed)
+  const epicFilter = useStore(s => s.epicFilter)
   const layout = useStore(s => s.layout)
   const isDarkMode = useStore(s => s.isDarkMode)
 
   const lanes = useMemo(() => {
     const named = getUniqueEpics()
     const hasUngrouped = features.some(f => !f.epic?.trim())
-    const out: (string | null)[] = [...named]
+    let out: (string | null)[] = [...named]
     if (hasUngrouped) out.push(null)
+    if (epicFilter !== 'all') {
+      out = out.filter(e =>
+        epicFilter === 'no-epic' ? e === null : e === epicFilter
+      )
+    }
     return out
-  }, [features, getUniqueEpics])
+  }, [features, getUniqueEpics, epicFilter])
 
   const handleToggleEpic = useCallback(
     (laneKey: string) => {
@@ -44,10 +50,11 @@ export function KanbanEpicBoard({ onFeatureClick, onAddFeature, onMoveFeature }:
   const isVertical = layout === 'vertical'
 
   if (lanes.length === 0) {
+    const msg = epicFilter !== 'all' ? t('epic.filterNoMatch') : t('epic.emptyHint')
     return (
       <div className="h-full overflow-auto p-4">
         <p className="text-sm" style={{ color: 'var(--vscode-descriptionForeground)' }}>
-          {t('epic.emptyHint')}
+          {msg}
         </p>
       </div>
     )
