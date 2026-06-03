@@ -109,6 +109,7 @@
   "column.options": "Column options",
   "column.moveAllCards": "Move all cards in this list",
   "column.archiveAllCards": "Archive all cards in this list",
+  "column.scrumMaster": "Scrum Master",
   "column.noFeatures": "No features",
 
   "epic.noEpic": "No epic",
