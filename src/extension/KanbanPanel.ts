@@ -652,7 +652,8 @@ export class KanbanPanel {
       try {
         const newPath = await moveFeatureFile(feature.filePath, featuresDir, newStatus)
         feature.filePath = newPath
-      } catch {
+      } catch (err) {
+        console.error('[kanban-markdown] moveFeatureFile failed:', err)
         // Move failed; file stays in old folder, will reconcile on next load
       } finally {
         this._migrating = false
@@ -843,7 +844,8 @@ export class KanbanPanel {
       try {
         const newPath = await moveFeatureFile(feature.filePath, featuresDir, feature.status)
         feature.filePath = newPath
-      } catch {
+      } catch (err) {
+        console.error('[kanban-markdown] moveFeatureFile failed:', err)
         // Move failed; file stays in old folder, will reconcile on next load
       } finally {
         this._migrating = false
@@ -939,7 +941,8 @@ export class KanbanPanel {
       try {
         const newPath = await moveFeatureFile(feature.filePath, featuresDir, feature.status)
         feature.filePath = newPath
-      } catch {
+      } catch (err) {
+        console.error('[kanban-markdown] moveFeatureFile failed:', err)
         // Move failed; file stays in old folder, will reconcile on next load
       } finally {
         this._migrating = false
