@@ -13,8 +13,8 @@ export interface PromptContext {
 
 const SAFE_ID = /^[a-zA-Z0-9_\-.]+$/
 
-/** Maximum size for user-supplied templates (local file or settings). 16 KB. */
-const MAX_TEMPLATE_BYTES = 16384
+/** Maximum length for user-supplied templates (local file or settings). Counts UTF-16 code units, not bytes — approximation is sufficient for the argv-overflow guard. */
+const MAX_TEMPLATE_CHARS = 16384
 
 function resolveLocalTemplate(
   workspaceRoot: string,
@@ -24,6 +24,7 @@ function resolveLocalTemplate(
   try {
     const instructionsDir = path.resolve(workspaceRoot, '.kanban', 'instructions')
     const candidate = path.resolve(instructionsDir, columnId + '.md')
+    // Stage 1: pre-realpath relative check (belt-and-suspenders; SAFE_ID makes this unreachable in practice)
     const rel = path.relative(instructionsDir, candidate)
     if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return null
     const realInstructionsDir = fs.realpathSync(instructionsDir)
@@ -35,7 +36,7 @@ function resolveLocalTemplate(
     const realRel = path.relative(realInstructionsDir, realCandidate)
     if (realRel.startsWith('..') || path.isAbsolute(realRel)) return null
     const content = fs.readFileSync(realCandidate, 'utf8')
-    const capped = content.slice(0, MAX_TEMPLATE_BYTES)
+    const capped = content.slice(0, MAX_TEMPLATE_CHARS)
     return capped.trim() ? capped : null
   } catch {
     return null
@@ -79,7 +80,7 @@ export function buildPrompt(
 
   // Level 2: settings prompt field
   if (settingsTemplate && settingsTemplate.trim()) {
-    const capped = settingsTemplate.slice(0, MAX_TEMPLATE_BYTES)
+    const capped = settingsTemplate.slice(0, MAX_TEMPLATE_CHARS)
     return substitute(capped, ctx, column)
   }
 
