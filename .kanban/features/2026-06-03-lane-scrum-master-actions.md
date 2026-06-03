@@ -6,7 +6,7 @@ assignee: null
 epic: "Workflow automation"
 dueDate: null
 created: "2026-06-03T00:00:00.000Z"
-modified: "2026-06-03T18:12:00.744Z"
+modified: "2026-06-03T18:45:00.000Z"
 completedAt: null
 labels: ["ux", "workflow", "automation"]
 order: "a5"
