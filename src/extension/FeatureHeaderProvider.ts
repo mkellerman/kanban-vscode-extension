@@ -6,6 +6,7 @@ import type { Feature, AIAgent, KanbanColumn } from '../shared/types'
 import { getTitleFromContent, DEFAULT_COLUMNS } from '../shared/types'
 import { parseFeatureFile, serializeFeature } from '../shared/featureFrontmatter'
 import { buildPrompt, PromptContext } from './ai/promptBuilder'
+import { launchAgentTerminal } from './ai/agentLauncher'
 import { t } from './l10n'
 
 /**
@@ -138,53 +139,7 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
           const agent: AIAgent = message.agent || 'claude'
           const permissionMode = message.permissionMode || 'default'
 
-          let args: string[]
-
-          switch (agent) {
-            case 'claude': {
-              args = []
-              if (permissionMode !== 'default') {
-                args.push('--permission-mode', permissionMode)
-              }
-              args.push(prompt)
-              break
-            }
-            case 'codex': {
-              const approvalMap: Record<string, string> = {
-                'default': 'ask',
-                'plan': 'ask',
-                'acceptEdits': 'auto',
-                'bypassPermissions': 'full-auto'
-              }
-              const approvalMode = approvalMap[permissionMode] || 'suggest'
-              args = ['--ask-for-approval', approvalMode, prompt]
-              break
-            }
-            case 'opencode': {
-              args = [prompt]
-              break
-            }
-            case 'copilot': {
-              args = [prompt]
-              break
-            }
-            default:
-              args = [prompt]
-          }
-
-          const agentNames: Record<string, string> = {
-            'claude': 'Claude Code',
-            'copilot': 'GitHub Copilot',
-            'codex': 'Codex',
-            'opencode': 'OpenCode'
-          }
-          const terminal = vscode.window.createTerminal({
-            name: agentNames[agent] || 'AI Agent',
-            shellPath: agent,
-            shellArgs: args,
-            cwd: workspaceRoot ?? undefined
-          })
-          terminal.show()
+          launchAgentTerminal(agent, permissionMode, prompt, workspaceRoot ?? undefined)
           break
         }
       }

@@ -5,6 +5,7 @@ import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing'
 import { getTitleFromContent, generateFeatureFilename, DEFAULT_COLUMNS } from '../shared/types'
 import type { Feature, FeatureStatus, Priority, KanbanColumn, FeatureFrontmatter, CardDisplaySettings, FilenamePattern, AIAgent, AIPermissionMode, BoardViewMode } from '../shared/types'
 import { buildPrompt, PromptContext } from './ai/promptBuilder'
+import { launchAgentTerminal } from './ai/agentLauncher'
 import { ensureStatusSubfolders, moveFeatureFile, getFeatureFilePath, getStatusFromPath, fileExists } from './featureFileUtils'
 import { parseFeatureFile, serializeFeature } from '../shared/featureFrontmatter'
 import { featureMatchesEpicLane } from '../shared/epicLane'
@@ -932,53 +933,7 @@ export class KanbanPanel {
     const selectedAgent = agent || config.get<string>('aiAgent') || 'claude'
     const selectedPermissionMode = permissionMode || 'default'
 
-    let args: string[]
-
-    switch (selectedAgent) {
-      case 'claude': {
-        args = []
-        if (selectedPermissionMode !== 'default') {
-          args.push('--permission-mode', selectedPermissionMode)
-        }
-        args.push(prompt)
-        break
-      }
-      case 'codex': {
-        const approvalMap: Record<string, string> = {
-          'default': 'ask',
-          'plan': 'ask',
-          'acceptEdits': 'auto',
-          'bypassPermissions': 'full-auto'
-        }
-        const approvalMode = approvalMap[selectedPermissionMode] || 'suggest'
-        args = ['--ask-for-approval', approvalMode, prompt]
-        break
-      }
-      case 'copilot': {
-        args = [prompt]
-        break
-      }
-      case 'opencode': {
-        args = [prompt]
-        break
-      }
-      default:
-        args = [prompt]
-    }
-
-    const agentNames: Record<string, string> = {
-      'claude': 'Claude Code',
-      'codex': 'Codex',
-      'copilot': 'GitHub Copilot',
-      'opencode': 'OpenCode'
-    }
-    const terminal = vscode.window.createTerminal({
-      name: agentNames[selectedAgent] || 'AI Agent',
-      shellPath: selectedAgent,
-      shellArgs: args,
-      cwd: workspaceRoot ?? undefined
-    })
-    terminal.show()
+    launchAgentTerminal(selectedAgent, selectedPermissionMode, prompt, workspaceRoot ?? undefined)
   }
 
   private async _deleteLabel(labelName: string): Promise<void> {
