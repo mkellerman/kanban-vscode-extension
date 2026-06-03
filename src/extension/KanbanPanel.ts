@@ -593,7 +593,13 @@ export class KanbanPanel {
 
     await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(feature.filePath)))
     const content = this._serializeFeature(feature)
-    await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
+    try {
+      await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
+    } catch (err) {
+      console.error('[kanban-markdown] writeFile failed:', err)
+      vscode.window.showErrorMessage(t('panel.createFailed', { error: String(err) }))
+      return
+    }
 
     this._features.push(feature)
     this._sendFeaturesToWebview()
@@ -629,7 +635,15 @@ export class KanbanPanel {
 
     // Only the moved feature needs to be written
     const content = this._serializeFeature(feature)
-    await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
+    try {
+      await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
+    } catch (err) {
+      console.error('[kanban-markdown] writeFile failed:', err)
+      vscode.window.showErrorMessage(t('panel.moveFailed', { error: String(err) }))
+      await this._loadFeatures()
+      this._sendFeaturesToWebview()
+      return
+    }
 
     // Only move file when crossing the done boundary
     const crossingDoneBoundary = statusChanged && (oldStatus === 'done' || newStatus === 'done')
@@ -797,7 +811,15 @@ export class KanbanPanel {
 
     // Persist to file
     const content = this._serializeFeature(feature)
-    await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
+    try {
+      await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(content))
+    } catch (err) {
+      console.error('[kanban-markdown] writeFile failed:', err)
+      vscode.window.showErrorMessage(t('panel.updateFailed', { error: String(err) }))
+      await this._loadFeatures()
+      this._sendFeaturesToWebview()
+      return
+    }
 
     // Only move file when crossing the done boundary
     const crossingDoneBoundary = oldStatus !== feature.status && (oldStatus === 'done' || feature.status === 'done')
@@ -885,7 +907,15 @@ export class KanbanPanel {
     // Save to file
     const fileContent = this._serializeFeature(feature)
     this._lastWrittenContent = fileContent
-    await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(fileContent))
+    try {
+      await vscode.workspace.fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(fileContent))
+    } catch (err) {
+      console.error('[kanban-markdown] writeFile failed:', err)
+      vscode.window.showErrorMessage(t('panel.saveFailed', { error: String(err) }))
+      await this._loadFeatures()
+      this._sendFeaturesToWebview()
+      return
+    }
 
     // Only move file when crossing the done boundary
     const crossingDoneBoundary = oldStatus !== feature.status && (oldStatus === 'done' || feature.status === 'done')
