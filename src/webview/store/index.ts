@@ -16,6 +16,7 @@ interface KanbanState {
   assigneeFilter: string | 'all'
   labelFilter: string | 'all'
   dueDateFilter: DueDateFilter
+  epicFilter: string | 'all'
   layout: LayoutMode
   boardViewMode: BoardViewMode
   cardSettings: CardDisplaySettings
@@ -32,6 +33,7 @@ interface KanbanState {
   setAssigneeFilter: (assignee: string | 'all') => void
   setLabelFilter: (label: string | 'all') => void
   setDueDateFilter: (filter: DueDateFilter) => void
+  setEpicFilter: (epic: string | 'all') => void
   setLayout: (layout: LayoutMode) => void
   toggleLayout: () => void
   setBoardViewMode: (mode: BoardViewMode) => void
@@ -72,6 +74,7 @@ export const useStore = create<KanbanState>((set, get) => ({
   assigneeFilter: 'all',
   labelFilter: 'all',
   dueDateFilter: 'all',
+  epicFilter: 'all',
   layout: 'horizontal',
   boardViewMode: 'standard',
   collapsedColumns: new Set<string>(),
@@ -101,6 +104,7 @@ export const useStore = create<KanbanState>((set, get) => ({
   setAssigneeFilter: (assignee) => set({ assigneeFilter: assignee }),
   setLabelFilter: (label) => set({ labelFilter: label }),
   setDueDateFilter: (filter) => set({ dueDateFilter: filter }),
+  setEpicFilter: (epic) => set({ epicFilter: epic }),
   setLayout: (layout) => set({ layout }),
   toggleLayout: () => set((state) => ({ layout: state.layout === 'horizontal' ? 'vertical' : 'horizontal' })),
   setBoardViewMode: (mode) => set({ boardViewMode: mode }),

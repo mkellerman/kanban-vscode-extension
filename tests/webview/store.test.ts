@@ -291,6 +291,27 @@ describe('getUniqueEpics', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// epicFilter state
+// ---------------------------------------------------------------------------
+
+describe('epicFilter state', () => {
+  it('defaults to "all"', () => {
+    expect(useStore.getState().epicFilter).toBe('all')
+  })
+
+  it('setEpicFilter updates the value', () => {
+    useStore.getState().setEpicFilter('My Epic')
+    expect(useStore.getState().epicFilter).toBe('My Epic')
+  })
+
+  it('setEpicFilter accepts "all" to reset', () => {
+    useStore.getState().setEpicFilter('Alpha')
+    useStore.getState().setEpicFilter('all')
+    expect(useStore.getState().epicFilter).toBe('all')
+  })
+})
+
 describe('epic lane filtering', () => {
   it('getFilteredFeaturesByStatus respects named epic lane', () => {
     useStore.getState().addFeature(makeFeature({ id: 'a', status: 'todo', epic: 'One' }))
