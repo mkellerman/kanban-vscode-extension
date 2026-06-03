@@ -204,7 +204,7 @@ export class KanbanPanel {
             if (feature) {
               const config = vscode.workspace.getConfiguration('kanban-markdown')
               const agent = message.agent || config.get<string>('aiAgent') || 'claude'
-              this._launcher.launch(feature, agent, message.permissionMode || 'default')
+              this._launcher.launch(feature, agent, message.permissionMode || 'default', this._repo.getEffectiveRoot())
             }
             break
           }
@@ -524,7 +524,7 @@ export class KanbanPanel {
     const boardViewMode: BoardViewMode = this._context.workspaceState.get('kanban-markdown.boardViewMode', 'standard')
     const collapsedEpics: string[] = this._context.workspaceState.get('kanban-markdown.collapsedEpics', [])
 
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    const workspaceRoot = this._repo.getEffectiveRoot()
     const features = this._repo.features.map(f => ({
       ...f,
       filePath: workspaceRoot ? path.relative(workspaceRoot, f.filePath) : f.filePath
@@ -539,7 +539,8 @@ export class KanbanPanel {
       boardViewMode,
       collapsedEpics,
       locale: getEffectiveLocale(),
-      translations: getBundle()
+      translations: getBundle(),
+      activeFolderName: path.basename(this._repo.getEffectiveRoot() ?? '')
     })
   }
 }

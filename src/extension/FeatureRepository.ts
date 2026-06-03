@@ -33,6 +33,8 @@ export class FeatureRepository implements vscode.Disposable {
   private _migrating = false
   private _debounceTimer?: ReturnType<typeof setTimeout>
   private _lastWrittenContents = new Map<string, string>()
+  private _rootOverride: string | null = null
+  private _loadVersion = 0
 
   readonly onDidChange: vscode.Event<readonly Feature[]> = this._emitter.event
 
@@ -45,15 +47,35 @@ export class FeatureRepository implements vscode.Disposable {
     return this._features
   }
 
+  getEffectiveRoot(): string | null {
+    return this._rootOverride ?? (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null)
+  }
+
   getFeaturesDir(): string | null {
-    const folders = vscode.workspace.workspaceFolders
-    if (!folders || folders.length === 0) return null
+    const root = this.getEffectiveRoot()
+    if (!root) return null
     const config = vscode.workspace.getConfiguration('kanban-markdown')
     const dir = config.get<string>('featuresDirectory') || '.kanban/features'
-    return path.join(folders[0].uri.fsPath, dir)
+    return path.join(root, dir)
+  }
+
+  async setRoot(newRoot: string | null): Promise<void> {
+    this._rootOverride = newRoot
+    if (this._fileWatcher) {
+      this._fileWatcher.dispose()
+      this._fileWatcher = undefined
+    }
+    this._currentWatcherDir = null // force _setupWatcher to re-run even if dir unchanged
+    await this.load()
+  }
+
+  /** @internal — test only, bypasses async load */
+  setRootSync(newRoot: string | null): void {
+    this._rootOverride = newRoot
   }
 
   async load(): Promise<void> {
+    const myVersion = ++this._loadVersion
     const featuresDir = this.getFeaturesDir()
 
     // Re-create watcher only when the directory changes
@@ -63,8 +85,10 @@ export class FeatureRepository implements vscode.Disposable {
     }
 
     if (!featuresDir) {
-      this._features = []
-      this._emitter.fire(this._features)
+      if (myVersion === this._loadVersion) {
+        this._features = []
+        this._emitter.fire(this._features)
+      }
       return
     }
 
@@ -189,12 +213,18 @@ export class FeatureRepository implements vscode.Disposable {
         }
       }
 
-      this._features = features.sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
+      if (myVersion === this._loadVersion) {
+        this._features = features.sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0))
+      }
     } catch {
-      this._features = []
+      if (myVersion === this._loadVersion) {
+        this._features = []
+      }
     }
 
-    this._emitter.fire(this._features)
+    if (myVersion === this._loadVersion) {
+      this._emitter.fire(this._features)
+    }
   }
 
   private _setupWatcher(featuresDir: string | null): void {

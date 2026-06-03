@@ -185,5 +185,13 @@
   "sidebar.newFeature": "Nova funcionalidade",
   "sidebar.overview": "Resumo",
   "sidebar.total": "{count} no total",
-  "sidebar.inProgress": "Em progresso"
+  "sidebar.inProgress": "Em progresso",
+
+  "sidebar.switchWorkspace.title": "Mudar pasta de trabalho",
+  "sidebar.switchWorkspace.placeholder": "Selecionar uma pasta de trabalho para o quadro Kanban",
+  "sidebar.switchWorkspace.openFolder": "Abrir pasta…",
+  "sidebar.switchWorkspace.openLabel": "Selecionar pasta",
+  "sidebar.switchWorkspace.error": "Falha ao mudar o espaço de trabalho: {error}",
+  "sidebar.switchWorkspace.loading": "A carregar…",
+  "sidebar.switchWorkspace.noFolder": "Sem pasta"
 }

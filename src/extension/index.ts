@@ -1,5 +1,4 @@
 import * as vscode from 'vscode'
-import * as path from 'path'
 import { generateKeyBetween } from 'fractional-indexing'
 import { KanbanPanel } from './KanbanPanel'
 import { SidebarViewProvider } from './SidebarViewProvider'
@@ -21,8 +20,8 @@ interface PriorityQuickPickItem extends vscode.QuickPickItem {
 }
 
 async function createFeatureFromPrompts(repo: FeatureRepository): Promise<void> {
-  const workspaceFolders = vscode.workspace.workspaceFolders
-  if (!workspaceFolders || workspaceFolders.length === 0) {
+  const featuresDir = repo.getFeaturesDir()
+  if (!featuresDir) {
     vscode.window.showErrorMessage(t('ext.noWorkspace'))
     return
   }
@@ -70,9 +69,6 @@ async function createFeatureFromPrompts(repo: FeatureRepository): Promise<void> 
   })
 
   // Create the feature file
-  const config = vscode.workspace.getConfiguration('kanban-markdown')
-  const featuresDirectory = config.get<string>('featuresDirectory') || '.kanban/features'
-  const featuresDir = path.join(workspaceFolders[0].uri.fsPath, featuresDirectory)
   await vscode.workspace.fs.createDirectory(vscode.Uri.file(featuresDir))
   await ensureStatusSubfolders(featuresDir)
 
@@ -152,7 +148,7 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   context.subscriptions.push(
-    FeatureHeaderProvider.register(context, launcher)
+    FeatureHeaderProvider.register(context, launcher, repo)
   )
 
   context.subscriptions.push(repo)

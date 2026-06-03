@@ -1,5 +1,6 @@
 import * as vscode from 'vscode'
 import * as crypto from 'crypto'
+import * as path from 'path'
 import type { KanbanColumn, Feature } from '../shared/types'
 import type { FeatureRepository } from './FeatureRepository'
 import { KanbanPanel } from './KanbanPanel'
@@ -42,7 +43,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       enableScripts: true
     }
 
-    webviewView.webview.onDidReceiveMessage(message => {
+    webviewView.webview.onDidReceiveMessage(async message => {
       switch (message.type) {
         case 'ready':
           this._postUpdate(this._repo.features as Feature[])
@@ -63,6 +64,40 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
             KanbanPanel.currentPanel?.openFeature(message.featureId)
           }, 500)
           break
+        case 'switchWorkspace': {
+          try {
+            const folders = vscode.workspace.workspaceFolders ?? []
+            const folderItems = folders.map(f => ({
+              label: f.name,
+              description: f.uri.fsPath
+            }))
+            const openItem = { label: t('sidebar.switchWorkspace.openFolder'), description: '__open__' }
+            const items = [...folderItems, openItem]
+
+            const selected = await vscode.window.showQuickPick(items, {
+              placeHolder: t('sidebar.switchWorkspace.placeholder')
+            })
+            if (!selected) break
+
+            if (selected.description === '__open__') {
+              const uris = await vscode.window.showOpenDialog({
+                canSelectFolders: true,
+                canSelectFiles: false,
+                canSelectMany: false,
+                openLabel: t('sidebar.switchWorkspace.openLabel')
+              })
+              if (!uris || uris.length === 0) break
+              await this._repo.setRoot(uris[0].fsPath)
+            } else {
+              await this._repo.setRoot(selected.description!)
+            }
+          } catch (err) {
+            vscode.window.showErrorMessage(
+              t('sidebar.switchWorkspace.error', { error: err instanceof Error ? err.message : String(err) })
+            )
+          }
+          break
+        }
       }
     }, null, this._disposables)
 
@@ -103,7 +138,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     this._view.webview.postMessage({
       type: 'update',
       features: mapped,
-      columns: this._getColumns()
+      columns: this._getColumns(),
+      folderName: path.basename(this._repo.getEffectiveRoot() ?? '')
     })
     this._view.webview.postMessage({
       type: 'boardOpenChanged',
@@ -179,6 +215,33 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     }
     .btn-secondary:hover {
       background: var(--vscode-button-secondaryHoverBackground);
+    }
+
+    .btn-folder {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      width: 100%;
+      padding: 5px 10px;
+      border: 1px solid var(--vscode-panel-border, var(--vscode-sideBarSectionHeader-border, transparent));
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      line-height: 20px;
+      background: var(--vscode-sideBar-background, transparent);
+      color: var(--vscode-foreground);
+    }
+    .btn-folder:hover {
+      background: var(--vscode-list-hoverBackground);
+    }
+    .btn-folder span {
+      flex: 1;
+      text-align: left;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .section {
@@ -278,6 +341,11 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div class="actions">
+    <button class="btn-folder" id="switchWorkspace" title="${t('sidebar.switchWorkspace.title')}">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.19a2 2 0 0 1 1.45.63l.06.06a1 1 0 0 0 .72.31H13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3.87zm.05.13H2a1 1 0 0 0-.99.91L1 4v8a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H7.53a2 2 0 0 1-1.45-.63l-.06-.06a1 1 0 0 0-.72-.31H2.5a1 1 0 0 0-.98.84L1.54 4z"/></svg>
+      <span id="folderName">${path.basename(this._repo.getEffectiveRoot() ?? '') || t('sidebar.switchWorkspace.noFolder')}</span>
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>
+    </button>
     <button class="btn-primary" id="openBoard">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M14 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2zm3 4a1 1 0 0 0-1 1v6a1 1 0 0 0 2 0V5a1 1 0 0 0-1-1zm3 0a1 1 0 0 0-1 1v4a1 1 0 0 0 2 0V5a1 1 0 0 0-1-1zm3 0a1 1 0 0 0-1 1v8a1 1 0 0 0 2 0V5a1 1 0 0 0-1-1z"/></svg>
       ${t('sidebar.openBoard')}
@@ -313,6 +381,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       let columns = [];
       let features = [];
 
+      document.getElementById('switchWorkspace').addEventListener('click', () => {
+        vscode.postMessage({ type: 'switchWorkspace' });
+      });
       document.getElementById('openBoard').addEventListener('click', () => {
         vscode.postMessage({ type: 'openBoard' });
       });
@@ -325,6 +396,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         if (msg.type === 'update') {
           columns = msg.columns;
           features = msg.features;
+          if (msg.folderName !== undefined) {
+            document.getElementById('folderName').textContent = msg.folderName || '${t('sidebar.switchWorkspace.noFolder')}';
+          }
           render();
         } else if (msg.type === 'boardOpenChanged') {
           document.getElementById('openBoard').style.display = msg.open ? 'none' : '';

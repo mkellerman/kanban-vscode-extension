@@ -48,6 +48,7 @@ function App(): React.JSX.Element {
     boardViewMode,
     setBoardViewMode,
     setLocale,
+    setActiveFolderName,
     addFeature,
     updateFeature,
     removeFeature
@@ -239,6 +240,7 @@ function App(): React.JSX.Element {
           setCollapsedColumns(message.collapsedColumns ?? [])
           setCollapsedEpics(message.collapsedEpics ?? [])
           setBoardViewMode((message.boardViewMode ?? 'standard') as BoardViewMode)
+          setActiveFolderName(message.activeFolderName ?? '')
           if (message.settings) {
             if (message.settings.markdownEditorMode && editingFeatureRef.current) {
               setEditingFeature(null)
@@ -281,7 +283,7 @@ function App(): React.JSX.Element {
     vscode.postMessage({ type: 'ready' })
 
     return () => window.removeEventListener('message', handleMessage)
-  }, [setFeatures, setColumns, setCardSettings, setCollapsedColumns, setCollapsedEpics, setBoardViewMode, setLocale, addFeature, updateFeature, removeFeature])
+  }, [setFeatures, setColumns, setCardSettings, setCollapsedColumns, setCollapsedEpics, setBoardViewMode, setLocale, setActiveFolderName, addFeature, updateFeature, removeFeature])
 
   const handleFeatureClick = (feature: Feature): void => {
     // Request feature content for inline editing

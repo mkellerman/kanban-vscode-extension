@@ -21,6 +21,8 @@ interface KanbanState {
   cardSettings: CardDisplaySettings
   collapsedColumns: Set<string>
   collapsedEpics: Set<string>
+  activeFolderName: string
+  setActiveFolderName: (name: string) => void
 
   setLocale: (locale: string) => void
   setFeatures: (features: Feature[]) => void
@@ -76,6 +78,7 @@ export const useStore = create<KanbanState>((set, get) => ({
   boardViewMode: 'standard',
   collapsedColumns: new Set<string>(),
   collapsedEpics: new Set<string>(),
+  activeFolderName: '',
   cardSettings: {
     showPriorityBadges: true,
     showAssignee: true,
@@ -91,6 +94,7 @@ export const useStore = create<KanbanState>((set, get) => ({
     defaultStatus: 'backlog'
   },
 
+  setActiveFolderName: (name) => set({ activeFolderName: name }),
   setLocale: (locale) => set({ locale }),
   setFeatures: (features) => set({ features }),
   setColumns: (columns) => set({ columns }),

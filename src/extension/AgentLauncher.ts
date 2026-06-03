@@ -8,14 +8,15 @@ import { t } from './l10n'
 export class AgentLauncher {
   constructor(private readonly _extensionUri: vscode.Uri) {}
 
-  launch(feature: Feature, agent: string, permissionMode: string): void {
+  launch(feature: Feature, agent: string, permissionMode: string, effectiveRoot?: string | null): void {
     if (!vscode.workspace.isTrusted) {
       vscode.window.showWarningMessage(t('panel.aiRequiresTrust'))
       return
     }
 
     const workspaceRoot =
-      vscode.workspace.getWorkspaceFolder(vscode.Uri.file(feature.filePath))?.uri.fsPath
+      effectiveRoot
+      ?? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(feature.filePath))?.uri.fsPath
       ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
       ?? null
 

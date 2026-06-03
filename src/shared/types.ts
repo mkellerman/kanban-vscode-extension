@@ -102,7 +102,7 @@ export function epicLaneId(epic: string | null | undefined): string {
 }
 
 export type ExtensionMessage =
-  | { type: 'init'; features: Feature[]; columns: KanbanColumn[]; settings: CardDisplaySettings; collapsedColumns: string[]; boardViewMode: BoardViewMode; collapsedEpics: string[]; locale: string; translations: Record<string, string> }
+  | { type: 'init'; features: Feature[]; columns: KanbanColumn[]; settings: CardDisplaySettings; collapsedColumns: string[]; boardViewMode: BoardViewMode; collapsedEpics: string[]; locale: string; translations: Record<string, string>; activeFolderName?: string }
   | { type: 'featuresUpdated'; features: Feature[] }
   | { type: 'featurePatch'; add?: Feature[]; update?: Feature[]; remove?: string[] }
   | { type: 'triggerCreateDialog' }

@@ -308,6 +308,22 @@ describe('epic lane filtering', () => {
 })
 
 // ---------------------------------------------------------------------------
+// activeFolderName
+// ---------------------------------------------------------------------------
+
+describe('activeFolderName', () => {
+  it('defaults to empty string', () => {
+    expect(useStore.getState().activeFolderName).toBe('')
+  })
+
+  it('setActiveFolderName updates the value', () => {
+    useStore.getState().setActiveFolderName('my-repo')
+    expect(useStore.getState().activeFolderName).toBe('my-repo')
+    useStore.getState().setActiveFolderName('')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Large fixture — correctness at scale (1 000 cards)
 // ---------------------------------------------------------------------------
 

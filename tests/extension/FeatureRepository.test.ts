@@ -139,6 +139,7 @@ function makeFeatureMd(overrides: Partial<{
 
 import { FeatureRepository } from '../../src/extension/FeatureRepository'
 import type { FsAdapter } from '../../src/extension/featureFileUtils'
+import type { Feature } from '../../src/shared/types'
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -528,6 +529,11 @@ describe('FeatureRepository.migrateFilenames()', () => {
   })
 })
 
+function makeRepo(fs?: MemoryFs) {
+  const memFs = fs ?? new MemoryFs()
+  return new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+}
+
 describe('FeatureRepository — echo suppression', () => {
   let memFs: MemoryFs
 
@@ -574,5 +580,127 @@ describe('FeatureRepository — echo suppression', () => {
     expect(listener).toHaveBeenCalledOnce()
     // In-memory state reflects the external change
     expect(repo.features[0].priority).toBe('critical')
+  })
+})
+
+describe('FeatureRepository.setRoot()', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('getFeaturesDir() returns path under the override root when set', () => {
+    const repo = makeRepo()
+    expect(repo.getFeaturesDir()).toBe('/workspace/.kanban/features')
+
+    repo.setRootSync('/other-repo')
+    expect(repo.getFeaturesDir()).toBe('/other-repo/.kanban/features')
+  })
+
+  it('getFeaturesDir() falls back to workspaceFolders[0] after setRootSync(null)', () => {
+    const repo = makeRepo()
+    repo.setRootSync('/other-repo')
+    repo.setRootSync(null)
+    expect(repo.getFeaturesDir()).toBe('/workspace/.kanban/features')
+  })
+
+  it('setRoot() fires onDidChange after load completes', async () => {
+    const repo = makeRepo()
+    const fired: readonly Feature[][] = []
+    repo.onDidChange(features => fired.push(features))
+
+    await repo.setRoot('/other-repo')
+
+    expect(fired).toHaveLength(1)
+  })
+
+  it('setRoot() called twice rapidly fires onDidChange only once', async () => {
+    const repo = makeRepo()
+    const fired: number[] = []
+    repo.onDidChange(() => fired.push(Date.now()))
+
+    const p1 = repo.setRoot('/path-a')
+    const p2 = repo.setRoot('/path-b')
+    await Promise.all([p1, p2])
+
+    expect(fired).toHaveLength(1)
+  })
+
+  it('stale concurrent load does not overwrite features from the newer load', async () => {
+    const memFs = new MemoryFs()
+    memFs.write(`${FEATURES_DIR}/feat-a.md`, makeFeatureMd({ id: 'feat-a' }))
+
+    let resolveBlock!: () => void
+    const origReadDir = memFs.readDirectory.bind(memFs)
+    let blocked = false
+    memFs.readDirectory = async (uri: { fsPath: string }) => {
+      if (uri.fsPath === FEATURES_DIR && !blocked) {
+        blocked = true
+        await new Promise<void>(resolve => { resolveBlock = resolve })
+      }
+      return origReadDir(uri)
+    }
+
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+
+    // load1 starts — blocks on first readDirectory(FEATURES_DIR)
+    const p1 = repo.load()
+    // load2 via setRoot (empty dir) — completes fast, sets _features = []
+    const p2 = repo.setRoot('/other-repo')
+    await p2
+
+    expect(repo.features).toHaveLength(0)
+
+    // unblock load1 (stale — must NOT overwrite load2 result)
+    resolveBlock()
+    await p1
+
+    expect(repo.features).toHaveLength(0)
+  })
+
+  it('stale erroring load does not zero out features set by the newer load', async () => {
+    const memFs = new MemoryFs()
+    memFs.write('/other-repo/.kanban/features/feat-b.md', makeFeatureMd({ id: 'feat-b' }))
+
+    let resolveBlock!: () => void
+    const origReadDir = memFs.readDirectory.bind(memFs)
+    let blocked = false
+    memFs.readDirectory = async (uri: { fsPath: string }) => {
+      if (uri.fsPath === FEATURES_DIR && !blocked) {
+        blocked = true
+        await new Promise<void>(resolve => { resolveBlock = resolve })
+        throw new Error('simulated read error')
+      }
+      return origReadDir(uri)
+    }
+
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+
+    // load1 starts — blocks on first readDirectory(FEATURES_DIR), then will throw
+    const p1 = repo.load()
+    // load2 via setRoot('/other-repo') — has feat-b, completes fast
+    const p2 = repo.setRoot('/other-repo')
+    await p2
+
+    expect(repo.features).toHaveLength(1)
+    expect(repo.features[0].id).toBe('feat-b')
+
+    // unblock load1 (stale + throws — must NOT zero out load2 result)
+    resolveBlock()
+    await p1
+
+    expect(repo.features).toHaveLength(1)
+    expect(repo.features[0].id).toBe('feat-b')
+  })
+
+  it('setRoot() re-creates the file watcher even when the effective dir is unchanged', async () => {
+    const repo = makeRepo()
+
+    const beforeLoad = mockCreateFileSystemWatcher.mock.calls.length
+    await repo.load()
+    const afterLoad = mockCreateFileSystemWatcher.mock.calls.length
+    expect(afterLoad).toBeGreaterThan(beforeLoad)
+
+    // setRoot(null) keeps the same effective dir (/workspace) — must still re-create watcher
+    await repo.setRoot(null)
+    expect(mockCreateFileSystemWatcher.mock.calls.length).toBeGreaterThan(afterLoad)
   })
 })
