@@ -139,6 +139,7 @@ function makeFeatureMd(overrides: Partial<{
 
 import { FeatureRepository } from '../../src/extension/FeatureRepository'
 import type { FsAdapter } from '../../src/extension/featureFileUtils'
+import type { Feature } from '../../src/shared/types'
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -528,6 +529,11 @@ describe('FeatureRepository.migrateFilenames()', () => {
   })
 })
 
+function makeRepo(fs?: MemoryFs) {
+  const memFs = fs ?? new MemoryFs()
+  return new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+}
+
 describe('FeatureRepository — echo suppression', () => {
   let memFs: MemoryFs
 
@@ -574,5 +580,47 @@ describe('FeatureRepository — echo suppression', () => {
     expect(listener).toHaveBeenCalledOnce()
     // In-memory state reflects the external change
     expect(repo.features[0].priority).toBe('critical')
+  })
+})
+
+describe('FeatureRepository.setRoot()', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('getFeaturesDir() returns path under the override root when set', () => {
+    const repo = makeRepo()
+    expect(repo.getFeaturesDir()).toBe('/workspace/.kanban/features')
+
+    repo.setRootSync('/other-repo')
+    expect(repo.getFeaturesDir()).toBe('/other-repo/.kanban/features')
+  })
+
+  it('getFeaturesDir() falls back to workspaceFolders[0] after setRootSync(null)', () => {
+    const repo = makeRepo()
+    repo.setRootSync('/other-repo')
+    repo.setRootSync(null)
+    expect(repo.getFeaturesDir()).toBe('/workspace/.kanban/features')
+  })
+
+  it('setRoot() fires onDidChange after load completes', async () => {
+    const repo = makeRepo()
+    const fired: readonly Feature[][] = []
+    repo.onDidChange(features => fired.push(features))
+
+    await repo.setRoot('/other-repo')
+
+    expect(fired).toHaveLength(1)
+  })
+
+  it('setRoot() called twice rapidly fires onDidChange only once', async () => {
+    const repo = makeRepo()
+    const fired: number[] = []
+    repo.onDidChange(() => fired.push(Date.now()))
+
+    const p1 = repo.setRoot('/path-a')
+    const p2 = repo.setRoot('/path-b')
+    await Promise.all([p1, p2])
+
+    expect(fired).toHaveLength(1)
   })
 })
