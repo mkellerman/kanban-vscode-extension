@@ -107,14 +107,10 @@ export class KanbanPanel {
             this._sendFeaturesToWebview()
             break
           case 'createFeature': {
-            await this._createFeature(message.data)
+            const created = await this._createFeature(message.data)
             const createConfig = vscode.workspace.getConfiguration('kanban-markdown')
-            if (createConfig.get<boolean>('markdownEditorMode', false)) {
-              // Open the newly created feature in native editor
-              const created = this._features[this._features.length - 1]
-              if (created) {
-                this._openFeatureInNativeEditor(created.id)
-              }
+            if (created && createConfig.get<boolean>('markdownEditorMode', false)) {
+              this._openFeatureInNativeEditor(created.id)
             }
             break
           }
@@ -607,6 +603,7 @@ export class KanbanPanel {
 
     this._features.push(feature)
     this._sendFeaturesToWebview()
+    return feature
   }
 
   private async _moveFeature(featureId: string, newStatus: string, newOrder: number): Promise<void> {
@@ -692,7 +689,7 @@ export class KanbanPanel {
     const crossingDoneBoundary = oldStatus === 'done' || newStatus === 'done' as string
 
     let failedCount = 0
-    this._migrating = crossingDoneBoundary
+    this._migrating = true
     try {
       for (let i = 0; i < sourceFeatures.length; i++) {
         const feature = sourceFeatures[i]
