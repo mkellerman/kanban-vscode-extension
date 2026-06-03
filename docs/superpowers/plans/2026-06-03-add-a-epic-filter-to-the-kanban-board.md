@@ -1,9 +1,9 @@
 ---
 id: "2026-06-03-add-a-epic-filter-to-the-kanban-board"
-status: "review"
+status: "done"
 priority: "medium"
 created: "2026-06-03T17:30:00.000Z"
-modified: "2026-06-03T17:30:00.000Z"
+modified: "2026-06-03T20:22:00.000Z"
 labels: ["filter", "webview"]
 worktree: "/Users/me/Documents/GitHub/kanban-vscode-extension/.claude/worktrees/story+2026-06-03-add-a-epic-filter-to-the-kanban-board"
 ---
