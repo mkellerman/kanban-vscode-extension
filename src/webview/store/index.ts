@@ -135,7 +135,8 @@ export const useStore = create<KanbanState>((set, get) => ({
       priorityFilter: 'all',
       assigneeFilter: 'all',
       labelFilter: 'all',
-      dueDateFilter: 'all'
+      dueDateFilter: 'all',
+      epicFilter: 'all'
     }),
 
   addFeature: (feature) =>
@@ -167,7 +168,8 @@ export const useStore = create<KanbanState>((set, get) => ({
       priorityFilter,
       assigneeFilter,
       labelFilter,
-      dueDateFilter
+      dueDateFilter,
+      epicFilter
     } = get()
 
     return features
@@ -206,6 +208,16 @@ export const useStore = create<KanbanState>((set, get) => ({
             if (dueDateFilter === 'overdue' && !isOverdue(dueDate)) return false
             if (dueDateFilter === 'today' && !isToday(dueDate)) return false
             if (dueDateFilter === 'this-week' && !isThisWeek(dueDate)) return false
+          }
+        }
+
+        // Epic filter
+        if (epicFilter !== 'all') {
+          const featureEpic = f.epic?.trim() || null
+          if (epicFilter === 'no-epic') {
+            if (featureEpic !== null) return false
+          } else {
+            if (featureEpic !== epicFilter) return false
           }
         }
 
@@ -260,14 +272,16 @@ export const useStore = create<KanbanState>((set, get) => ({
       priorityFilter,
       assigneeFilter,
       labelFilter,
-      dueDateFilter
+      dueDateFilter,
+      epicFilter
     } = get()
     return (
       searchQuery !== '' ||
       priorityFilter !== 'all' ||
       assigneeFilter !== 'all' ||
       labelFilter !== 'all' ||
-      dueDateFilter !== 'all'
+      dueDateFilter !== 'all' ||
+      epicFilter !== 'all'
     )
   }
 }))

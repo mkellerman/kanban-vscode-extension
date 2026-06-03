@@ -228,14 +228,15 @@ describe('toggleColumnCollapsed', () => {
 
 describe('clearAllFilters', () => {
   it('resets all active filters to their defaults', () => {
-    useStore.setState({ searchQuery: 'foo', priorityFilter: 'high', assigneeFilter: 'alice', labelFilter: 'label:frontend', dueDateFilter: 'overdue' })
+    useStore.setState({ searchQuery: 'foo', priorityFilter: 'high', assigneeFilter: 'alice', labelFilter: 'label:frontend', dueDateFilter: 'overdue', epicFilter: 'Alpha' })
     useStore.getState().clearAllFilters()
-    const { searchQuery, priorityFilter, assigneeFilter, labelFilter, dueDateFilter } = useStore.getState()
+    const { searchQuery, priorityFilter, assigneeFilter, labelFilter, dueDateFilter, epicFilter } = useStore.getState()
     expect(searchQuery).toBe('')
     expect(priorityFilter).toBe('all')
     expect(assigneeFilter).toBe('all')
     expect(labelFilter).toBe('all')
     expect(dueDateFilter).toBe('all')
+    expect(epicFilter).toBe('all')
   })
 })
 
@@ -255,6 +256,11 @@ describe('hasActiveFilters', () => {
 
   it('returns true when priorityFilter is set', () => {
     useStore.setState({ priorityFilter: 'high' })
+    expect(useStore.getState().hasActiveFilters()).toBe(true)
+  })
+
+  it('returns true when epicFilter is set', () => {
+    useStore.setState({ epicFilter: 'Alpha' })
     expect(useStore.getState().hasActiveFilters()).toBe(true)
   })
 })
@@ -309,6 +315,50 @@ describe('epicFilter state', () => {
     useStore.getState().setEpicFilter('Alpha')
     useStore.getState().setEpicFilter('all')
     expect(useStore.getState().epicFilter).toBe('all')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// getFilteredFeaturesByStatus — epic filter
+// ---------------------------------------------------------------------------
+
+describe('getFilteredFeaturesByStatus — epic filter', () => {
+  beforeEach(() => {
+    useStore.getState().addFeature(makeFeature({ id: 'alpha',   status: 'todo', epic: 'Alpha', order: 'a0' }))
+    useStore.getState().addFeature(makeFeature({ id: 'beta',    status: 'todo', epic: 'Beta',  order: 'a1' }))
+    useStore.getState().addFeature(makeFeature({ id: 'no-epic', status: 'todo', epic: null,    order: 'a2' }))
+  })
+
+  it('returns all features when epicFilter is "all"', () => {
+    const results = useStore.getState().getFilteredFeaturesByStatus('todo')
+    expect(results).toHaveLength(3)
+  })
+
+  it('filters to a named epic', () => {
+    useStore.setState({ epicFilter: 'Alpha' })
+    const results = useStore.getState().getFilteredFeaturesByStatus('todo')
+    expect(results.map(f => f.id)).toEqual(['alpha'])
+  })
+
+  it('filters by "no-epic" sentinel — returns features with no epic', () => {
+    useStore.setState({ epicFilter: 'no-epic' })
+    const results = useStore.getState().getFilteredFeaturesByStatus('todo')
+    expect(results.map(f => f.id)).toEqual(['no-epic'])
+  })
+
+  it('treats whitespace-only epic as no-epic when filter is "no-epic"', () => {
+    useStore.getState().addFeature(makeFeature({ id: 'spaces', status: 'todo', epic: '  ', order: 'a3' }))
+    useStore.setState({ epicFilter: 'no-epic' })
+    const results = useStore.getState().getFilteredFeaturesByStatus('todo')
+    expect(results.map(f => f.id)).toEqual(expect.arrayContaining(['no-epic', 'spaces']))
+    expect(results).toHaveLength(2)
+  })
+
+  it('does not match features in a different named epic', () => {
+    useStore.setState({ epicFilter: 'Alpha' })
+    const results = useStore.getState().getFilteredFeaturesByStatus('todo')
+    expect(results.some(f => f.id === 'beta')).toBe(false)
+    expect(results.some(f => f.id === 'no-epic')).toBe(false)
   })
 })
 
