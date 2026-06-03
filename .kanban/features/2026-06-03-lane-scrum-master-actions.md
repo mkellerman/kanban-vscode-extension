@@ -1,18 +1,16 @@
 ---
 id: "2026-06-03-lane-scrum-master-actions"
-status: "review"
+status: "completed"
 priority: "medium"
 assignee: null
 epic: "Workflow automation"
 dueDate: null
 created: "2026-06-03T00:00:00.000Z"
-modified: "2026-06-03T18:45:00.000Z"
-completedAt: null
+modified: "2026-06-03T20:35:00.000Z"
+completedAt: "2026-06-03T20:35:00.000Z"
 labels: ["ux", "workflow", "automation"]
-order: "a5"
-worktree: "/Users/me/Documents/GitHub/kanban-vscode-extension/.claude/worktrees/story+2026-06-03-lane-scrum-master-actions"
+order: "a0"
 ---
-
 # Add lane-level scrum master actions to the Kanban board
 
 As a maintainer of the board, I want each lane's three-dots menu to launch a lane-specific agent or instruction set, so the board can stay organized, prioritized, and free of unresolved blockers without manual triage for every lane.
