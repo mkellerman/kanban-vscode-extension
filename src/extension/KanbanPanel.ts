@@ -539,7 +539,8 @@ export class KanbanPanel {
       boardViewMode,
       collapsedEpics,
       locale: getEffectiveLocale(),
-      translations: getBundle()
+      translations: getBundle(),
+      activeFolderName: path.basename(this._repo.getEffectiveRoot() ?? '')
     })
   }
 }

@@ -47,8 +47,12 @@ export class FeatureRepository implements vscode.Disposable {
     return this._features
   }
 
+  getEffectiveRoot(): string | null {
+    return this._rootOverride ?? (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null)
+  }
+
   getFeaturesDir(): string | null {
-    const root = this._rootOverride ?? (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null)
+    const root = this.getEffectiveRoot()
     if (!root) return null
     const config = vscode.workspace.getConfiguration('kanban-markdown')
     const dir = config.get<string>('featuresDirectory') || '.kanban/features'
