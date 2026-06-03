@@ -79,7 +79,7 @@ Each card is a markdown file with YAML frontmatter.
 
 ## AI Agent Integration
 
-Cards include a "Build with AI" action that passes full feature context (title, priority, labels, description) to your preferred agent.
+Cards include a "Build with AI" action that passes full feature context to your preferred agent. The prompt is tailored to the card's current column — a card in Review gets a code-review instruction; a card in Backlog gets a research/planning instruction.
 
 | Agent | Modes |
 |-------|-------|
@@ -87,6 +87,68 @@ Cards include a "Build with AI" action that passes full feature context (title, 
 | Codex | Suggest, Auto-edit, Full Auto |
 | GitHub Copilot | Default |
 | OpenCode | Default |
+
+### Column-aware prompts
+
+Each column has a default prompt. The agent receives whichever prompt applies first:
+
+| Priority | Source | Who controls it |
+|----------|--------|-----------------|
+| 1 (highest) | `.kanban/instructions/{column-id}.md` in your repo | Project team (committed to repo) |
+| 2 | `prompt` field on the column in `kanban-markdown.columns` | Individual user (VS Code settings) |
+| 3 (lowest) | Bundled default for the column | Extension |
+
+**Bundled defaults:**
+
+| Column | Prompt sent to agent |
+|--------|----------------------|
+| `backlog` | Research and plan an approach for… |
+| `todo` | Implement this feature… |
+| `in-progress` | Continue implementing… pick up where work left off… |
+| `review` | Review this implementation for correctness, edge cases, and code quality… |
+| `done` | Write tests and documentation for… |
+
+Custom column IDs with no matching file, setting, or bundled template use a generic `Implement this feature:` fallback.
+
+### Template variables
+
+All prompts — bundled defaults and your custom templates — support these placeholders:
+
+| Variable | Value |
+|----------|-------|
+| `{{title}}` | Card title (from first `# heading`) |
+| `{{priority}}` | `critical`, `high`, `medium`, or `low` |
+| `{{status}}` | Column ID, e.g. `in-progress` |
+| `{{columnName}}` | Column display name, e.g. `In Progress` |
+| `{{labels}}` | ` [label1, label2]` (leading space) or empty string |
+| `{{description}}` | Card body — newlines collapsed, truncated at 200 chars |
+| `{{filePath}}` | Absolute path to the feature file |
+
+If your template contains `{{filePath}}`, it is substituted in place. If absent, the path is appended on a new line automatically.
+
+### Customizing prompts
+
+**Per-project override** — commit a markdown file at `.kanban/instructions/{column-id}.md`. This takes highest priority and applies to everyone working in the repo:
+
+```
+.kanban/
+  instructions/
+    review.md      ← overrides the Review column prompt for the whole project
+    done.md
+```
+
+**Per-user override** — add a `prompt` field to a column in `kanban-markdown.columns`:
+
+```json
+{
+  "id": "review",
+  "name": "Review",
+  "color": "#8b5cf6",
+  "prompt": "Review for security vulnerabilities and OWASP Top 10: \"{{title}}\". {{description}} {{filePath}}"
+}
+```
+
+The settings template is overridden by a local `.kanban/instructions/` file when both are present.
 
 ### Kanban Skill
 
@@ -130,7 +192,7 @@ Settings live under `kanban-markdown.*` in your VS Code/Cursor preferences.
 | `filenamePattern` | `name-date` | Filename pattern for new cards (`name-date`, `date-name`, `name-datetime`, `datetime-name`) |
 | `defaultPriority` | `medium` | Default priority for new features |
 | `defaultStatus` | `backlog` | Default status for new features |
-| `columns` | *see below* | Customize column IDs, names, and colors |
+| `columns` | *see below* | Customize column IDs, names, colors, and AI prompt templates |
 | `aiAgent` | `claude` | AI agent for "Build with AI" (`claude`, `codex`, `copilot`, `opencode`) |
 | `showPriorityBadges` | `true` | Show priority badges on cards |
 | `showAssignee` | `true` | Show assignee on cards |
@@ -153,6 +215,8 @@ Default columns:
   { "id": "done", "name": "Done", "color": "#22c55e" }
 ]
 ```
+
+Each column accepts an optional `prompt` field to override the "Build with AI" template for that column. See [Column-aware prompts](#column-aware-prompts) for the full customization options.
 
 ## Installation
 

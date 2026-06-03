@@ -1,1 +1,3 @@
-Implement this feature: "{{title}}" ({{priority}} priority){{labels}}. {{description}} {{filePath}}
+feature: "{{title}}"
+
+Use `/superpowers-todo` {{filePath}}

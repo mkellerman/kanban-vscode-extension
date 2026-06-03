@@ -1,1 +1,3 @@
-Write tests and documentation for: "{{title}}"{{labels}}. {{description}} {{filePath}}
+feature: "{{title}}"
+
+Use `/superpowers-done` {{filePath}}
