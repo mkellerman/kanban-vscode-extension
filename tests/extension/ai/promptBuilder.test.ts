@@ -12,7 +12,8 @@ import * as fs from 'fs'
 // ---------------------------------------------------------------------------
 // Import subject after mocking
 // ---------------------------------------------------------------------------
-import { buildPrompt } from '../../../src/extension/ai/promptBuilder'
+import { buildPrompt, buildLanePrompt } from '../../../src/extension/ai/promptBuilder'
+import type { Feature } from '../../../src/shared/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -35,6 +36,20 @@ const reviewColumn: KanbanColumn = { id: 'review', name: 'Review', color: '#8b5c
 const doneColumn: KanbanColumn = { id: 'done', name: 'Done', color: '#22c55e' }
 const inProgressColumn: KanbanColumn = { id: 'in-progress', name: 'In Progress', color: '#f59e0b' }
 const backlogColumn: KanbanColumn = { id: 'backlog', name: 'Backlog', color: '#6b7280' }
+
+const FEAT_A: Feature = {
+  id: 'feat-a', status: 'backlog', priority: 'medium', assignee: null, epic: null,
+  dueDate: null, created: '2026-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z',
+  completedAt: null, labels: [], order: 'a0', content: '# Feature A',
+  filePath: '/workspace/.kanban/features/feat-a.md'
+}
+
+const FEAT_B: Feature = {
+  id: 'feat-b', status: 'backlog', priority: 'high', assignee: null, epic: null,
+  dueDate: null, created: '2026-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z',
+  completedAt: null, labels: [], order: 'a1', content: '# Feature B',
+  filePath: '/workspace/.kanban/features/feat-b.md'
+}
 
 function makeFsMock(opts: {
   instructionsDirExists?: boolean
@@ -547,5 +562,116 @@ describe('buildPrompt — symlink and traversal guards', () => {
     expect(vi.mocked(fs.readFileSync).mock.calls.some(c => String(c[0]).startsWith('/etc/'))).toBe(false)
     // Falls through to bundled default
     expect(result).toContain('Bundled: My Feature')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// buildLanePrompt — variable substitution
+// ---------------------------------------------------------------------------
+
+describe('buildLanePrompt — variable substitution', () => {
+  it('substitutes {{columnName}}, {{count}}, and {{featurePaths}} from the bundled template', () => {
+    vi.mocked(fs.realpathSync).mockImplementation(() => { throw new Error('ENOENT') })
+    vi.mocked(fs.readFileSync).mockImplementation((p) => {
+      if (String(p).endsWith('backlog-lane.md')) return '{{columnName}} {{count}}\n{{featurePaths}}'
+      throw new Error('ENOENT')
+    })
+    const result = buildLanePrompt([FEAT_A, FEAT_B], backlogColumn, EXTENSION_ROOT, WORKSPACE_ROOT)
+    expect(result).toContain('Backlog')
+    expect(result).toContain('2')
+    expect(result).toContain('.kanban/features/feat-a.md')
+    expect(result).toContain('.kanban/features/feat-b.md')
+  })
+
+  it('makes featurePaths relative to workspaceRoot when workspaceRoot is provided', () => {
+    vi.mocked(fs.realpathSync).mockImplementation(() => { throw new Error('ENOENT') })
+    vi.mocked(fs.readFileSync).mockImplementation((p) => {
+      if (String(p).endsWith('backlog-lane.md')) return '{{featurePaths}}'
+      throw new Error('ENOENT')
+    })
+    const result = buildLanePrompt([FEAT_A], backlogColumn, EXTENSION_ROOT, WORKSPACE_ROOT)
+    // relative path: .kanban/features/feat-a.md (no leading /workspace/)
+    expect(result).toContain('.kanban/features/feat-a.md')
+    expect(result).not.toContain('/workspace/.kanban')
+  })
+
+  it('uses absolute featurePaths when workspaceRoot is null', () => {
+    vi.mocked(fs.realpathSync).mockImplementation(() => { throw new Error('should not be called') })
+    vi.mocked(fs.readFileSync).mockImplementation((p) => {
+      if (String(p).endsWith('backlog-lane.md')) return '{{featurePaths}}'
+      throw new Error('ENOENT')
+    })
+    const result = buildLanePrompt([FEAT_A], backlogColumn, EXTENSION_ROOT, null)
+    expect(result).toContain('/workspace/.kanban/features/feat-a.md')
+  })
+
+  it('{{featurePaths}} lists each file on its own line', () => {
+    vi.mocked(fs.realpathSync).mockImplementation(() => { throw new Error('ENOENT') })
+    vi.mocked(fs.readFileSync).mockImplementation((p) => {
+      if (String(p).endsWith('backlog-lane.md')) return '{{featurePaths}}'
+      throw new Error('ENOENT')
+    })
+    const result = buildLanePrompt([FEAT_A, FEAT_B], backlogColumn, EXTENSION_ROOT, WORKSPACE_ROOT)
+    const lines = result.split('\n')
+    expect(lines).toContain('.kanban/features/feat-a.md')
+    expect(lines).toContain('.kanban/features/feat-b.md')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// buildLanePrompt — resolution chain
+// ---------------------------------------------------------------------------
+
+describe('buildLanePrompt — resolution chain', () => {
+  it('Level 1: local .kanban/instructions/{columnId}-lane.md wins over bundled', () => {
+    vi.mocked(fs.realpathSync).mockImplementation((p) => String(p))
+    vi.mocked(fs.readFileSync).mockImplementation((p) => {
+      const str = String(p)
+      if (str.includes('.kanban/instructions') && str.includes('backlog-lane')) {
+        return 'Local lane: {{columnName}}'
+      }
+      if (str.endsWith('backlog-lane.md')) return 'Bundled lane'
+      throw new Error('ENOENT')
+    })
+    const result = buildLanePrompt([FEAT_A], backlogColumn, EXTENSION_ROOT, WORKSPACE_ROOT)
+    expect(result).toContain('Local lane: Backlog')
+    expect(result).not.toContain('Bundled lane')
+  })
+
+  it('Level 2: bundled prompts/{columnId}-lane.md used when no local override', () => {
+    vi.mocked(fs.realpathSync).mockImplementation(() => { throw new Error('ENOENT') })
+    vi.mocked(fs.readFileSync).mockImplementation((p) => {
+      if (String(p).endsWith('backlog-lane.md')) return 'Bundled lane: {{columnName}}'
+      throw new Error('ENOENT')
+    })
+    const result = buildLanePrompt([FEAT_A], backlogColumn, EXTENSION_ROOT, WORKSPACE_ROOT)
+    expect(result).toContain('Bundled lane: Backlog')
+  })
+
+  it('Level 3: generic fallback used when no local or bundled template exists', () => {
+    vi.mocked(fs.realpathSync).mockImplementation(() => { throw new Error('ENOENT') })
+    vi.mocked(fs.readFileSync).mockImplementation(() => { throw new Error('ENOENT') })
+    const result = buildLanePrompt([FEAT_A], backlogColumn, EXTENSION_ROOT, WORKSPACE_ROOT)
+    expect(result).toContain('Backlog')
+    expect(result).toContain('.kanban/features/feat-a.md')
+  })
+
+  it('skips local file lookup when workspaceRoot is null', () => {
+    vi.mocked(fs.realpathSync).mockImplementation(() => { throw new Error('should not be called') })
+    vi.mocked(fs.readFileSync).mockImplementation((p) => {
+      if (String(p).endsWith('backlog-lane.md')) return 'Bundled: {{columnName}}'
+      throw new Error('ENOENT')
+    })
+    const result = buildLanePrompt([FEAT_A], backlogColumn, EXTENSION_ROOT, null)
+    expect(result).toContain('Bundled: Backlog')
+    expect(vi.mocked(fs.realpathSync)).not.toHaveBeenCalled()
+  })
+
+  it('../secret column ID skips local file lookup and uses fallback', () => {
+    vi.mocked(fs.realpathSync).mockImplementation(() => { throw new Error('should not be called') })
+    vi.mocked(fs.readFileSync).mockImplementation(() => { throw new Error('ENOENT') })
+    const badColumn: KanbanColumn = { id: '../secret', name: 'Bad', color: '' }
+    buildLanePrompt([FEAT_A], badColumn, EXTENSION_ROOT, WORKSPACE_ROOT)
+    expect(vi.mocked(fs.realpathSync)).not.toHaveBeenCalled()
   })
 })
