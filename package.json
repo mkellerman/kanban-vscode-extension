@@ -297,6 +297,7 @@
     "build": "pnpm run build:extension && pnpm run build:webview",
     "build:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
     "build:webview": "vite build",
+    "check-bundle-size": "pnpm run build:webview && tsx scripts/check-bundle-size.ts",
     "watch": "concurrently \"pnpm run watch:extension\" \"pnpm run watch:webview\"",
     "watch:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --watch",
     "watch:webview": "vite build --watch",

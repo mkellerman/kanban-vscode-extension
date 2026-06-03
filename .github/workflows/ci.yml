@@ -108,6 +108,9 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Check bundle size
+        run: pnpm exec tsx scripts/check-bundle-size.ts
+
       - name: Package extension
         run: pnpm run package
 
