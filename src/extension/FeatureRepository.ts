@@ -25,6 +25,7 @@ export class FeatureRepository implements vscode.Disposable {
   private _features: Feature[] = []
   private _emitter = new vscode.EventEmitter<readonly Feature[]>()
   private _fileWatcher?: vscode.FileSystemWatcher
+  private _watcherDisposables: vscode.Disposable[] = []
   private _currentWatcherDir: string | null = null
   private _migrating = false
   private _debounceTimer?: ReturnType<typeof setTimeout>
@@ -163,20 +164,25 @@ export class FeatureRepository implements vscode.Disposable {
 
       // Legacy integer order migration
       if (features.some(f => /^\d+$/.test(f.order))) {
-        const byStatus = new Map<string, Feature[]>()
-        for (const f of features) {
-          const list = byStatus.get(f.status) ?? []
-          list.push(f)
-          byStatus.set(f.status, list)
-        }
-        for (const col of byStatus.values()) {
-          col.sort((a, b) => parseInt(a.order) - parseInt(b.order))
-          const keys = generateNKeysBetween(null, null, col.length)
-          for (let i = 0; i < col.length; i++) {
-            col[i].order = keys[i]
-            const content = serializeFeature(col[i])
-            await this._fs.writeFile(vscode.Uri.file(col[i].filePath), new TextEncoder().encode(content))
+        this._migrating = true
+        try {
+          const byStatus = new Map<string, Feature[]>()
+          for (const f of features) {
+            const list = byStatus.get(f.status) ?? []
+            list.push(f)
+            byStatus.set(f.status, list)
           }
+          for (const col of byStatus.values()) {
+            col.sort((a, b) => parseInt(a.order) - parseInt(b.order))
+            const keys = generateNKeysBetween(null, null, col.length)
+            for (let i = 0; i < col.length; i++) {
+              col[i].order = keys[i]
+              const content = serializeFeature(col[i])
+              await this._fs.writeFile(vscode.Uri.file(col[i].filePath), new TextEncoder().encode(content))
+            }
+          }
+        } finally {
+          this._migrating = false
         }
       }
 
@@ -193,15 +199,17 @@ export class FeatureRepository implements vscode.Disposable {
       this._fileWatcher.dispose()
       this._fileWatcher = undefined
     }
+    this._watcherDisposables.forEach(d => d.dispose())
+    this._watcherDisposables = []
     if (!featuresDir) return
 
     const pattern = new vscode.RelativePattern(featuresDir, '**/*.md')
     this._fileWatcher = vscode.workspace.createFileSystemWatcher(pattern)
 
     const handle = (uri: vscode.Uri) => this._handleFileChange(uri)
-    this._fileWatcher.onDidChange(handle)
-    this._fileWatcher.onDidCreate(handle)
-    this._fileWatcher.onDidDelete(handle)
+    this._watcherDisposables.push(this._fileWatcher.onDidChange(handle))
+    this._watcherDisposables.push(this._fileWatcher.onDidCreate(handle))
+    this._watcherDisposables.push(this._fileWatcher.onDidDelete(handle))
   }
 
   private _handleFileChange(uri: vscode.Uri): void {
@@ -227,6 +235,7 @@ export class FeatureRepository implements vscode.Disposable {
 
   dispose(): void {
     if (this._debounceTimer) clearTimeout(this._debounceTimer)
+    this._watcherDisposables.forEach(d => d.dispose())
     if (this._fileWatcher) this._fileWatcher.dispose()
     this._emitter.dispose()
   }

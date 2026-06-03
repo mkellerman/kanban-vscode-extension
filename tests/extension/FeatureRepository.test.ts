@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import path from 'path'
+import type * as vscode from 'vscode'
 
 // ---------------------------------------------------------------------------
 // Capture watcher callbacks so tests can simulate file-system events
@@ -64,7 +65,7 @@ class MemoryFs {
   list() { return [...this._files.keys()] }
 
   async stat(uri: { fsPath: string }) {
-    if (this._files.has(uri.fsPath)) return { type: 1, ctime: 0, mtime: 0, size: 0 } as never
+    if (this._files.has(uri.fsPath)) return { type: 1, ctime: 0, mtime: 0, size: 0 } as vscode.FileStat
     throw Object.assign(new Error(`ENOENT: ${uri.fsPath}`), { code: 'FileNotFound' })
   }
   async rename(src: { fsPath: string }, tgt: { fsPath: string }) {
@@ -137,6 +138,7 @@ function makeFeatureMd(overrides: Partial<{
 }
 
 import { FeatureRepository } from '../../src/extension/FeatureRepository'
+import type { FsAdapter } from '../../src/extension/featureFileUtils'
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -163,7 +165,7 @@ describe('FeatureRepository.load() — Phase 2: reads root and done/ files', () 
 
   it('loads a single root-level feature file', async () => {
     memFs.write(`${FEATURES_DIR}/feat-a.md`, makeFeatureMd({ id: 'feat-a' }))
-    const repo = new FeatureRepository(makeContext(), memFs as never)
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
     await repo.load()
     expect(repo.features).toHaveLength(1)
     expect(repo.features[0].id).toBe('feat-a')
@@ -171,7 +173,7 @@ describe('FeatureRepository.load() — Phase 2: reads root and done/ files', () 
 
   it('loads feature files from done/ subfolder', async () => {
     memFs.write(`${FEATURES_DIR}/done/feat-b.md`, makeFeatureMd({ id: 'feat-b', status: 'done' }))
-    const repo = new FeatureRepository(makeContext(), memFs as never)
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
     await repo.load()
     expect(repo.features).toHaveLength(1)
     expect(repo.features[0].id).toBe('feat-b')
@@ -181,14 +183,14 @@ describe('FeatureRepository.load() — Phase 2: reads root and done/ files', () 
   it('loads both root and done/ features together', async () => {
     memFs.write(`${FEATURES_DIR}/feat-a.md`, makeFeatureMd({ id: 'feat-a', order: 'a0' }))
     memFs.write(`${FEATURES_DIR}/done/feat-b.md`, makeFeatureMd({ id: 'feat-b', status: 'done', order: 'a1' }))
-    const repo = new FeatureRepository(makeContext(), memFs as never)
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
     await repo.load()
     expect(repo.features).toHaveLength(2)
   })
 
   it('fires onDidChange after load()', async () => {
     memFs.write(`${FEATURES_DIR}/feat-a.md`, makeFeatureMd({ id: 'feat-a' }))
-    const repo = new FeatureRepository(makeContext(), memFs as never)
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
     const listener = vi.fn()
     repo.onDidChange(listener)
     await repo.load()
@@ -200,7 +202,7 @@ describe('FeatureRepository.load() — Phase 2: reads root and done/ files', () 
     // Use numeric order strings — the repo must migrate them to fractional keys
     memFs.write(`${FEATURES_DIR}/feat-1.md`, makeFeatureMd({ id: 'feat-1', order: '0' }))
     memFs.write(`${FEATURES_DIR}/feat-2.md`, makeFeatureMd({ id: 'feat-2', order: '1' }))
-    const repo = new FeatureRepository(makeContext(), memFs as never)
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
     await repo.load()
     expect(repo.features.every(f => !/^\d+$/.test(f.order))).toBe(true)
   })
@@ -208,7 +210,7 @@ describe('FeatureRepository.load() — Phase 2: reads root and done/ files', () 
   it('sorts features by order field', async () => {
     memFs.write(`${FEATURES_DIR}/feat-b.md`, makeFeatureMd({ id: 'feat-b', order: 'a1' }))
     memFs.write(`${FEATURES_DIR}/feat-a.md`, makeFeatureMd({ id: 'feat-a', order: 'a0' }))
-    const repo = new FeatureRepository(makeContext(), memFs as never)
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
     await repo.load()
     expect(repo.features[0].id).toBe('feat-a')
     expect(repo.features[1].id).toBe('feat-b')
