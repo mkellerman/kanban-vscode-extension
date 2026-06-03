@@ -527,3 +527,52 @@ describe('FeatureRepository.migrateFilenames()', () => {
     expect(typeof result.skipped).toBe('number')
   })
 })
+
+describe('FeatureRepository — echo suppression', () => {
+  let memFs: MemoryFs
+
+  beforeEach(async () => {
+    memFs = new MemoryFs()
+    vi.useFakeTimers()
+    memFs.write(`${FEATURES_DIR}/feat-a.md`, makeFeatureMd({ id: 'feat-a', priority: 'low' }))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('does NOT fire onDidChange when watcher fires for a file the repo just wrote', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+
+    // Do a write (sets echo suppression sentinel)
+    await repo.updateFeature('feat-a', { priority: 'high' })
+
+    const listener = vi.fn()
+    repo.onDidChange(listener)
+    listener.mockClear() // clear the updateFeature fire
+
+    // Simulate watcher firing for the file we just wrote (same content on disk)
+    simulateChange(`${FEATURES_DIR}/feat-a.md`)
+    await vi.runAllTimersAsync()
+
+    // Echo suppressed — listener must NOT have been called again
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  it('DOES fire onDidChange when watcher fires for a file written by an external tool', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+
+    const listener = vi.fn()
+    repo.onDidChange(listener)
+    listener.mockClear()
+
+    // External tool writes new content to a file (no sentinel set by repo)
+    memFs.write(`${FEATURES_DIR}/feat-a.md`, makeFeatureMd({ id: 'feat-a', priority: 'critical' }))
+    simulateChange(`${FEATURES_DIR}/feat-a.md`)
+    await vi.runAllTimersAsync()
+
+    // External edit — listener MUST have been called
+    expect(listener).toHaveBeenCalledOnce()
+    // In-memory state reflects the external change
+    expect(repo.features[0].priority).toBe('critical')
+  })
+})
