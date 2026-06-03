@@ -55,6 +55,8 @@
   "toolbar.allLabels": "Todas as etiquetas",
   "toolbar.unlabeled": "Sem etiqueta",
   "toolbar.labelsGroup": "Etiquetas",
+  "toolbar.allEpics": "Todos os épicos",
+  "toolbar.noEpic": "Sem épico",
   "toolbar.allDates": "Todas as datas",
   "toolbar.overdue": "Atrasado",
   "toolbar.dueToday": "Vence hoje",

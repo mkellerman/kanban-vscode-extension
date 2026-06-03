@@ -55,6 +55,8 @@
   "toolbar.allLabels": "All Labels",
   "toolbar.unlabeled": "Unlabeled",
   "toolbar.labelsGroup": "Labels",
+  "toolbar.allEpics": "All Epics",
+  "toolbar.noEpic": "No Epic",
   "toolbar.allDates": "All Dates",
   "toolbar.overdue": "Overdue",
   "toolbar.dueToday": "Due Today",
