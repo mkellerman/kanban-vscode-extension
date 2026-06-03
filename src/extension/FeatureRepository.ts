@@ -457,6 +457,86 @@ export class FeatureRepository implements vscode.Disposable {
     return { failedCount }
   }
 
+  async renameLabel(oldName: string, newName: string): Promise<number> {
+    const trimOld = oldName.trim()
+    const trimNew = newName.trim()
+    if (!trimOld || !trimNew || trimOld === trimNew) return 0
+
+    let count = 0
+    for (const feature of this._features) {
+      const idx = feature.labels.indexOf(trimOld)
+      if (idx === -1) continue
+      if (feature.labels.includes(trimNew)) {
+        feature.labels.splice(idx, 1)
+      } else {
+        feature.labels[idx] = trimNew
+      }
+      feature.modified = new Date().toISOString()
+      const serialized = serializeFeature(feature)
+      this._lastWrittenContents.set(feature.filePath, serialized)
+      await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
+      count++
+    }
+
+    if (count > 0) this._emitter.fire(this._features)
+    return count
+  }
+
+  async deleteLabel(labelName: string): Promise<void> {
+    const trimmed = labelName.trim()
+    if (!trimmed) return
+
+    let changed = false
+    for (const feature of this._features) {
+      const idx = feature.labels.indexOf(trimmed)
+      if (idx === -1) continue
+      feature.labels.splice(idx, 1)
+      feature.modified = new Date().toISOString()
+      const serialized = serializeFeature(feature)
+      this._lastWrittenContents.set(feature.filePath, serialized)
+      await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
+      changed = true
+    }
+
+    if (changed) this._emitter.fire(this._features)
+  }
+
+  async migrateFilenames(pattern: FilenamePattern): Promise<{ renamed: number; skipped: number }> {
+    const featuresDir = this.getFeaturesDir()
+    if (!featuresDir) return { renamed: 0, skipped: 0 }
+
+    let renamed = 0
+    let skipped = 0
+
+    this._migrating = true
+    try {
+      for (const feature of this._features) {
+        const title = getTitleFromContent(feature.content)
+        const createdDate = new Date(feature.created)
+        const newFilename = generateFeatureFilename(title, pattern, createdDate)
+        if (newFilename === feature.id) continue
+
+        const newFilePath = getFeatureFilePath(featuresDir, feature.status, newFilename)
+        if (await fileExists(newFilePath, this._fs)) { skipped++; continue }
+
+        const oldPath = feature.filePath
+        feature.id = newFilename
+        feature.filePath = newFilePath
+
+        const serialized = serializeFeature(feature)
+        await this._fs.createDirectory(vscode.Uri.file(path.dirname(newFilePath)))
+        await this._fs.writeFile(vscode.Uri.file(newFilePath), new TextEncoder().encode(serialized))
+        await this._fs.delete(vscode.Uri.file(oldPath))
+        renamed++
+      }
+    } finally {
+      this._migrating = false
+    }
+
+    await this.load() // reloads and fires onDidChange
+    return { renamed, skipped }
+  }
+
   dispose(): void {
     if (this._debounceTimer) clearTimeout(this._debounceTimer)
     this._watcherDisposables.forEach(d => d.dispose())

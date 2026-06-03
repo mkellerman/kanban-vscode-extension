@@ -439,3 +439,91 @@ describe('FeatureRepository.archiveFeatures()', () => {
     expect(listener).toHaveBeenCalledOnce()
   })
 })
+
+describe('FeatureRepository.renameLabel()', () => {
+  let memFs: MemoryFs
+
+  beforeEach(async () => {
+    memFs = new MemoryFs()
+    vi.useFakeTimers()
+    memFs.write(`${FEATURES_DIR}/feat-a.md`,
+      makeFeatureMd({ id: 'feat-a' }).replace('labels: []', 'labels: [frontend, bug]'))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('renames the label in memory and on disk', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    const count = await repo.renameLabel('frontend', 'ui')
+    expect(count).toBe(1)
+    expect(repo.features[0].labels).toContain('ui')
+    expect(repo.features[0].labels).not.toContain('frontend')
+    expect(memFs.read(`${FEATURES_DIR}/feat-a.md`)).toContain('ui')
+  })
+
+  it('removes old label if new label already exists on same feature', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    await repo.renameLabel('frontend', 'bug') // bug already exists
+    expect(repo.features[0].labels).toEqual(['bug'])
+  })
+
+  it('fires onDidChange when any label is updated', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    const listener = vi.fn()
+    repo.onDidChange(listener)
+    listener.mockClear()
+    await repo.renameLabel('frontend', 'ui')
+    expect(listener).toHaveBeenCalledOnce()
+  })
+})
+
+describe('FeatureRepository.deleteLabel()', () => {
+  let memFs: MemoryFs
+
+  beforeEach(async () => {
+    memFs = new MemoryFs()
+    vi.useFakeTimers()
+    memFs.write(`${FEATURES_DIR}/feat-a.md`,
+      makeFeatureMd({ id: 'feat-a' }).replace('labels: []', 'labels: [bug]'))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('removes the label from all features in memory and on disk', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    await repo.deleteLabel('bug')
+    expect(repo.features[0].labels).not.toContain('bug')
+    expect(memFs.read(`${FEATURES_DIR}/feat-a.md`)).not.toContain('bug')
+  })
+
+  it('fires onDidChange after deleteLabel', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    const listener = vi.fn()
+    repo.onDidChange(listener)
+    listener.mockClear()
+    await repo.deleteLabel('bug')
+    expect(listener).toHaveBeenCalledOnce()
+  })
+})
+
+describe('FeatureRepository.migrateFilenames()', () => {
+  let memFs: MemoryFs
+
+  beforeEach(async () => {
+    memFs = new MemoryFs()
+    vi.useFakeTimers()
+    memFs.write(`${FEATURES_DIR}/my-feature.md`, makeFeatureMd({ id: 'my-feature' }))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('returns renamed and skipped counts', async () => {
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    await repo.load()
+    const result = await repo.migrateFilenames('name-date')
+    expect(typeof result.renamed).toBe('number')
+    expect(typeof result.skipped).toBe('number')
+  })
+})
