@@ -24,7 +24,7 @@ import {
 // In-memory FsAdapter factory
 // ---------------------------------------------------------------------------
 
-const FEATURES_DIR = '/workspace/.devtool/features'
+const FEATURES_DIR = '/workspace/.kanban/features'
 
 /**
  * Builds a FsAdapter stub whose behaviour is controlled by the `existing`

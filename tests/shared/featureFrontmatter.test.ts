@@ -6,7 +6,7 @@ import { parseFeatureFile, serializeFeature } from '../../src/shared/featureFron
 // Helpers
 // ---------------------------------------------------------------------------
 
-const FIXTURE_PATH = '/workspace/.devtool/features/my-feature-2026-02-23.md'
+const FIXTURE_PATH = '/workspace/.kanban/features/my-feature-2026-02-23.md'
 
 function makeFeature(overrides: Partial<Feature> = {}): Feature {
   return {

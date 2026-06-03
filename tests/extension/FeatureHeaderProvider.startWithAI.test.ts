@@ -103,7 +103,7 @@ const FEATURE_CONTENT = [
   'Feature description here.'
 ].join('\n')
 
-const FEATURE_PATH = '/workspace/.devtool/features/my-feat.md'
+const FEATURE_PATH = '/workspace/.kanban/features/my-feat.md'
 const EXTENSION_ROOT = '/ext'
 const WORKSPACE_ROOT = '/workspace'
 
@@ -171,7 +171,7 @@ describe('FeatureHeaderProvider startWithAI wiring', () => {
     const configMock = {
       get: vi.fn((key: string, defaultValue?: unknown) => {
         if (key === 'columns') return DEFAULT_COLUMNS
-        if (key === 'featuresDirectory') return '.devtool/features'
+        if (key === 'featuresDirectory') return '.kanban/features'
         return defaultValue
       })
     }
@@ -217,7 +217,7 @@ describe('FeatureHeaderProvider startWithAI wiring', () => {
     const configMock = {
       get: vi.fn((key: string, defaultValue?: unknown) => {
         if (key === 'columns') return customColumns
-        if (key === 'featuresDirectory') return '.devtool/features'
+        if (key === 'featuresDirectory') return '.kanban/features'
         return defaultValue
       })
     }
@@ -306,7 +306,7 @@ describe('FeatureHeaderProvider startWithAI security', () => {
     const configMock = {
       get: vi.fn((key: string, defaultValue?: unknown) => {
         if (key === 'columns') return DEFAULT_COLUMNS
-        if (key === 'featuresDirectory') return '.devtool/features'
+        if (key === 'featuresDirectory') return '.kanban/features'
         return defaultValue
       })
     }

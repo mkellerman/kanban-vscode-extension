@@ -27,7 +27,7 @@ const baseCtx: PromptContext = {
   priority: 'high',
   labels: [],
   content: 'Some feature content',
-  filePath: '/workspace/.devtool/features/my-feature.md'
+  filePath: '/workspace/.kanban/features/my-feature.md'
 }
 
 const todoColumn: KanbanColumn = { id: 'todo', name: 'To Do', color: '#3b82f6' }
@@ -112,14 +112,14 @@ describe('buildPrompt — variable substitution', () => {
     const template = 'Do something with: "{{title}}"'
     makeFsMock()
     const result = buildPrompt(baseCtx, todoColumn, EXTENSION_ROOT, null, template)
-    expect(result).toContain('\nSee full details in: /workspace/.devtool/features/my-feature.md')
+    expect(result).toContain('\nSee full details in: /workspace/.kanban/features/my-feature.md')
   })
 
   it('substitutes {{filePath}} in place when present in template (no extra line appended)', () => {
     const template = 'See file at {{filePath}} for details'
     makeFsMock()
     const result = buildPrompt(baseCtx, todoColumn, EXTENSION_ROOT, null, template)
-    expect(result).toContain('See file at /workspace/.devtool/features/my-feature.md for details')
+    expect(result).toContain('See file at /workspace/.kanban/features/my-feature.md for details')
     expect(result).not.toContain('See full details in:')
   })
 
