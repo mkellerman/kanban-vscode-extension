@@ -19,7 +19,7 @@
 - Modify: `src/extension/SidebarViewProvider.ts:147`
 - Modify: `src/extension/index.ts:71`
 
-- [ ] **Step 1: Update `package.json` default**
+- [x] **Step 1: Update `package.json` default**
 
 In `package.json` line 99, change:
 ```json
@@ -30,7 +30,7 @@ to:
 "default": ".kanban/features",
 ```
 
-- [ ] **Step 2: Update `KanbanPanel.ts` fallback**
+- [x] **Step 2: Update `KanbanPanel.ts` fallback**
 
 In `src/extension/KanbanPanel.ts` line 345, change:
 ```typescript
@@ -41,7 +41,7 @@ to:
 const featuresDirectory = config.get<string>('featuresDirectory') || '.kanban/features'
 ```
 
-- [ ] **Step 3: Update `FeatureHeaderProvider.ts` fallback**
+- [x] **Step 3: Update `FeatureHeaderProvider.ts` fallback**
 
 In `src/extension/FeatureHeaderProvider.ts` line 169, change:
 ```typescript
@@ -52,7 +52,7 @@ to:
 const featuresDirectory = config.get<string>('featuresDirectory') || '.kanban/features'
 ```
 
-- [ ] **Step 4: Update `SidebarViewProvider.ts` fallback**
+- [x] **Step 4: Update `SidebarViewProvider.ts` fallback**
 
 In `src/extension/SidebarViewProvider.ts` line 147, change:
 ```typescript
@@ -63,7 +63,7 @@ to:
 const dir = config.get<string>('featuresDirectory') || '.kanban/features'
 ```
 
-- [ ] **Step 5: Update `index.ts` fallback**
+- [x] **Step 5: Update `index.ts` fallback**
 
 In `src/extension/index.ts` line 71, change:
 ```typescript
@@ -74,7 +74,7 @@ to:
 const featuresDirectory = config.get<string>('featuresDirectory') || '.kanban/features'
 ```
 
-- [ ] **Step 6: Update `README.md`**
+- [x] **Step 6: Update `README.md`**
 
 In `README.md` line 191, change:
 ```markdown
@@ -85,7 +85,7 @@ to:
 | `featuresDirectory` | `.kanban/features` | Directory for feature files (relative to workspace root) |
 ```
 
-- [ ] **Step 7: Commit source changes**
+- [x] **Step 7: Commit source changes**
 
 ```bash
 git add package.json src/extension/KanbanPanel.ts src/extension/FeatureHeaderProvider.ts src/extension/SidebarViewProvider.ts src/extension/index.ts README.md
@@ -101,7 +101,7 @@ git commit -m "feat: change default featuresDirectory from .devtool/features to 
 - Modify: `tests/extension/FeatureHeaderProvider.startWithAI.test.ts:174,220,312`
 - Modify: `tests/integration/suite/extension.test.ts:139`
 
-- [ ] **Step 1: Update `featureFileUtils.test.ts` constant**
+- [x] **Step 1: Update `featureFileUtils.test.ts` constant**
 
 In `tests/extension/featureFileUtils.test.ts` line 27, change:
 ```typescript
@@ -112,7 +112,7 @@ to:
 const FEATURES_DIR = '/workspace/.kanban/features'
 ```
 
-- [ ] **Step 2: Update `FeatureHeaderProvider.startWithAI.test.ts` mock returns**
+- [x] **Step 2: Update `FeatureHeaderProvider.startWithAI.test.ts` mock returns**
 
 In `tests/extension/FeatureHeaderProvider.startWithAI.test.ts`, change all three occurrences of:
 ```typescript
@@ -125,7 +125,7 @@ if (key === 'featuresDirectory') return '.kanban/features'
 
 These appear at lines 174, 220, and 312.
 
-- [ ] **Step 3: Update `extension.test.ts` constant**
+- [x] **Step 3: Update `extension.test.ts` constant**
 
 In `tests/integration/suite/extension.test.ts` line 139, change:
 ```typescript
@@ -136,7 +136,7 @@ to:
 const featuresDir = '/workspace/.kanban/features'
 ```
 
-- [ ] **Step 4: Run tests to confirm nothing broke**
+- [x] **Step 4: Run tests to confirm nothing broke**
 
 ```bash
 cd /Users/me/Documents/GitHub/kanban-vscode-extension && npm test
@@ -144,7 +144,7 @@ cd /Users/me/Documents/GitHub/kanban-vscode-extension && npm test
 
 Expected: all tests pass. These changes are path string updates only — no logic changed.
 
-- [ ] **Step 5: Commit test changes**
+- [x] **Step 5: Commit test changes**
 
 ```bash
 git add tests/extension/featureFileUtils.test.ts tests/extension/FeatureHeaderProvider.startWithAI.test.ts tests/integration/suite/extension.test.ts
@@ -158,7 +158,7 @@ git commit -m "test: update hardcoded .devtool/features paths to .kanban/feature
 **Files:**
 - Move: `.devtool/features/` → `.kanban/features/`
 
-- [ ] **Step 1: Create `.kanban` parent and rename with git mv**
+- [x] **Step 1: Create `.kanban` parent and rename with git mv**
 
 `git mv` requires the destination parent to exist:
 ```bash
@@ -168,11 +168,11 @@ git mv .devtool/features .kanban/features
 
 `.devtool/plans/` stays in place — do not move it.
 
-- [ ] **Step 2: Verify the board still works**
+- [x] **Step 2: Verify the board still works**
 
 Open this repo in VS Code. The kanban sidebar should load all stories from `.kanban/features/` with no configuration change needed (the new default matches the new location).
 
-- [ ] **Step 3: Commit the rename**
+- [x] **Step 3: Commit the rename**
 
 ```bash
 git add -A
