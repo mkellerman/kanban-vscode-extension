@@ -304,4 +304,69 @@ describe('KanbanPanel file error surfacing', () => {
     expect(mockShowErrorMessage.mock.calls[0][0]).toBe('panel.loadFailed')
     expect(panelAny._features).toHaveLength(0)
   })
+
+  it('shows plural warning when multiple writeFiles fail in _moveAllCards', async () => {
+    mockWriteFile.mockRejectedValue(new Error('disk full'))
+
+    const panel = createPanel()
+    const panelAny = panel as any
+    panelAny._features = [
+      makeFeature({ id: 'feat-1', status: 'backlog', order: 'a0' }),
+      makeFeature({ id: 'feat-2', status: 'backlog', order: 'a1' }),
+    ]
+
+    const spyLoad = vi.spyOn(panelAny, '_loadFeatures').mockResolvedValue(undefined)
+    vi.spyOn(panelAny, '_sendFeaturesToWebview').mockImplementation(() => {})
+
+    await panelAny._moveAllCards('backlog', 'todo')
+
+    mockWriteFile.mockResolvedValue(undefined)
+    expect(mockShowWarningMessage).toHaveBeenCalledOnce()
+    expect(mockShowWarningMessage.mock.calls[0][0]).toBe('panel.moveAllFailedOther')
+    expect(spyLoad).toHaveBeenCalledOnce()
+  })
+
+  it('shows plural warning when multiple writeFiles fail in _renameLabel', async () => {
+    mockWriteFile.mockRejectedValue(new Error('disk full'))
+
+    const panel = createPanel()
+    const panelAny = panel as any
+    panelAny._features = [
+      makeFeature({ id: 'feat-1', labels: ['bug'] }),
+      makeFeature({ id: 'feat-2', labels: ['bug'] }),
+    ]
+
+    const spyLoad = vi.spyOn(panelAny, '_loadFeatures').mockResolvedValue(undefined)
+    vi.spyOn(panelAny, '_sendFeaturesToWebview').mockImplementation(() => {})
+
+    await panelAny._renameLabel('bug', 'defect')
+
+    mockWriteFile.mockResolvedValue(undefined)
+    expect(mockShowWarningMessage).toHaveBeenCalledOnce()
+    expect(mockShowWarningMessage.mock.calls[0][0]).toBe('panel.renameLabelFailedOther')
+    expect(spyLoad).toHaveBeenCalledOnce()
+  })
+
+  it('shows plural warning when multiple writeFiles fail in _deleteLabel', async () => {
+    mockWriteFile.mockRejectedValue(new Error('disk full'))
+    mockShowWarningMessage.mockResolvedValueOnce('panel.removeButton')
+
+    const panel = createPanel()
+    const panelAny = panel as any
+    panelAny._features = [
+      makeFeature({ id: 'feat-1', labels: ['obsolete'] }),
+      makeFeature({ id: 'feat-2', labels: ['obsolete'] }),
+    ]
+
+    const spyLoad = vi.spyOn(panelAny, '_loadFeatures').mockResolvedValue(undefined)
+    vi.spyOn(panelAny, '_sendFeaturesToWebview').mockImplementation(() => {})
+
+    await panelAny._deleteLabel('obsolete')
+
+    mockWriteFile.mockResolvedValue(undefined)
+    const warnCalls = mockShowWarningMessage.mock.calls
+    const failureCall = warnCalls.find(c => c[0] === 'panel.deleteLabelFailedOther')
+    expect(failureCall).toBeDefined()
+    expect(spyLoad).toHaveBeenCalledOnce()
+  })
 })
