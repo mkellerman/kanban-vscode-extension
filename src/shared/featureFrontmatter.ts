@@ -18,11 +18,18 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
   const frontmatter = frontmatterMatch[1]
   const body = frontmatterMatch[2] || ''
 
-  const parsed = parse(frontmatter) as Record<string, unknown>
+  let parsed: Record<string, unknown>
+  try {
+    const raw = parse(frontmatter)
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
+    parsed = raw as Record<string, unknown>
+  } catch {
+    return null
+  }
 
   const getString = (key: string): string | null => {
     const val = parsed[key]
-    if (val === null || val === undefined || val === '') return null
+    if (val === null || val === undefined || val === '' || val === 'null') return null
     return String(val)
   }
 
@@ -36,7 +43,9 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
     created: getString('created') || new Date().toISOString(),
     modified: getString('modified') || new Date().toISOString(),
     completedAt: getString('completedAt'),
-    labels: Array.isArray(parsed['labels']) ? (parsed['labels'] as string[]) : [],
+    labels: Array.isArray(parsed['labels'])
+      ? (parsed['labels'] as unknown[]).map(String).filter(s => s !== '' && s !== 'null')
+      : [],
     order: getString('order') || 'a0',
     content: body.trim(),
     filePath

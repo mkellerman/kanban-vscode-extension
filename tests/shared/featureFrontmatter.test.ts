@@ -77,6 +77,15 @@ describe('parseFeatureFile', () => {
     expect(parseFeatureFile('', FIXTURE_PATH)).toBeNull()
   })
 
+  it('returns null for whitespace-only frontmatter block (does not crash)', () => {
+    expect(parseFeatureFile('---\n \n---\n# Body', FIXTURE_PATH)).toBeNull()
+  })
+
+  it('returns null for malformed YAML frontmatter (does not crash)', () => {
+    const tabIndented = '---\nid: "abc"\n\torder: a0\n---\n# Body'
+    expect(parseFeatureFile(tabIndented, FIXTURE_PATH)).toBeNull()
+  })
+
   it('normalises CRLF line endings before parsing', () => {
     const content = makeFrontmatter().replace(/\n/g, '\r\n') + '# Body'
     const feature = parseFeatureFile(content, FIXTURE_PATH)
@@ -89,6 +98,16 @@ describe('parseFeatureFile', () => {
       const content = makeFrontmatter({ assignee: 'null' }) + ''
       const feature = parseFeatureFile(content, FIXTURE_PATH)!
       expect(feature.assignee).toBeNull()
+    })
+
+    it('returns null assignee when frontmatter value is the quoted string "null"', () => {
+      const content = makeFrontmatter({ assignee: '"null"' }) + ''
+      expect(parseFeatureFile(content, FIXTURE_PATH)!.assignee).toBeNull()
+    })
+
+    it('returns null epic when frontmatter value is the quoted string "null"', () => {
+      const content = makeFrontmatter({ epic: '"null"' }) + ''
+      expect(parseFeatureFile(content, FIXTURE_PATH)!.epic).toBeNull()
     })
 
     it('returns null dueDate when frontmatter value is null', () => {
@@ -147,6 +166,11 @@ describe('parseFeatureFile', () => {
     it('strips surrounding quotes from label values', () => {
       const content = makeFrontmatter({ labels: '["with-quotes"]' }) + ''
       expect(parseFeatureFile(content, FIXTURE_PATH)!.labels).toEqual(['with-quotes'])
+    })
+
+    it('drops null items from labels array without crashing', () => {
+      const content = makeFrontmatter({ labels: '[bug, null, feature]' }) + ''
+      expect(parseFeatureFile(content, FIXTURE_PATH)!.labels).toEqual(['bug', 'feature'])
     })
   })
 
