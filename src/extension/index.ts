@@ -8,6 +8,9 @@ import { serializeFeature } from '../shared/featureFrontmatter'
 import type { Feature, FeatureStatus, Priority } from '../shared/types'
 import { ensureStatusSubfolders, getFeatureFilePath } from './featureFileUtils'
 import { t, loadBundle } from './l10n'
+import { FeatureRepository } from './FeatureRepository'
+import { AgentLauncher } from './AgentLauncher'
+import { FeatureHeaderProvider } from './FeatureHeaderProvider'
 
 interface StatusQuickPickItem extends vscode.QuickPickItem {
   statusValue: FeatureStatus
@@ -17,7 +20,7 @@ interface PriorityQuickPickItem extends vscode.QuickPickItem {
   priorityValue: Priority
 }
 
-async function createFeatureFromPrompts(): Promise<void> {
+async function createFeatureFromPrompts(repo: FeatureRepository): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders
   if (!workspaceFolders || workspaceFolders.length === 0) {
     vscode.window.showErrorMessage(t('ext.noWorkspace'))
@@ -107,8 +110,11 @@ async function createFeatureFromPrompts(): Promise<void> {
 
 export function activate(context: vscode.ExtensionContext) {
   loadBundle(context.extensionPath)
-  // Sidebar webview in the activity bar
-  const sidebarProvider = new SidebarViewProvider(context.extensionUri, context)
+
+  const repo = new FeatureRepository(context)
+  const launcher = new AgentLauncher(context.extensionUri)
+
+  const sidebarProvider = new SidebarViewProvider(context.extensionUri, context, repo)
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(SidebarViewProvider.viewType, sidebarProvider)
   )
@@ -116,7 +122,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('kanban-markdown.open', () => {
       const wasOpen = !!KanbanPanel.currentPanel
-      KanbanPanel.createOrShow(context.extensionUri, context)
+      KanbanPanel.createOrShow(context.extensionUri, context, repo, launcher)
       if (!wasOpen && KanbanPanel.currentPanel) {
         sidebarProvider.setBoardOpen(true)
         KanbanPanel.currentPanel.onDispose(() => {
@@ -128,15 +134,14 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('kanban-markdown.addFeature', () => {
-      createFeatureFromPrompts()
+      createFeatureFromPrompts(repo)
     })
   )
 
-  // If a panel already exists, revive it
   if (vscode.window.registerWebviewPanelSerializer) {
     vscode.window.registerWebviewPanelSerializer(KanbanPanel.viewType, {
       async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel) {
-        KanbanPanel.revive(webviewPanel, context.extensionUri, context)
+        KanbanPanel.revive(webviewPanel, context.extensionUri, context, repo, launcher)
         sidebarProvider.setBoardOpen(true)
         KanbanPanel.currentPanel?.onDispose(() => {
           sidebarProvider.setBoardOpen(false)
@@ -144,6 +149,12 @@ export function activate(context: vscode.ExtensionContext) {
       }
     })
   }
+
+  context.subscriptions.push(
+    FeatureHeaderProvider.register(context, launcher)
+  )
+
+  context.subscriptions.push(repo)
 }
 
 export function deactivate() {}
