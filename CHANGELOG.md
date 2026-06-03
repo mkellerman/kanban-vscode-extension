@@ -5,6 +5,21 @@ All notable changes to the Kanban Markdown extension will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Column-aware "Build with AI" prompts: the AI agent now receives a contextually appropriate prompt based on which column the card is in. Prompts are resolved from a three-level chain — a per-project `.kanban/instructions/{column}.md` file, a per-column `prompt` setting in `kanban-markdown.columns`, or bundled defaults for the five built-in columns (`backlog`, `todo`, `in-progress`, `review`, `done`). Templates support seven variables: `{{title}}`, `{{priority}}`, `{{status}}`, `{{columnName}}`, `{{labels}}`, `{{description}}`, and `{{filePath}}`. The `kanban-markdown.columns` setting gains an optional `prompt` field. Note: default behavior changes for all columns except `todo` — `backlog` now prompts for research/planning, `in-progress` for continuation, `review` for code review, and `done` for tests and documentation.
+
+### Changed
+
+- Consolidated frontmatter serialization logic into single shared module: `src/shared/featureFrontmatter.ts` is now the single source of truth for parsing and serializing feature metadata. Removed duplicate implementations from `FeatureHeaderProvider` and simplified `KanbanPanel` to call shared functions directly.
+
+### Fixed
+
+- YAML frontmatter serialization no longer corrupts feature data when `assignee`, `epic`, or `labels` contain special characters (double quotes, commas, or brackets). Values with escaped quotes and complex characters now round-trip safely through serialize/parse cycles.
+- Due-date badges and filters now classify cards correctly across all timezones. `YYYY-MM-DD` dates are parsed as local midnight rather than UTC midnight, eliminating off-by-one-day errors in UTC− zones.
+
 ## [1.11.0] - 2026-03-01
 
 ### Added

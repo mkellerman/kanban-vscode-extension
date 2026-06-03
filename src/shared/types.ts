@@ -64,6 +64,7 @@ export interface KanbanColumn {
   id: string
   name: string
   color: string
+  prompt?: string  // optional Build with AI template override
 }
 
 export const DEFAULT_COLUMNS: KanbanColumn[] = [

@@ -26,6 +26,7 @@
   "config.columns.id.description": "Identificador único da coluna (usado no frontmatter de estado)",
   "config.columns.name.description": "Nome de exibição da coluna",
   "config.columns.color.description": "Cor do cabeçalho da coluna (formato hex)",
+  "config.columns.prompt.description": "Modelo opcional do indicador 'Construir com IA' para esta coluna. Suporta {{title}}, {{priority}}, {{status}}, {{columnName}}, {{labels}}, {{description}}, {{filePath}}.",
   "config.aiAgent.description": "Agente de IA predefinido para a funcionalidade 'Construir com IA'.",
   "config.aiAgent.claude": "Claude Code (Anthropic)",
   "config.aiAgent.codex": "Codex (OpenAI)",
@@ -46,5 +47,6 @@
   "config.language.auto": "Seguir o idioma do VS Code",
   "config.language.en": "Inglês (English)",
   "config.language.es": "Espanhol (Español)",
-  "config.language.pt": "Português"
+  "config.language.pt": "Português",
+  "panel.aiRequiresTrust": "\"Construir com IA\" requer um espaço de trabalho de confiança. Abra o espaço de trabalho em modo de confiança para usar esta funcionalidade."
 }

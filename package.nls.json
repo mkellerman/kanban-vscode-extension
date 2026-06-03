@@ -26,6 +26,7 @@
   "config.columns.id.description": "Unique identifier for the column (used in frontmatter status)",
   "config.columns.name.description": "Display name for the column",
   "config.columns.color.description": "Color for the column header (hex format)",
+  "config.columns.prompt.description": "Optional 'Build with AI' prompt template for this column. Supports {{title}}, {{priority}}, {{status}}, {{columnName}}, {{labels}}, {{description}}, {{filePath}}.",
   "config.aiAgent.description": "Default AI agent to use for the 'Start with AI' feature.",
   "config.aiAgent.claude": "Claude Code (Anthropic)",
   "config.aiAgent.codex": "Codex (OpenAI)",
@@ -46,5 +47,6 @@
   "config.language.auto": "Follow VS Code's display language",
   "config.language.en": "English",
   "config.language.es": "Spanish (Español)",
-  "config.language.pt": "Portuguese (Português)"
+  "config.language.pt": "Portuguese (Português)",
+  "panel.aiRequiresTrust": "\"Build with AI\" requires a trusted workspace. Open the workspace in trusted mode to use this feature."
 }

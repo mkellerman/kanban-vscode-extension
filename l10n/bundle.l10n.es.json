@@ -175,6 +175,7 @@
   "panel.keepExisting": "Mantener existente",
   "panel.renameResult": "{renamed} archivo(s) renombrado(s).",
   "panel.renameResultWithSkipped": "{renamed} archivo(s) renombrado(s). {skipped} omitido(s) por conflictos de nombre.",
+  "panel.aiRequiresTrust": "\"Construir con IA\" requiere un espacio de trabajo de confianza. Abre el espacio de trabajo en modo de confianza para usar esta función.",
   "panel.noFeatureSelected": "Ninguna función seleccionada",
   "panel.languageChanged": "Kanban Markdown: idioma cambiado. ¿Actualizar los nombres de las columnas?",
   "panel.updateColumns": "Actualizar columnas",
