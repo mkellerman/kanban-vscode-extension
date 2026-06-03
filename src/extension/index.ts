@@ -68,7 +68,7 @@ async function createFeatureFromPrompts(): Promise<void> {
 
   // Create the feature file
   const config = vscode.workspace.getConfiguration('kanban-markdown')
-  const featuresDirectory = config.get<string>('featuresDirectory') || '.devtool/features'
+  const featuresDirectory = config.get<string>('featuresDirectory') || '.kanban/features'
   const featuresDir = path.join(workspaceFolders[0].uri.fsPath, featuresDirectory)
   await vscode.workspace.fs.createDirectory(vscode.Uri.file(featuresDir))
   await ensureStatusSubfolders(featuresDir)

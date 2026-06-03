@@ -162,7 +162,7 @@ Compatible with Claude Code, Codex, OpenCode, and [skills.sh](https://skills.sh)
 
 ## File Format
 
-Features live in `.devtool/features/` by default, organized into subfolders by status.
+Features live in `.kanban/features/` by default, organized into subfolders by status.
 
 ```markdown
 ---
@@ -188,7 +188,7 @@ Settings live under `kanban-markdown.*` in your VS Code/Cursor preferences.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `featuresDirectory` | `.devtool/features` | Directory for feature files (relative to workspace root) |
+| `featuresDirectory` | `.kanban/features` | Directory for feature files (relative to workspace root) |
 | `filenamePattern` | `name-date` | Filename pattern for new cards (`name-date`, `date-name`, `name-datetime`, `datetime-name`) |
 | `defaultPriority` | `medium` | Default priority for new features |
 | `defaultStatus` | `backlog` | Default status for new features |

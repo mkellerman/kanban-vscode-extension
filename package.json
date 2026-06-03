@@ -96,7 +96,7 @@
         },
         "kanban-markdown.featuresDirectory": {
           "type": "string",
-          "default": ".devtool/features",
+          "default": ".kanban/features",
           "description": "%config.featuresDirectory.description%"
         },
         "kanban-markdown.filenamePattern": {

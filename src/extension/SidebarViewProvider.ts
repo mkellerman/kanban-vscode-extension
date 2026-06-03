@@ -144,7 +144,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     const workspaceFolders = vscode.workspace.workspaceFolders
     if (!workspaceFolders || workspaceFolders.length === 0) return null
     const config = vscode.workspace.getConfiguration('kanban-markdown')
-    const dir = config.get<string>('featuresDirectory') || '.devtool/features'
+    const dir = config.get<string>('featuresDirectory') || '.kanban/features'
     return path.join(workspaceFolders[0].uri.fsPath, dir)
   }
 
