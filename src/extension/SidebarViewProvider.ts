@@ -71,11 +71,11 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
               label: f.name,
               description: f.uri.fsPath
             }))
-            const openItem = { label: 'Open folder…', description: '__open__' }
+            const openItem = { label: t('sidebar.switchWorkspace.openFolder'), description: '__open__' }
             const items = [...folderItems, openItem]
 
             const selected = await vscode.window.showQuickPick(items, {
-              placeHolder: 'Select a workspace folder for the Kanban board'
+              placeHolder: t('sidebar.switchWorkspace.placeholder')
             })
             if (!selected) break
 
@@ -84,7 +84,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
                 canSelectFolders: true,
                 canSelectFiles: false,
                 canSelectMany: false,
-                openLabel: 'Select Folder'
+                openLabel: t('sidebar.switchWorkspace.openLabel')
               })
               if (!uris || uris.length === 0) break
               await this._repo.setRoot(uris[0].fsPath)
@@ -93,7 +93,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
             }
           } catch (err) {
             vscode.window.showErrorMessage(
-              `Failed to switch workspace: ${err instanceof Error ? err.message : String(err)}`
+              t('sidebar.switchWorkspace.error', { error: err instanceof Error ? err.message : String(err) })
             )
           }
           break
@@ -341,9 +341,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div class="actions">
-    <button class="btn-folder" id="switchWorkspace" title="Switch workspace folder">
+    <button class="btn-folder" id="switchWorkspace" title="${t('sidebar.switchWorkspace.title')}">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.19a2 2 0 0 1 1.45.63l.06.06a1 1 0 0 0 .72.31H13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3.87zm.05.13H2a1 1 0 0 0-.99.91L1 4v8a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H7.53a2 2 0 0 1-1.45-.63l-.06-.06a1 1 0 0 0-.72-.31H2.5a1 1 0 0 0-.98.84L1.54 4z"/></svg>
-      <span id="folderName">Loading…</span>
+      <span id="folderName">${path.basename(this._repo.getEffectiveRoot() ?? '') || t('sidebar.switchWorkspace.noFolder')}</span>
       <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>
     </button>
     <button class="btn-primary" id="openBoard">
@@ -397,7 +397,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
           columns = msg.columns;
           features = msg.features;
           if (msg.folderName !== undefined) {
-            document.getElementById('folderName').textContent = msg.folderName || 'No folder';
+            document.getElementById('folderName').textContent = msg.folderName || '${t('sidebar.switchWorkspace.noFolder')}';
           }
           render();
         } else if (msg.type === 'boardOpenChanged') {

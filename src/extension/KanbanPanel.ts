@@ -204,7 +204,7 @@ export class KanbanPanel {
             if (feature) {
               const config = vscode.workspace.getConfiguration('kanban-markdown')
               const agent = message.agent || config.get<string>('aiAgent') || 'claude'
-              this._launcher.launch(feature, agent, message.permissionMode || 'default')
+              this._launcher.launch(feature, agent, message.permissionMode || 'default', this._repo.getEffectiveRoot())
             }
             break
           }

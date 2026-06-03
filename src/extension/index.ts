@@ -20,8 +20,8 @@ interface PriorityQuickPickItem extends vscode.QuickPickItem {
 }
 
 async function createFeatureFromPrompts(repo: FeatureRepository): Promise<void> {
-  const workspaceFolders = vscode.workspace.workspaceFolders
-  if (!workspaceFolders || workspaceFolders.length === 0) {
+  const featuresDir = repo.getFeaturesDir()
+  if (!featuresDir) {
     vscode.window.showErrorMessage(t('ext.noWorkspace'))
     return
   }
@@ -69,11 +69,6 @@ async function createFeatureFromPrompts(repo: FeatureRepository): Promise<void> 
   })
 
   // Create the feature file
-  const featuresDir = repo.getFeaturesDir()
-  if (!featuresDir) {
-    vscode.window.showErrorMessage(t('ext.noWorkspace'))
-    return
-  }
   await vscode.workspace.fs.createDirectory(vscode.Uri.file(featuresDir))
   await ensureStatusSubfolders(featuresDir)
 
@@ -153,7 +148,7 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   context.subscriptions.push(
-    FeatureHeaderProvider.register(context, launcher)
+    FeatureHeaderProvider.register(context, launcher, repo)
   )
 
   context.subscriptions.push(repo)

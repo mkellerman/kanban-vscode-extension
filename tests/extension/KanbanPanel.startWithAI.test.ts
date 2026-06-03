@@ -88,6 +88,7 @@ function makeRepo(features = [REVIEW_FEATURE]) {
     onDidChange: vi.fn(() => ({ dispose: vi.fn() })),
     load: vi.fn(() => Promise.resolve()),
     getFeaturesDir: vi.fn(() => '/workspace/.kanban/features'),
+    getEffectiveRoot: vi.fn(() => '/workspace'),
     createFeature: vi.fn(),
     updateFeature: vi.fn(),
     moveFeature: vi.fn(),

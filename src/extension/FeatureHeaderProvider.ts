@@ -5,6 +5,7 @@ import type { FeatureFrontmatter, EditorExtensionMessage, EditorWebviewMessage }
 import type { FeatureStatus, Priority, AIAgent } from '../shared/types'
 import { parseFeatureFile } from '../shared/featureFrontmatter'
 import type { AgentLauncher } from './AgentLauncher'
+import type { FeatureRepository } from './FeatureRepository'
 import { t } from './l10n'
 
 /**
@@ -19,11 +20,12 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
-    private readonly _launcher: AgentLauncher
+    private readonly _launcher: AgentLauncher,
+    private readonly _repo: FeatureRepository
   ) {}
 
-  public static register(context: vscode.ExtensionContext, launcher: AgentLauncher): vscode.Disposable {
-    const provider = new FeatureHeaderProvider(context.extensionUri, launcher)
+  public static register(context: vscode.ExtensionContext, launcher: AgentLauncher, repo: FeatureRepository): vscode.Disposable {
+    const provider = new FeatureHeaderProvider(context.extensionUri, launcher, repo)
 
     const disposables: vscode.Disposable[] = []
 
@@ -116,7 +118,7 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
           if (!parsedFeature) return
           const agent: AIAgent = message.agent || 'claude'
           const permissionMode = message.permissionMode || 'default'
-          this._launcher.launch(parsedFeature, agent, permissionMode)
+          this._launcher.launch(parsedFeature, agent, permissionMode, this._repo.getEffectiveRoot())
           break
         }
       }
@@ -141,11 +143,8 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
 
     // Only track .md files in the features directory (including status subfolders)
     const uri = editor.document.uri
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
-    const featuresDirectory = config.get<string>('featuresDirectory') || '.kanban/features'
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-    const fullFeaturesDir = workspaceRoot ? path.join(workspaceRoot, featuresDirectory) : featuresDirectory
-    if (uri.fsPath.endsWith('.md') && uri.fsPath.startsWith(fullFeaturesDir + path.sep)) {
+    const fullFeaturesDir = this._repo.getFeaturesDir()
+    if (uri.fsPath.endsWith('.md') && fullFeaturesDir && uri.fsPath.startsWith(fullFeaturesDir + path.sep)) {
       this._currentDocument = editor.document
       this._updateViewForCurrentEditor()
     } else {

@@ -185,5 +185,13 @@
   "sidebar.newFeature": "Nueva función",
   "sidebar.overview": "Resumen",
   "sidebar.total": "{count} en total",
-  "sidebar.inProgress": "En progreso"
+  "sidebar.inProgress": "En progreso",
+
+  "sidebar.switchWorkspace.title": "Cambiar carpeta de trabajo",
+  "sidebar.switchWorkspace.placeholder": "Seleccionar una carpeta de trabajo para el tablero Kanban",
+  "sidebar.switchWorkspace.openFolder": "Abrir carpeta…",
+  "sidebar.switchWorkspace.openLabel": "Seleccionar carpeta",
+  "sidebar.switchWorkspace.error": "Error al cambiar el espacio de trabajo: {error}",
+  "sidebar.switchWorkspace.loading": "Cargando…",
+  "sidebar.switchWorkspace.noFolder": "Sin carpeta"
 }

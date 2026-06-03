@@ -94,7 +94,11 @@ function setupProvider(launcher = makeLauncher()) {
   mockGetWorkspaceFolder.mockReturnValue({ uri: { fsPath: '/workspace' } })
 
   const extensionUri = { fsPath: '/ext' } as import('vscode').Uri
-  const provider = new FeatureHeaderProvider(extensionUri, launcher as never)
+  const mockRepo = {
+    getFeaturesDir: vi.fn(() => '/workspace/.kanban/features'),
+    getEffectiveRoot: vi.fn(() => '/workspace')
+  }
+  const provider = new FeatureHeaderProvider(extensionUri, launcher as never, mockRepo as never)
   const webviewView = makeWebviewView()
   provider.resolveWebviewView(
     webviewView,

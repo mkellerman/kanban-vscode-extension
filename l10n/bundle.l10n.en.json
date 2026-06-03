@@ -185,5 +185,13 @@
   "sidebar.newFeature": "New Feature",
   "sidebar.overview": "Overview",
   "sidebar.total": "{count} total",
-  "sidebar.inProgress": "In Progress"
+  "sidebar.inProgress": "In Progress",
+
+  "sidebar.switchWorkspace.title": "Switch workspace folder",
+  "sidebar.switchWorkspace.placeholder": "Select a workspace folder for the Kanban board",
+  "sidebar.switchWorkspace.openFolder": "Open folder…",
+  "sidebar.switchWorkspace.openLabel": "Select Folder",
+  "sidebar.switchWorkspace.error": "Failed to switch workspace: {error}",
+  "sidebar.switchWorkspace.loading": "Loading…",
+  "sidebar.switchWorkspace.noFolder": "No folder"
 }
