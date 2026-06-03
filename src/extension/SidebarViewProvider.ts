@@ -1,36 +1,32 @@
 import * as vscode from 'vscode'
 import * as crypto from 'crypto'
-import * as path from 'path'
-import { getTitleFromContent } from '../shared/types'
-import type { FeatureStatus, Priority, KanbanColumn } from '../shared/types'
+import type { KanbanColumn, Feature } from '../shared/types'
+import type { FeatureRepository } from './FeatureRepository'
 import { KanbanPanel } from './KanbanPanel'
 import { t } from './l10n'
-
-interface SidebarFeature {
-  id: string
-  title: string
-  status: FeatureStatus
-  priority: Priority
-}
 
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'kanban-markdown.boardView'
 
   private _view?: vscode.WebviewView
-  private _features: SidebarFeature[] = []
-  private _fileWatcher?: vscode.FileSystemWatcher
-  private _debounceTimer?: NodeJS.Timeout
   private _disposables: vscode.Disposable[] = []
 
-  constructor(private readonly _extensionUri: vscode.Uri, private readonly _context: vscode.ExtensionContext) {
-    this._setupFileWatcher()
+  constructor(
+    private readonly _extensionUri: vscode.Uri,
+    private readonly _context: vscode.ExtensionContext,
+    private readonly _repo: FeatureRepository
+  ) {
+    this._repo.onDidChange(features => {
+      this._postUpdate(features)
+    }, null, this._disposables)
 
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('kanban-markdown')) {
         if (e.affectsConfiguration('kanban-markdown.featuresDirectory')) {
-          this._setupFileWatcher()
+          this._repo.load()
+        } else {
+          this._postUpdate(this._repo.features as Feature[])
         }
-        this._refresh()
       }
     }, null, this._disposables)
   }
@@ -49,7 +45,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage(message => {
       switch (message.type) {
         case 'ready':
-          this._refresh()
+          this._postUpdate(this._repo.features as Feature[])
           break
         case 'openBoard':
           vscode.commands.executeCommand('kanban-markdown.open')
@@ -93,59 +89,26 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   }
 
   public dispose(): void {
-    if (this._fileWatcher) {
-      this._fileWatcher.dispose()
-    }
-    if (this._debounceTimer) {
-      clearTimeout(this._debounceTimer)
-    }
-    for (const d of this._disposables) {
-      d.dispose()
-    }
+    for (const d of this._disposables) d.dispose()
   }
 
-  private _setupFileWatcher(): void {
-    if (this._fileWatcher) {
-      this._fileWatcher.dispose()
-    }
-
-    const featuresDir = this._getFeaturesDir()
-    if (!featuresDir) return
-
-    const pattern = new vscode.RelativePattern(featuresDir, '**/*.md')
-    this._fileWatcher = vscode.workspace.createFileSystemWatcher(pattern)
-
-    const handleChange = () => {
-      if (this._debounceTimer) clearTimeout(this._debounceTimer)
-      this._debounceTimer = setTimeout(() => this._refresh(), 300)
-    }
-
-    this._fileWatcher.onDidChange(handleChange, null, this._disposables)
-    this._fileWatcher.onDidCreate(handleChange, null, this._disposables)
-    this._fileWatcher.onDidDelete(handleChange, null, this._disposables)
-  }
-
-  private async _refresh(): Promise<void> {
-    await this._loadFeatures()
-    if (this._view) {
-      this._view.webview.postMessage({
-        type: 'update',
-        features: this._features,
-        columns: this._getColumns()
-      })
-      this._view.webview.postMessage({
-        type: 'boardOpenChanged',
-        open: !!KanbanPanel.currentPanel
-      })
-    }
-  }
-
-  private _getFeaturesDir(): string | null {
-    const workspaceFolders = vscode.workspace.workspaceFolders
-    if (!workspaceFolders || workspaceFolders.length === 0) return null
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
-    const dir = config.get<string>('featuresDirectory') || '.kanban/features'
-    return path.join(workspaceFolders[0].uri.fsPath, dir)
+  private _postUpdate(features: readonly Feature[]): void {
+    if (!this._view) return
+    const mapped = features.map(f => ({
+      id: f.id,
+      title: f.content.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? f.id,
+      status: f.status,
+      priority: f.priority
+    }))
+    this._view.webview.postMessage({
+      type: 'update',
+      features: mapped,
+      columns: this._getColumns()
+    })
+    this._view.webview.postMessage({
+      type: 'boardOpenChanged',
+      open: !!KanbanPanel.currentPanel
+    })
   }
 
   private _getColumns(): KanbanColumn[] {
@@ -158,78 +121,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       { id: 'done', name: 'Done', color: '#22c55e' }
     ]
     return config.get<KanbanColumn[]>('columns', defaultColumns)
-  }
-
-  private async _loadFeatures(): Promise<void> {
-    const featuresDir = this._getFeaturesDir()
-    if (!featuresDir) {
-      this._features = []
-      return
-    }
-
-    const features: SidebarFeature[] = []
-
-    // Load root-level files (non-done statuses)
-    try {
-      const rootEntries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(featuresDir))
-      for (const [file, fileType] of rootEntries) {
-        if (fileType !== vscode.FileType.File || !file.endsWith('.md')) continue
-        const filePath = path.join(featuresDir, file)
-        try {
-          const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath)))
-          const parsed = this._parseFrontmatter(content, file)
-          if (parsed) features.push(parsed)
-        } catch {
-          // Skip unreadable files
-        }
-      }
-    } catch {
-      // Root directory may not exist
-    }
-
-    // Load done/ subfolder files
-    const doneDir = path.join(featuresDir, 'done')
-    try {
-      const doneEntries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(doneDir))
-      for (const [file, fileType] of doneEntries) {
-        if (fileType !== vscode.FileType.File || !file.endsWith('.md')) continue
-        const filePath = path.join(doneDir, file)
-        try {
-          const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath)))
-          const parsed = this._parseFrontmatter(content, file)
-          if (parsed) features.push(parsed)
-        } catch {
-          // Skip unreadable files
-        }
-      }
-    } catch {
-      // done/ subfolder may not exist
-    }
-
-    this._features = features
-  }
-
-  private _parseFrontmatter(content: string, filename: string): SidebarFeature | null {
-    content = content.replace(/\r\n/g, '\n')
-    const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
-    if (!match) return null
-
-    const fm = match[1]
-    const body = match[2] || ''
-
-    const getValue = (key: string): string => {
-      const m = fm.match(new RegExp(`^${key}:\\s*(.*)$`, 'm'))
-      if (!m) return ''
-      const v = m[1].trim().replace(/^["']|["']$/g, '')
-      return v === 'null' ? '' : v
-    }
-
-    const id = getValue('id') || path.basename(filename, '.md')
-    const status = (getValue('status') as FeatureStatus) || 'backlog'
-    const priority = (getValue('priority') as Priority) || 'medium'
-    const title = getTitleFromContent(body)
-
-    return { id, title, status, priority }
   }
 
   private _getHtml(): string {

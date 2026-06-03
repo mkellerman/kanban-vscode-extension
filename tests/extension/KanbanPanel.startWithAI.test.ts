@@ -1,43 +1,41 @@
-/**
- * Wiring test: asserts that KanbanPanel._startWithAI calls buildPrompt with the
- * correct arguments (column, extensionRoot, workspaceRoot, settingsTemplate).
- */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// ---------------------------------------------------------------------------
-// Hoist shared mocks so they are available inside vi.mock factories
-// ---------------------------------------------------------------------------
-const { mockShow, mockCreateTerminal, mockPostMessage,
-        mockGetConfiguration, mockGetWorkspaceFolder, mockShowWarningMessage,
-        mockIsTrusted } = vi.hoisted(() => {
-  const mockShow = vi.fn()
-  const mockCreateTerminal = vi.fn(() => ({ show: mockShow }))
+const { mockCreateTerminal, mockPostMessage, mockGetConfiguration,
+        mockGetWorkspaceFolder, mockShowWarningMessage, mockIsTrusted,
+        captureMessageHandler } = vi.hoisted(() => {
+  let _handler: ((msg: unknown) => Promise<void>) | undefined
+  const mockCreateTerminal = vi.fn(() => ({ show: vi.fn() }))
   const mockPostMessage = vi.fn()
   const mockGetConfiguration = vi.fn()
   const mockGetWorkspaceFolder = vi.fn()
   const mockShowWarningMessage = vi.fn()
   const mockIsTrusted = { value: true }
-  return { mockShow, mockCreateTerminal, mockPostMessage,
-           mockGetConfiguration, mockGetWorkspaceFolder, mockShowWarningMessage,
-           mockIsTrusted }
+  const captureMessageHandler = {
+    get: () => _handler,
+    set: (h: (msg: unknown) => Promise<void>) => { _handler = h }
+  }
+  return { mockCreateTerminal, mockPostMessage, mockGetConfiguration,
+           mockGetWorkspaceFolder, mockShowWarningMessage, mockIsTrusted,
+           captureMessageHandler }
 })
 
-// ---------------------------------------------------------------------------
-// Mock vscode before any other imports
-// ---------------------------------------------------------------------------
 vi.mock('vscode', () => ({
   window: {
     createWebviewPanel: vi.fn(() => ({
       webview: {
         options: {},
         html: '',
-        onDidReceiveMessage: vi.fn(),
+        onDidReceiveMessage: vi.fn((handler) => {
+          captureMessageHandler.set(handler)
+          return { dispose: vi.fn() }
+        }),
         postMessage: mockPostMessage,
         asWebviewUri: (uri: { fsPath: string }) => uri
       },
       onDidDispose: vi.fn(),
       iconPath: undefined,
-      reveal: vi.fn()
+      reveal: vi.fn(),
+      viewColumn: 1
     })),
     createTerminal: mockCreateTerminal,
     showErrorMessage: vi.fn(),
@@ -48,13 +46,7 @@ vi.mock('vscode', () => ({
     get isTrusted() { return mockIsTrusted.value },
     workspaceFolders: [{ uri: { fsPath: '/workspace' } }],
     getWorkspaceFolder: mockGetWorkspaceFolder,
-    onDidChangeConfiguration: vi.fn(() => ({ dispose: vi.fn() })),
-    createFileSystemWatcher: vi.fn(() => ({
-      onDidChange: vi.fn(() => ({ dispose: vi.fn() })),
-      onDidCreate: vi.fn(() => ({ dispose: vi.fn() })),
-      onDidDelete: vi.fn(() => ({ dispose: vi.fn() })),
-      dispose: vi.fn()
-    }))
+    onDidChangeConfiguration: vi.fn(() => ({ dispose: vi.fn() }))
   },
   Uri: {
     file: (p: string) => ({ fsPath: p, toString: () => `file://${p}` }),
@@ -65,65 +57,77 @@ vi.mock('vscode', () => ({
   ViewColumn: { One: 1, Two: 2, Beside: -2 },
   RelativePattern: class RelativePattern {
     constructor(public base: unknown, public pattern: string) {}
+  },
+  EventEmitter: class<T> {
+    private _ls: ((e: T) => void)[] = []
+    event = (cb: (e: T) => void) => { this._ls.push(cb); return { dispose: vi.fn() } }
+    fire(e: T) { [...this._ls].forEach(l => l(e)) }
+    dispose() {}
   }
 }))
 
-// ---------------------------------------------------------------------------
-// Mock promptBuilder so we can spy on buildPrompt
-// ---------------------------------------------------------------------------
-const { mockBuildPrompt } = vi.hoisted(() => {
-  return { mockBuildPrompt: vi.fn(() => 'mocked prompt result') }
-})
-
-vi.mock('../../src/extension/ai/promptBuilder', () => ({
-  buildPrompt: mockBuildPrompt
-}))
-
-// ---------------------------------------------------------------------------
-// Also mock fs (required because promptBuilder imports it at module level)
-// ---------------------------------------------------------------------------
 vi.mock('fs')
 
-// ---------------------------------------------------------------------------
-// Import subject after mocks are set up
-// ---------------------------------------------------------------------------
 import { KanbanPanel } from '../../src/extension/KanbanPanel'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+const REVIEW_FEATURE = {
+  id: 'my-review-feature',
+  status: 'review',
+  priority: 'high',
+  assignee: null, epic: null, dueDate: null,
+  created: '2026-01-01T00:00:00.000Z',
+  modified: '2026-01-01T00:00:00.000Z',
+  completedAt: null, labels: ['bug'], order: 'a0',
+  content: '# My Review Feature\nSome description',
+  filePath: '/workspace/.kanban/features/my-review-feature.md'
+}
 
-const EXTENSION_ROOT = '/ext'
-const WORKSPACE_ROOT = '/workspace'
-
-const REVIEW_COLUMN = { id: 'review', name: 'Review', color: '#8b5cf6' }
-const DEFAULT_COLUMNS = [
-  { id: 'backlog', name: 'Backlog', color: '#6b7280' },
-  { id: 'todo', name: 'To Do', color: '#3b82f6' },
-  { id: 'in-progress', name: 'In Progress', color: '#f59e0b' },
-  { id: 'review', name: 'Review', color: '#8b5cf6' },
-  { id: 'done', name: 'Done', color: '#22c55e' }
-]
-
-function makeConfigMock(columns = DEFAULT_COLUMNS) {
+function makeRepo(features = [REVIEW_FEATURE]) {
   return {
-    get: vi.fn((key: string, defaultValue?: unknown) => {
-      if (key === 'columns') return columns
-      if (key === 'aiAgent') return 'claude'
-      return defaultValue
-    })
+    features,
+    onDidChange: vi.fn(() => ({ dispose: vi.fn() })),
+    load: vi.fn(() => Promise.resolve()),
+    getFeaturesDir: vi.fn(() => '/workspace/.kanban/features'),
+    createFeature: vi.fn(),
+    updateFeature: vi.fn(),
+    moveFeature: vi.fn(),
+    moveAllFeatures: vi.fn(),
+    archiveFeatures: vi.fn(() => Promise.resolve({ failedCount: 0 })),
+    deleteFeature: vi.fn(),
+    renameLabel: vi.fn(() => Promise.resolve(0)),
+    deleteLabel: vi.fn(),
+    migrateFilenames: vi.fn(() => Promise.resolve({ renamed: 0, skipped: 0 })),
+    dispose: vi.fn()
   }
+}
+
+function makeLauncher() {
+  return { launch: vi.fn() }
 }
 
 function makeContext() {
   return {
-    extensionUri: { fsPath: EXTENSION_ROOT },
+    extensionUri: { fsPath: '/ext' },
     workspaceState: {
-      get: vi.fn((_key: string, def: unknown) => def),
+      get: vi.fn((_k: string, def: unknown) => def),
       update: vi.fn(() => Promise.resolve())
     },
     subscriptions: []
   } as unknown as import('vscode').ExtensionContext
+}
+
+function makeConfigMock(aiAgent = 'claude') {
+  return {
+    get: vi.fn((key: string, def?: unknown) => {
+      if (key === 'aiAgent') return aiAgent
+      if (key === 'columns') return [
+        { id: 'backlog', name: 'Backlog', color: '#6b7280' },
+        { id: 'review', name: 'Review', color: '#8b5cf6' },
+        { id: 'done', name: 'Done', color: '#22c55e' }
+      ]
+      return def
+    })
+  }
 }
 
 beforeEach(() => {
@@ -132,284 +136,83 @@ beforeEach(() => {
   KanbanPanel.currentPanel = undefined
 })
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+async function sendStartWithAI(
+  agent = 'claude',
+  permissionMode = 'default',
+  featureId = 'my-review-feature'
+) {
+  const handler = captureMessageHandler.get()
+  if (!handler) throw new Error('message handler not captured')
+  await handler({ type: 'openFeature', featureId })
+  await handler({ type: 'startWithAI', agent, permissionMode })
+}
 
-describe('KanbanPanel._startWithAI wiring', () => {
-  it('calls buildPrompt with the review column, extensionRoot, workspaceRoot, and column.prompt', async () => {
-    const configMock = makeConfigMock()
-    mockGetConfiguration.mockReturnValue(configMock)
-    mockGetWorkspaceFolder.mockReturnValue({ uri: { fsPath: WORKSPACE_ROOT } })
+describe('KanbanPanel startWithAI routing', () => {
+  it('calls launcher.launch with the feature, agent, and permissionMode', async () => {
+    mockGetConfiguration.mockReturnValue(makeConfigMock())
+    mockGetWorkspaceFolder.mockReturnValue({ uri: { fsPath: '/workspace' } })
 
-    const extensionUri = { fsPath: EXTENSION_ROOT } as import('vscode').Uri
-    const context = makeContext()
-
-    KanbanPanel.createOrShow(extensionUri, context)
-    const panel = KanbanPanel.currentPanel!
-
-    // Inject a feature in review status directly
-    const reviewFeature = {
-      id: 'my-review-feature',
-      status: 'review',
-      priority: 'high',
-      assignee: null,
-      epic: null,
-      dueDate: null,
-      created: '2026-01-01T00:00:00.000Z',
-      modified: '2026-01-01T00:00:00.000Z',
-      completedAt: null,
-      labels: ['bug'],
-      order: 'a0',
-      content: '# My Review Feature\nSome description',
-      filePath: `${WORKSPACE_ROOT}/.kanban/features/my-review-feature.md`
-    }
-
-    const panelAny = panel as unknown as {
-      _features: typeof reviewFeature[]
-      _currentEditingFeatureId: string | null
-      _startWithAI: (agent?: string, permissionMode?: string) => Promise<void>
-    }
-
-    panelAny._features = [reviewFeature]
-    panelAny._currentEditingFeatureId = 'my-review-feature'
-
-    await panelAny._startWithAI('claude', 'default')
-
-    expect(mockBuildPrompt).toHaveBeenCalledOnce()
-
-    const [ctx, column, extensionRoot, workspaceRoot, settingsTemplate] = mockBuildPrompt.mock.calls[0]
-
-    expect(ctx.title).toBe('My Review Feature')
-    expect(ctx.status).toBe('review')
-    expect(ctx.priority).toBe('high')
-    expect(ctx.labels).toEqual(['bug'])
-    expect(ctx.filePath).toBe(`${WORKSPACE_ROOT}/.kanban/features/my-review-feature.md`)
-
-    expect(column).toEqual(REVIEW_COLUMN)
-    expect(extensionRoot).toBe(EXTENSION_ROOT)
-    expect(workspaceRoot).toBe(WORKSPACE_ROOT)
-    expect(settingsTemplate).toBeUndefined()
-  })
-
-  it('passes column.prompt as settingsTemplate when column has a custom prompt', async () => {
-    const customColumns = DEFAULT_COLUMNS.map(c =>
-      c.id === 'review' ? { ...c, prompt: 'Custom review: {{title}}' } : c
+    const repo = makeRepo()
+    const launcher = makeLauncher()
+    KanbanPanel.createOrShow(
+      { fsPath: '/ext' } as import('vscode').Uri,
+      makeContext(), repo as never, launcher as never
     )
-    const configMock = makeConfigMock(customColumns)
-    mockGetConfiguration.mockReturnValue(configMock)
-    mockGetWorkspaceFolder.mockReturnValue({ uri: { fsPath: WORKSPACE_ROOT } })
 
-    const extensionUri = { fsPath: EXTENSION_ROOT } as import('vscode').Uri
-    const context = makeContext()
+    await sendStartWithAI('claude', 'default')
 
-    KanbanPanel.createOrShow(extensionUri, context)
-    const panel = KanbanPanel.currentPanel!
-
-    const reviewFeature = {
-      id: 'feat',
-      status: 'review',
-      priority: 'medium',
-      assignee: null,
-      epic: null,
-      dueDate: null,
-      created: '2026-01-01T00:00:00.000Z',
-      modified: '2026-01-01T00:00:00.000Z',
-      completedAt: null,
-      labels: [],
-      order: 'a0',
-      content: '# Feat',
-      filePath: `${WORKSPACE_ROOT}/.kanban/features/feat.md`
-    }
-
-    const panelAny = panel as unknown as {
-      _features: typeof reviewFeature[]
-      _currentEditingFeatureId: string | null
-      _startWithAI: (agent?: string, permissionMode?: string) => Promise<void>
-    }
-
-    panelAny._features = [reviewFeature]
-    panelAny._currentEditingFeatureId = 'feat'
-
-    await panelAny._startWithAI('claude', 'default')
-
-    const [, , , , settingsTemplate] = mockBuildPrompt.mock.calls[0]
-    expect(settingsTemplate).toBe('Custom review: {{title}}')
+    expect(launcher.launch).toHaveBeenCalledOnce()
+    const [feature, agent, permissionMode] = launcher.launch.mock.calls[0]
+    expect(feature.id).toBe('my-review-feature')
+    expect(agent).toBe('claude')
+    expect(permissionMode).toBe('default')
   })
 
-  it('uses workspaceRoot from getWorkspaceFolder for terminal cwd', async () => {
-    const configMock = makeConfigMock()
-    mockGetConfiguration.mockReturnValue(configMock)
-    mockGetWorkspaceFolder.mockReturnValue({ uri: { fsPath: '/custom-workspace' } })
-
-    const extensionUri = { fsPath: EXTENSION_ROOT } as import('vscode').Uri
-    const context = makeContext()
-
-    KanbanPanel.createOrShow(extensionUri, context)
-    const panel = KanbanPanel.currentPanel!
-
-    const feature = {
-      id: 'feat',
-      status: 'review',
-      priority: 'low',
-      assignee: null,
-      epic: null,
-      dueDate: null,
-      created: '2026-01-01T00:00:00.000Z',
-      modified: '2026-01-01T00:00:00.000Z',
-      completedAt: null,
-      labels: [],
-      order: 'a0',
-      content: '# Feat',
-      filePath: '/custom-workspace/.kanban/features/feat.md'
-    }
-
-    const panelAny = panel as unknown as {
-      _features: typeof feature[]
-      _currentEditingFeatureId: string | null
-      _startWithAI: () => Promise<void>
-    }
-
-    panelAny._features = [feature]
-    panelAny._currentEditingFeatureId = 'feat'
-
-    await panelAny._startWithAI()
-
-    expect(mockCreateTerminal).toHaveBeenCalledWith(
-      expect.objectContaining({
-        cwd: '/custom-workspace',
-        name: 'Review: Feat'
-      })
+  it('falls back to aiAgent config when message.agent is falsy', async () => {
+    mockGetConfiguration.mockReturnValue(makeConfigMock('codex'))
+    const repo = makeRepo()
+    const launcher = makeLauncher()
+    KanbanPanel.createOrShow(
+      { fsPath: '/ext' } as import('vscode').Uri,
+      makeContext(), repo as never, launcher as never
     )
-  })
-})
 
-// ---------------------------------------------------------------------------
-// Security: shellArgs injection and workspace trust guard
-// ---------------------------------------------------------------------------
+    const handler = captureMessageHandler.get()!
+    await handler({ type: 'openFeature', featureId: 'my-review-feature' })
+    await handler({ type: 'startWithAI', agent: '', permissionMode: 'default' })
 
-describe('KanbanPanel._startWithAI security', () => {
-  function makeFeatureWithTitle(title: string) {
-    return {
-      id: 'security-test',
-      status: 'review',
-      priority: 'high',
-      assignee: null,
-      epic: null,
-      dueDate: null,
-      created: '2026-01-01T00:00:00.000Z',
-      modified: '2026-01-01T00:00:00.000Z',
-      completedAt: null,
-      labels: [],
-      order: 'a0',
-      content: `# ${title}\nSome description`,
-      filePath: `${WORKSPACE_ROOT}/.kanban/features/security-test.md`
-    }
-  }
-
-  it('passes the prompt as a literal shellArgs element without shell quoting', async () => {
-    // buildPrompt is mocked to return 'mocked prompt result'.
-    // The point of this test is to verify that whatever buildPrompt returns is
-    // passed as-is in shellArgs — no POSIX single-quote escaping applied —
-    // and that shellPath is the bare agent binary name.
-    const configMock = makeConfigMock()
-    mockGetConfiguration.mockReturnValue(configMock)
-    mockGetWorkspaceFolder.mockReturnValue({ uri: { fsPath: WORKSPACE_ROOT } })
-    mockIsTrusted.value = true
-
-    // Make buildPrompt return a string containing metacharacters so we can
-    // confirm they survive unescaped into shellArgs.
-    const dangerousPrompt = `hello "world" 'single' \`cmd\` $HOME; rm -rf . && echo | test`
-    mockBuildPrompt.mockReturnValueOnce(dangerousPrompt)
-
-    const extensionUri = { fsPath: EXTENSION_ROOT } as import('vscode').Uri
-    const context = makeContext()
-
-    KanbanPanel.createOrShow(extensionUri, context)
-    const panel = KanbanPanel.currentPanel!
-
-    const feature = makeFeatureWithTitle('Normal title')
-
-    const panelAny = panel as unknown as {
-      _features: typeof feature[]
-      _currentEditingFeatureId: string | null
-      _startWithAI: (agent?: string, permissionMode?: string) => Promise<void>
-    }
-
-    panelAny._features = [feature]
-    panelAny._currentEditingFeatureId = 'security-test'
-
-    await panelAny._startWithAI('claude', 'default')
-
-    expect(mockCreateTerminal).toHaveBeenCalledOnce()
-    const opts = mockCreateTerminal.mock.calls[0][0]
-
-    // The prompt must appear verbatim as a shellArgs element
-    const shellArgs: string[] = opts.shellArgs
-    expect(shellArgs).toContain(dangerousPrompt)
-
-    // No POSIX single-quote shell escaping should be present
-    expect(shellArgs.join(' ')).not.toContain("'\\''")
-
-    // shellPath must be the agent binary name — no shell wrapping
-    expect(opts.shellPath).toBe('claude')
+    const [, agent] = launcher.launch.mock.calls[0]
+    expect(agent).toBe('codex')
   })
 
-  it('blocks launch and shows warning when workspace is not trusted', async () => {
-    const configMock = makeConfigMock()
-    mockGetConfiguration.mockReturnValue(configMock)
-    mockGetWorkspaceFolder.mockReturnValue({ uri: { fsPath: WORKSPACE_ROOT } })
+  it('does NOT call launcher.launch when workspace is not trusted', async () => {
     mockIsTrusted.value = false
+    mockGetConfiguration.mockReturnValue(makeConfigMock())
+    const repo = makeRepo()
+    const launcher = makeLauncher()
+    KanbanPanel.createOrShow(
+      { fsPath: '/ext' } as import('vscode').Uri,
+      makeContext(), repo as never, launcher as never
+    )
 
-    const extensionUri = { fsPath: EXTENSION_ROOT } as import('vscode').Uri
-    const context = makeContext()
+    await sendStartWithAI()
 
-    KanbanPanel.createOrShow(extensionUri, context)
-    const panel = KanbanPanel.currentPanel!
-
-    const feature = makeFeatureWithTitle('Normal title')
-
-    const panelAny = panel as unknown as {
-      _features: typeof feature[]
-      _currentEditingFeatureId: string | null
-      _startWithAI: (agent?: string, permissionMode?: string) => Promise<void>
-    }
-
-    panelAny._features = [feature]
-    panelAny._currentEditingFeatureId = 'security-test'
-
-    await panelAny._startWithAI('claude', 'default')
-
-    expect(mockCreateTerminal).not.toHaveBeenCalled()
+    expect(launcher.launch).not.toHaveBeenCalled()
     expect(mockShowWarningMessage).toHaveBeenCalledOnce()
   })
 
-  it('creates terminal when workspace is trusted', async () => {
-    const configMock = makeConfigMock()
-    mockGetConfiguration.mockReturnValue(configMock)
-    mockGetWorkspaceFolder.mockReturnValue({ uri: { fsPath: WORKSPACE_ROOT } })
-    mockIsTrusted.value = true
+  it('does NOT call launcher.launch when no feature is being edited', async () => {
+    mockGetConfiguration.mockReturnValue(makeConfigMock())
+    const repo = makeRepo()
+    const launcher = makeLauncher()
+    KanbanPanel.createOrShow(
+      { fsPath: '/ext' } as import('vscode').Uri,
+      makeContext(), repo as never, launcher as never
+    )
 
-    const extensionUri = { fsPath: EXTENSION_ROOT } as import('vscode').Uri
-    const context = makeContext()
+    const handler = captureMessageHandler.get()!
+    await handler({ type: 'startWithAI', agent: 'claude', permissionMode: 'default' })
 
-    KanbanPanel.createOrShow(extensionUri, context)
-    const panel = KanbanPanel.currentPanel!
-
-    const feature = makeFeatureWithTitle('Normal title')
-
-    const panelAny = panel as unknown as {
-      _features: typeof feature[]
-      _currentEditingFeatureId: string | null
-      _startWithAI: (agent?: string, permissionMode?: string) => Promise<void>
-    }
-
-    panelAny._features = [feature]
-    panelAny._currentEditingFeatureId = 'security-test'
-
-    await panelAny._startWithAI('claude', 'default')
-
-    expect(mockCreateTerminal).toHaveBeenCalledOnce()
-    expect(mockShowWarningMessage).not.toHaveBeenCalled()
+    expect(launcher.launch).not.toHaveBeenCalled()
   })
 })

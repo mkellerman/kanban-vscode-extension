@@ -5,6 +5,10 @@ export interface FsAdapter {
   stat(uri: vscode.Uri): Thenable<vscode.FileStat>
   rename(source: vscode.Uri, target: vscode.Uri): Thenable<void>
   createDirectory(uri: vscode.Uri): Thenable<void>
+  readFile(uri: vscode.Uri): Thenable<Uint8Array>
+  writeFile(uri: vscode.Uri, content: Uint8Array): Thenable<void>
+  readDirectory(uri: vscode.Uri): Thenable<[string, vscode.FileType][]>
+  delete(uri: vscode.Uri, options?: { recursive?: boolean; useTrash?: boolean }): Thenable<void>
 }
 
 export function getFeatureFilePath(featuresDir: string, status: string, filename: string): string {
