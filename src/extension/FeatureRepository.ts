@@ -305,8 +305,11 @@ export class FeatureRepository implements vscode.Disposable {
     }
 
     const gitExt = vscode.extensions.getExtension<GitExtension>('vscode.git')?.exports
-    const matchingRepo = gitExt?.getAPI(1).repositories.find(
-      r => featuresDir != null && featuresDir.startsWith(r.rootUri.fsPath)
+    const matchingRepo = gitExt?.getAPI(1)?.repositories?.find(
+      r => featuresDir != null && (
+        featuresDir.startsWith(r.rootUri.fsPath + path.sep) ||
+        featuresDir === r.rootUri.fsPath
+      )
     )
     const workspace = matchingRepo?.state.HEAD?.name ?? null
 
