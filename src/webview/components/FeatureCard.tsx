@@ -41,7 +41,8 @@ function getDescriptionFromContent(content: string): string {
 }
 
 export function FeatureCard({ feature, onClick, isDragging }: FeatureCardProps) {
-  const { cardSettings, locale, isDarkMode } = useStore()
+  const { cardSettings, locale, isDarkMode, activeAgentFeatureIds } = useStore()
+  const isAgentActive = activeAgentFeatureIds.has(feature.id)
   const priorityLabels = getPriorityLabels()
   const title = getTitleFromContent(feature.content)
   const description = getDescriptionFromContent(feature.content)
@@ -103,6 +104,10 @@ export function FeatureCard({ feature, onClick, isDragging }: FeatureCardProps) 
       className={`group relative flex flex-col bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 ${cardSettings.compactMode ? 'p-2 min-h-[4.5rem]' : 'p-3 min-h-[7rem]'} cursor-pointer hover:shadow-md transition-shadow ${
         isDragging ? 'shadow-lg opacity-90' : ''
       }`}
+      style={isAgentActive ? {
+        borderLeft: '3px solid var(--vscode-testing-iconPassed)',
+        background: 'color-mix(in srgb, var(--vscode-testing-iconPassed) 6%, var(--vscode-editor-background, white))'
+      } : undefined}
     >
       {/* Title & Content */}
       <div className="flex-1">
@@ -196,6 +201,16 @@ export function FeatureCard({ feature, onClick, isDragging }: FeatureCardProps) 
           </div>
         )}
       </div>
+
+      {isAgentActive && (
+        <div className="flex items-center gap-1 mt-1" style={{ color: 'var(--vscode-testing-iconPassed)' }}>
+          <span
+            className="inline-block w-1.5 h-1.5 rounded-full animate-pulse"
+            style={{ backgroundColor: 'var(--vscode-testing-iconPassed)' }}
+          />
+          <span className="text-[10px] font-medium">Agent running</span>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { FeatureCard } from '../../../src/webview/components/FeatureCard'
 import { useStore } from '../../../src/webview/store'
@@ -197,5 +197,28 @@ describe('FeatureCard — onClick', () => {
     render(<FeatureCard feature={makeFeature()} onClick={() => { clicked = true }} />)
     fireEvent.click(screen.getByRole('heading', { level: 3 }).closest('div')!)
     expect(clicked).toBe(true)
+  })
+})
+
+describe('agent running indicator', () => {
+  it('shows "Agent running" label when feature id is in activeAgentFeatureIds', () => {
+    useStore.setState({ activeAgentFeatureIds: new Set(['card-1']) })
+    setSettings()
+    render(<FeatureCard feature={makeFeature({ id: 'card-1' })} onClick={vi.fn()} />)
+    expect(screen.getByText('Agent running')).toBeInTheDocument()
+  })
+
+  it('does not show "Agent running" when feature id is not in activeAgentFeatureIds', () => {
+    useStore.setState({ activeAgentFeatureIds: new Set(['other-id']) })
+    setSettings()
+    render(<FeatureCard feature={makeFeature({ id: 'card-1' })} onClick={vi.fn()} />)
+    expect(screen.queryByText('Agent running')).not.toBeInTheDocument()
+  })
+
+  it('does not show "Agent running" when activeAgentFeatureIds is empty', () => {
+    useStore.setState({ activeAgentFeatureIds: new Set() })
+    setSettings()
+    render(<FeatureCard feature={makeFeature({ id: 'card-1' })} onClick={vi.fn()} />)
+    expect(screen.queryByText('Agent running')).not.toBeInTheDocument()
   })
 })
