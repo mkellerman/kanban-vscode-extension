@@ -1,15 +1,16 @@
 ---
 id: "terminal-inline-webview-output-2026-06-03"
-status: "todo"
+status: "review"
 priority: "low"
 assignee: null
-epic: null
+epic: "Developer experience"
 dueDate: null
 created: "2026-06-03T22:13:29.854Z"
-modified: "2026-06-03T22:30:00.000Z"
+modified: "2026-06-04T05:00:00.000Z"
 completedAt: null
 labels: ["webview", "agent"]
 order: "a1"
+worktree: "/Users/me/GitHub/kanban-vscode-extension/.claude/worktrees/story+terminal-inline-webview-output-2026-06-03"
 ---
 # terminal + inline webview output
 
