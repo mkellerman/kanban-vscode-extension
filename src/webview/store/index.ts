@@ -24,6 +24,8 @@ interface KanbanState {
   collapsedEpics: Set<string>
   activeFolderName: string
   setActiveFolderName: (name: string) => void
+  activeAgentFeatureIds: Set<string>
+  updateAgentStatus: (featureIds: string[], active: boolean) => void
 
   setLocale: (locale: string) => void
   setFeatures: (features: Feature[]) => void
@@ -82,6 +84,7 @@ export const useStore = create<KanbanState>((set, get) => ({
   collapsedColumns: new Set<string>(),
   collapsedEpics: new Set<string>(),
   activeFolderName: '',
+  activeAgentFeatureIds: new Set<string>(),
   cardSettings: {
     showPriorityBadges: true,
     showAssignee: true,
@@ -98,6 +101,14 @@ export const useStore = create<KanbanState>((set, get) => ({
   },
 
   setActiveFolderName: (name) => set({ activeFolderName: name }),
+  updateAgentStatus: (featureIds, active) => set(state => {
+    const next = new Set(state.activeAgentFeatureIds)
+    for (const id of featureIds) {
+      if (active) next.add(id)
+      else next.delete(id)
+    }
+    return { activeAgentFeatureIds: next }
+  }),
   setLocale: (locale) => set({ locale }),
   setFeatures: (features) => set({ features }),
   setColumns: (columns) => set({ columns }),
