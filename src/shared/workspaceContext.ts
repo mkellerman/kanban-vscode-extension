@@ -1,16 +1,20 @@
-import * as path from 'path'
-
 export type WorkspaceContext =
   | { type: 'none' }
   | { type: 'branch'; label: string }
   | { type: 'worktree'; path: string; label: string }
 
+function isAbsolutePath(p: string): boolean {
+  return p.startsWith('/') || /^[A-Za-z]:[/\\]/.test(p) || p.startsWith('\\\\')
+}
+
+function basename(p: string): string {
+  return p.replace(/[/\\]+$/, '').split(/[/\\]/).pop() || p
+}
+
 export function parseWorkspaceValue(workspace: string | null): WorkspaceContext {
   if (workspace === null) return { type: 'none' }
-  if (path.posix.isAbsolute(workspace) || path.win32.isAbsolute(workspace)) {
-    const isWin = path.win32.isAbsolute(workspace) && !path.posix.isAbsolute(workspace)
-    const label = isWin ? path.win32.basename(workspace) : path.posix.basename(workspace)
-    return { type: 'worktree', path: workspace, label }
+  if (isAbsolutePath(workspace)) {
+    return { type: 'worktree', path: workspace, label: basename(workspace) }
   }
   return { type: 'branch', label: workspace }
 }
