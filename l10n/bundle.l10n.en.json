@@ -105,6 +105,7 @@
   "card.daysAgo": "{count}d ago",
   "card.monthsAgo": "{count}mo ago",
   "card.yearsAgo": "{count}y ago",
+  "card.agentRunning": "Agent running",
 
   "column.collapse": "Collapse {name}",
   "column.addTo": "Add to {name}",

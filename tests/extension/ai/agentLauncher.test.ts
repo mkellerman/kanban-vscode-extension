@@ -228,4 +228,9 @@ describe('launchAgentTerminal — cwd and terminal behavior', () => {
     launchAgentTerminal('claude', 'default', 'prompt', undefined)
     expect(mockShow).toHaveBeenCalledOnce()
   })
+
+  it('returns the created terminal', () => {
+    const terminal = launchAgentTerminal('claude', 'default', 'fix the bug', '/cwd')
+    expect(terminal).toBe(mockCreateTerminal.mock.results[0].value)
+  })
 })

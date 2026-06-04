@@ -149,3 +149,42 @@ describe('App', () => {
     })
   })
 })
+
+describe('agentStatus message handling', () => {
+  it('sets active feature ids in the store when active is true', async () => {
+    const { useStore } = await import('../../src/webview/store')
+    render(<App />)
+    act(() => {
+      window.dispatchEvent(new MessageEvent('message', {
+        data: { type: 'init', features: [], columns: COLUMNS, settings: INIT_SETTINGS,
+                collapsedColumns: [], collapsedEpics: [], boardViewMode: 'standard',
+                locale: 'en', translations: {} }
+      }))
+    })
+    act(() => {
+      window.dispatchEvent(new MessageEvent('message', {
+        data: { type: 'agentStatus', featureIds: ['feat-42'], active: true }
+      }))
+    })
+    expect(useStore.getState().activeAgentFeatureIds.has('feat-42')).toBe(true)
+  })
+
+  it('removes feature ids from the store when active is false', async () => {
+    const { useStore } = await import('../../src/webview/store')
+    useStore.setState({ activeAgentFeatureIds: new Set(['feat-42']) })
+    render(<App />)
+    act(() => {
+      window.dispatchEvent(new MessageEvent('message', {
+        data: { type: 'init', features: [], columns: COLUMNS, settings: INIT_SETTINGS,
+                collapsedColumns: [], collapsedEpics: [], boardViewMode: 'standard',
+                locale: 'en', translations: {} }
+      }))
+    })
+    act(() => {
+      window.dispatchEvent(new MessageEvent('message', {
+        data: { type: 'agentStatus', featureIds: ['feat-42'], active: false }
+      }))
+    })
+    expect(useStore.getState().activeAgentFeatureIds.has('feat-42')).toBe(false)
+  })
+})

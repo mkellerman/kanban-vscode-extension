@@ -105,7 +105,12 @@ function makeRepo(features: Feature[] = [BACKLOG_FEATURE_1, BACKLOG_FEATURE_2]) 
 }
 
 function makeLauncher() {
-  return { launch: vi.fn(), launchLane: vi.fn() }
+  return {
+    launch: vi.fn(),
+    launchLane: vi.fn(),
+    onAgentStatusChanged: vi.fn(() => ({ dispose: vi.fn() })),
+    activeFeatureIds: [] as string[]
+  }
 }
 
 function makeContext() {

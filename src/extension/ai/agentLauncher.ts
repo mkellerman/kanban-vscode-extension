@@ -25,7 +25,7 @@ export function launchAgentTerminal(
   prompt: string,
   cwd: string | undefined,
   terminalTitle?: string
-): void {
+): vscode.Terminal {
   const safeAgent = VALID_AGENTS.has(agent) ? agent : 'claude'
   const safeMode = VALID_PERMISSION_MODES.has(permissionMode) ? permissionMode : 'default'
 
@@ -66,4 +66,5 @@ export function launchAgentTerminal(
     cwd
   })
   terminal.show()
+  return terminal
 }

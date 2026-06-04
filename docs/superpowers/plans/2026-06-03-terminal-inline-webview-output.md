@@ -1,3 +1,13 @@
+---
+id: "terminal-inline-webview-output-2026-06-03"
+status: "review"
+priority: "low"
+created: "2026-06-03T22:45:00.000Z"
+modified: "2026-06-04T05:00:00.000Z"
+labels: ["webview", "agent"]
+worktree: "/Users/me/GitHub/kanban-vscode-extension/.claude/worktrees/story+terminal-inline-webview-output-2026-06-03"
+---
+
 # Terminal + Inline Webview Output — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -18,7 +28,7 @@
 - Modify: `src/extension/ai/agentLauncher.ts`
 - Modify: `tests/extension/ai/agentLauncher.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
   Add this test to the existing `agentLauncher.test.ts` file, inside any `describe` block:
 
@@ -29,7 +39,7 @@
   })
   ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
   ```bash
   pnpm test --reporter=verbose tests/extension/ai/agentLauncher.test.ts
@@ -37,7 +47,7 @@
 
   Expected: FAIL — TypeScript error or test failure because `launchAgentTerminal` currently returns `void` (undefined).
 
-- [ ] **Step 3: Change the return type and add `return terminal`**
+- [x] **Step 3: Change the return type and add `return terminal`**
 
   In `src/extension/ai/agentLauncher.ts`, make two changes:
 
@@ -62,7 +72,7 @@
   }
   ```
 
-- [ ] **Step 4: Run tests to verify they all pass**
+- [x] **Step 4: Run tests to verify they all pass**
 
   ```bash
   pnpm test --reporter=verbose tests/extension/ai/agentLauncher.test.ts
@@ -70,7 +80,7 @@
 
   Expected: All tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add src/extension/ai/agentLauncher.ts tests/extension/ai/agentLauncher.test.ts
@@ -85,7 +95,7 @@
 - Modify: `src/extension/AgentLauncher.ts`
 - Modify: `tests/extension/AgentLauncher.test.ts`
 
-- [ ] **Step 1: Update the vscode mock in `AgentLauncher.test.ts`**
+- [x] **Step 1: Update the vscode mock in `AgentLauncher.test.ts`**
 
   The current mock does not include `vscode.window.onDidCloseTerminal` or `vscode.EventEmitter`, both needed by the updated `AgentLauncher` constructor.
 
@@ -147,7 +157,7 @@
   import type * as vscode from 'vscode'
   ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
   Add this `describe` block to `tests/extension/AgentLauncher.test.ts`, after the existing describe block. The `REVIEW_FEATURE` constant and `KanbanColumn` type are already defined in the file:
 
@@ -220,7 +230,7 @@
   })
   ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
   ```bash
   pnpm test --reporter=verbose tests/extension/AgentLauncher.test.ts
@@ -228,7 +238,7 @@
 
   Expected: The new tests in `'agent status tracking'` FAIL because `AgentLauncher` has no `onAgentStatusChanged`, no `activeFeatureIds`, and its constructor does not subscribe to `onDidCloseTerminal`.
 
-- [ ] **Step 4: Implement tracking in `AgentLauncher.ts`**
+- [x] **Step 4: Implement tracking in `AgentLauncher.ts`**
 
   Replace the entire content of `src/extension/AgentLauncher.ts` with:
 
@@ -346,7 +356,7 @@
   }
   ```
 
-- [ ] **Step 5: Run all tests to verify they pass**
+- [x] **Step 5: Run all tests to verify they pass**
 
   ```bash
   pnpm test --reporter=verbose tests/extension/AgentLauncher.test.ts
@@ -354,7 +364,7 @@
 
   Expected: All tests in both describe blocks PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
   ```bash
   git add src/extension/AgentLauncher.ts src/extension/ai/agentLauncher.ts tests/extension/AgentLauncher.test.ts
@@ -368,7 +378,7 @@
 **Files:**
 - Modify: `src/shared/types.ts`
 
-- [ ] **Step 1: Add the `agentStatus` union member**
+- [x] **Step 1: Add the `agentStatus` union member**
 
   In `src/shared/types.ts`, change:
   ```typescript
@@ -390,7 +400,7 @@
     | { type: 'agentStatus'; featureIds: string[]; active: boolean }
   ```
 
-- [ ] **Step 2: Run full test suite to verify no regressions**
+- [x] **Step 2: Run full test suite to verify no regressions**
 
   ```bash
   pnpm test
@@ -398,7 +408,7 @@
 
   Expected: All tests PASS (this is a type-only change; no runtime behavior changes).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
   ```bash
   git add src/shared/types.ts
@@ -415,7 +425,7 @@
 - Create: `tests/extension/KanbanPanel.agentStatus.test.ts`
 - Modify: `src/extension/KanbanPanel.ts`
 
-- [ ] **Step 1: Update `makeLauncher()` in `KanbanPanel.laneAction.test.ts`**
+- [x] **Step 1: Update `makeLauncher()` in `KanbanPanel.laneAction.test.ts`**
 
   Find and replace:
   ```typescript
@@ -435,7 +445,7 @@
   }
   ```
 
-- [ ] **Step 2: Update `makeLauncher()` in `KanbanPanel.startWithAI.test.ts`**
+- [x] **Step 2: Update `makeLauncher()` in `KanbanPanel.startWithAI.test.ts`**
 
   Find and replace:
   ```typescript
@@ -454,7 +464,7 @@
   }
   ```
 
-- [ ] **Step 3: Run existing KanbanPanel tests to verify they still pass**
+- [x] **Step 3: Run existing KanbanPanel tests to verify they still pass**
 
   ```bash
   pnpm test --reporter=verbose tests/extension/KanbanPanel.laneAction.test.ts tests/extension/KanbanPanel.startWithAI.test.ts
@@ -462,7 +472,7 @@
 
   Expected: All existing tests PASS (mock is updated but `KanbanPanel` doesn't yet call these methods).
 
-- [ ] **Step 4: Create the failing agentStatus test file**
+- [x] **Step 4: Create the failing agentStatus test file**
 
   Create `tests/extension/KanbanPanel.agentStatus.test.ts` with this content:
 
@@ -686,7 +696,7 @@
   })
   ```
 
-- [ ] **Step 5: Run new tests to verify they fail**
+- [x] **Step 5: Run new tests to verify they fail**
 
   ```bash
   pnpm test --reporter=verbose tests/extension/KanbanPanel.agentStatus.test.ts
@@ -694,7 +704,7 @@
 
   Expected: Tests FAIL because `KanbanPanel` does not yet call `launcher.onAgentStatusChanged` or send `agentStatus` on `ready`.
 
-- [ ] **Step 6: Update `KanbanPanel.ts`**
+- [x] **Step 6: Update `KanbanPanel.ts`**
 
   In `src/extension/KanbanPanel.ts`, in the private constructor, find the block that starts the repo subscription:
   ```typescript
@@ -734,7 +744,7 @@
             break
   ```
 
-- [ ] **Step 7: Run all KanbanPanel and AgentLauncher tests**
+- [x] **Step 7: Run all KanbanPanel and AgentLauncher tests**
 
   ```bash
   pnpm test --reporter=verbose tests/extension/KanbanPanel.agentStatus.test.ts tests/extension/KanbanPanel.laneAction.test.ts tests/extension/KanbanPanel.startWithAI.test.ts tests/extension/AgentLauncher.test.ts
@@ -742,7 +752,7 @@
 
   Expected: All tests PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
   ```bash
   git add src/extension/KanbanPanel.ts tests/extension/KanbanPanel.agentStatus.test.ts tests/extension/KanbanPanel.laneAction.test.ts tests/extension/KanbanPanel.startWithAI.test.ts
@@ -757,7 +767,7 @@
 - Modify: `src/webview/store/index.ts`
 - Modify: `tests/webview/store.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
   Add this describe block to `tests/webview/store.test.ts`:
 
@@ -791,7 +801,7 @@
   })
   ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
   ```bash
   pnpm test --reporter=verbose tests/webview/store.test.ts
@@ -799,7 +809,7 @@
 
   Expected: The `updateAgentStatus` tests FAIL because the store has no `activeAgentFeatureIds` or `updateAgentStatus`.
 
-- [ ] **Step 3: Add `activeAgentFeatureIds` and `updateAgentStatus` to the store**
+- [x] **Step 3: Add `activeAgentFeatureIds` and `updateAgentStatus` to the store**
 
   In `src/webview/store/index.ts`, add to the `KanbanState` interface after `activeFolderName`:
   ```typescript
@@ -824,7 +834,7 @@
     }),
   ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
   ```bash
   pnpm test --reporter=verbose tests/webview/store.test.ts
@@ -832,7 +842,7 @@
 
   Expected: All tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add src/webview/store/index.ts tests/webview/store.test.ts
@@ -847,7 +857,7 @@
 - Modify: `src/webview/App.tsx`
 - Modify: `tests/webview/App.test.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
   Read `tests/webview/App.test.tsx` to find where messages are dispatched — the file uses `window.dispatchEvent(new MessageEvent('message', { data: ... }))`. Add this test after the existing tests:
 
@@ -892,7 +902,7 @@
   })
   ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
   ```bash
   pnpm test --reporter=verbose tests/webview/App.test.tsx
@@ -900,7 +910,7 @@
 
   Expected: The new tests FAIL because App does not handle `agentStatus`.
 
-- [ ] **Step 3: Update `App.tsx`**
+- [x] **Step 3: Update `App.tsx`**
 
   In `src/webview/App.tsx`, in the `useStore()` destructuring near the top of the `App` function, add `updateAgentStatus`:
   ```typescript
@@ -931,7 +941,7 @@
           break
   ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
   ```bash
   pnpm test --reporter=verbose tests/webview/App.test.tsx
@@ -939,7 +949,7 @@
 
   Expected: All tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add src/webview/App.tsx tests/webview/App.test.tsx
@@ -954,7 +964,7 @@
 - Modify: `src/webview/components/FeatureCard.tsx`
 - Modify: `tests/webview/components/FeatureCard.test.tsx`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
   Add these tests to `tests/webview/components/FeatureCard.test.tsx`:
 
@@ -985,7 +995,7 @@
 
   The `useStore.setState` calls in these tests set `activeAgentFeatureIds` directly. The `initialState` reset in `beforeEach` will clear it between tests (since the initial store state has an empty set).
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
   ```bash
   pnpm test --reporter=verbose tests/webview/components/FeatureCard.test.tsx
@@ -993,7 +1003,7 @@
 
   Expected: The new tests FAIL because `FeatureCard` does not read `activeAgentFeatureIds` or render the indicator.
 
-- [ ] **Step 3: Update `FeatureCard.tsx`**
+- [x] **Step 3: Update `FeatureCard.tsx`**
 
   In `src/webview/components/FeatureCard.tsx`, change the `useStore()` destructuring:
   ```typescript
@@ -1058,7 +1068,7 @@
     </div>
   ```
 
-- [ ] **Step 4: Run all tests to verify they pass**
+- [x] **Step 4: Run all tests to verify they pass**
 
   ```bash
   pnpm test --reporter=verbose tests/webview/components/FeatureCard.test.tsx
@@ -1066,7 +1076,7 @@
 
   Expected: All tests PASS.
 
-- [ ] **Step 5: Run the full test suite**
+- [x] **Step 5: Run the full test suite**
 
   ```bash
   pnpm test
@@ -1074,7 +1084,7 @@
 
   Expected: All tests PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
   ```bash
   git add src/webview/components/FeatureCard.tsx tests/webview/components/FeatureCard.test.tsx

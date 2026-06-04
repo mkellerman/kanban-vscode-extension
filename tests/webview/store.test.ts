@@ -458,3 +458,31 @@ describe('large fixture — patch correctness at 1 000 cards', () => {
     expect(todoFeatures.map(f => f.id).sort()).toEqual(expectedTodoIds)
   })
 })
+
+describe('updateAgentStatus', () => {
+  it('adds feature ids to activeAgentFeatureIds when active is true', () => {
+    useStore.getState().updateAgentStatus(['feat-1', 'feat-2'], true)
+    const { activeAgentFeatureIds } = useStore.getState()
+    expect(activeAgentFeatureIds.has('feat-1')).toBe(true)
+    expect(activeAgentFeatureIds.has('feat-2')).toBe(true)
+  })
+
+  it('removes feature ids from activeAgentFeatureIds when active is false', () => {
+    useStore.setState({ activeAgentFeatureIds: new Set(['feat-1', 'feat-2']) })
+    useStore.getState().updateAgentStatus(['feat-1'], false)
+    const { activeAgentFeatureIds } = useStore.getState()
+    expect(activeAgentFeatureIds.has('feat-1')).toBe(false)
+    expect(activeAgentFeatureIds.has('feat-2')).toBe(true)
+  })
+
+  it('does not mutate the existing set', () => {
+    const before = useStore.getState().activeAgentFeatureIds
+    useStore.getState().updateAgentStatus(['feat-1'], true)
+    const after = useStore.getState().activeAgentFeatureIds
+    expect(before).not.toBe(after)
+  })
+
+  it('initializes to empty set', () => {
+    expect(useStore.getState().activeAgentFeatureIds.size).toBe(0)
+  })
+})

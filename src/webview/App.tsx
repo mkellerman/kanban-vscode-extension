@@ -51,7 +51,8 @@ function App(): React.JSX.Element {
     setActiveFolderName,
     addFeature,
     updateFeature,
-    removeFeature
+    removeFeature,
+    updateAgentStatus
   } = useStore()
 
   const [createFeatureOpen, setCreateFeatureOpen] = useState(false)
@@ -274,6 +275,9 @@ function App(): React.JSX.Element {
           })
           break
         }
+        case 'agentStatus':
+          updateAgentStatus(message.featureIds, message.active)
+          break
       }
     }
 
