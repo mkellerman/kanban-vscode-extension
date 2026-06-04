@@ -6,6 +6,7 @@
   "command.category": "Kanban Markdown",
   "config.title": "Kanban Markdown",
   "config.featuresDirectory.description": "Caminho do diretório (relativo à raiz do espaço de trabalho) onde os ficheiros markdown de funcionalidades são armazenados.",
+  "config.groomedDirectories.description": "Lista de diretórios (relativa à raiz do espaço de trabalho) para carregar como cartões kanban, cada um com um tipo de esquema. Quando vazio, usa por padrão .kanban/features (esquema feature) e docs/superpowers (esquema superpowers).",
   "config.filenamePattern.description": "Padrão utilizado para gerar nomes de ficheiro para novos cartões de funcionalidades. Alterar esta definição oferecerá renomear todos os ficheiros de funcionalidades existentes.",
   "config.filenamePattern.nameDate": "Nome e depois data, p. ex. minha-funcionalidade-2026-02-23",
   "config.filenamePattern.dateName": "Data e depois nome, p. ex. 2026-02-23-minha-funcionalidade",
