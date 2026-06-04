@@ -15,13 +15,14 @@ The set of groomed directories is configured via a new VS Code extension setting
 
 ## Architecture
 
-Three artifacts ship together:
+Four files ship together:
 
-| Artifact | Purpose |
-|----------|---------|
+| File | Purpose |
+|------|---------|
 | `.claude/hooks/groom_frontmatter.py` | The hook script |
 | `.claude/settings.json` | Registers the hook on `PostToolUse` |
 | `package.json` | Declares `kanban-extension.groomedDirectories` setting |
+| `package.nls.json` | Localization string for the setting description |
 
 ### Hook registration (`.claude/settings.json`)
 
@@ -92,7 +93,9 @@ PostToolUse → read file_path from tool_input
 
 ### Loop Safety
 
-When the hook writes back a file, the PostToolUse hook fires again. On the second invocation every field is present, so the hook finds nothing to add and exits 0 silently. No infinite recursion.
+The hook writes back to the file using Python's `open()` directly — not through Claude's Write tool — so PostToolUse does **not** fire recursively. No loop risk.
+
+Idempotency still matters for subsequent Claude tool calls on the same file: if Claude writes the file again later, the hook finds all fields present and exits 0 silently.
 
 ---
 
