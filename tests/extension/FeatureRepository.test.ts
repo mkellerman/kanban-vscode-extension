@@ -5,7 +5,7 @@ import type * as vscode from 'vscode'
 // ---------------------------------------------------------------------------
 // Capture watcher callbacks so tests can simulate file-system events
 // ---------------------------------------------------------------------------
-const { mockCreateFileSystemWatcher, simulateChange } = vi.hoisted(() => {
+const { mockCreateFileSystemWatcher, simulateChange, mockGetExtension } = vi.hoisted(() => {
   const changeCbs: ((uri: { fsPath: string }) => void)[] = []
   const mockWatcher = {
     onDidChange: vi.fn((cb: (uri: { fsPath: string }) => void) => {
@@ -18,7 +18,8 @@ const { mockCreateFileSystemWatcher, simulateChange } = vi.hoisted(() => {
   }
   const mockCreateFileSystemWatcher = vi.fn(() => mockWatcher)
   const simulateChange = (fsPath: string) => changeCbs.forEach(cb => cb({ fsPath }))
-  return { mockCreateFileSystemWatcher, simulateChange }
+  const mockGetExtension = vi.fn(() => undefined as unknown)
+  return { mockCreateFileSystemWatcher, simulateChange, mockGetExtension }
 })
 
 vi.mock('vscode', () => ({
@@ -30,6 +31,7 @@ vi.mock('vscode', () => ({
     })),
     createFileSystemWatcher: mockCreateFileSystemWatcher
   },
+  extensions: { getExtension: mockGetExtension },
   EventEmitter: class<T> {
     private _ls: ((e: T) => void)[] = []
     event = (cb: (e: T) => void) => {
@@ -262,6 +264,84 @@ describe('FeatureRepository.createFeature()', () => {
     })
     const paths = memFs.list()
     expect(paths.some(p => p.includes('/done/'))).toBe(true)
+  })
+})
+
+describe('FeatureRepository.createFeature() — workspace population', () => {
+  let memFs: MemoryFs
+
+  beforeEach(() => {
+    memFs = new MemoryFs()
+    vi.useFakeTimers()
+    mockGetExtension.mockReset()
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('sets workspace to the current branch when Git API returns a matching repo', async () => {
+    mockGetExtension.mockReturnValue({
+      exports: {
+        getAPI: () => ({
+          repositories: [{
+            rootUri: { fsPath: '/workspace' },
+            state: { HEAD: { name: 'feat/my-story' } }
+          }]
+        })
+      }
+    })
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    const feature = await repo.createFeature({
+      status: 'backlog', priority: 'medium', content: '# Test',
+      assignee: null, epic: null, dueDate: null, labels: []
+    })
+    expect(feature.workspace).toBe('feat/my-story')
+  })
+
+  it('sets workspace to null when getExtension returns undefined (API unavailable)', async () => {
+    mockGetExtension.mockReturnValue(undefined)
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    const feature = await repo.createFeature({
+      status: 'backlog', priority: 'medium', content: '# Test',
+      assignee: null, epic: null, dueDate: null, labels: []
+    })
+    expect(feature.workspace).toBeNull()
+  })
+
+  it('sets workspace to null when no repository root contains the features dir', async () => {
+    mockGetExtension.mockReturnValue({
+      exports: {
+        getAPI: () => ({
+          repositories: [{
+            rootUri: { fsPath: '/other/dir' },
+            state: { HEAD: { name: 'main' } }
+          }]
+        })
+      }
+    })
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    const feature = await repo.createFeature({
+      status: 'backlog', priority: 'medium', content: '# Test',
+      assignee: null, epic: null, dueDate: null, labels: []
+    })
+    expect(feature.workspace).toBeNull()
+  })
+
+  it('sets workspace to null when HEAD.name is undefined', async () => {
+    mockGetExtension.mockReturnValue({
+      exports: {
+        getAPI: () => ({
+          repositories: [{
+            rootUri: { fsPath: '/workspace' },
+            state: { HEAD: undefined }
+          }]
+        })
+      }
+    })
+    const repo = new FeatureRepository(makeContext(), memFs as unknown as FsAdapter)
+    const feature = await repo.createFeature({
+      status: 'backlog', priority: 'medium', content: '# Test',
+      assignee: null, epic: null, dueDate: null, labels: []
+    })
+    expect(feature.workspace).toBeNull()
   })
 })
 

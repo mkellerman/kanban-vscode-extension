@@ -15,6 +15,13 @@ import {
   type FsAdapter
 } from './featureFileUtils'
 
+interface GitRepository {
+  rootUri: vscode.Uri
+  state: { HEAD?: { name?: string } }
+}
+interface GitAPI { repositories: GitRepository[] }
+interface GitExtension { getAPI(version: number): GitAPI }
+
 export interface CreateFeatureData {
   status: FeatureStatus
   priority: Priority
@@ -297,6 +304,12 @@ export class FeatureRepository implements vscode.Disposable {
       filePath = getFeatureFilePath(featuresDir, data.status, uniqueName)
     }
 
+    const gitExt = vscode.extensions.getExtension<GitExtension>('vscode.git')?.exports
+    const matchingRepo = gitExt?.getAPI(1).repositories.find(
+      r => featuresDir != null && featuresDir.startsWith(r.rootUri.fsPath)
+    )
+    const workspace = matchingRepo?.state.HEAD?.name ?? null
+
     const feature: Feature = {
       id: uniqueName,
       status: data.status,
@@ -309,7 +322,7 @@ export class FeatureRepository implements vscode.Disposable {
       completedAt: data.status === 'done' ? now : null,
       labels: data.labels,
       order: newOrder,
-      workspace: null,
+      workspace,
       content: data.content,
       filePath
     }
