@@ -7,7 +7,7 @@ import { serializeFeature } from '../shared/featureFrontmatter'
 import type { Feature, FeatureStatus, Priority } from '../shared/types'
 import { ensureStatusSubfolders, getFeatureFilePath } from './featureFileUtils'
 import { t, loadBundle } from './l10n'
-import { FeatureRepository } from './FeatureRepository'
+import { FeatureRepository, type IFeatureRepository } from './FeatureRepository'
 import { AgentLauncher } from './AgentLauncher'
 import { FeatureHeaderProvider } from './FeatureHeaderProvider'
 
@@ -19,7 +19,7 @@ interface PriorityQuickPickItem extends vscode.QuickPickItem {
   priorityValue: Priority
 }
 
-async function createFeatureFromPrompts(repo: FeatureRepository): Promise<void> {
+async function createFeatureFromPrompts(repo: IFeatureRepository): Promise<void> {
   const featuresDir = repo.getFeaturesDir()
   if (!featuresDir) {
     vscode.window.showErrorMessage(t('ext.noWorkspace'))
