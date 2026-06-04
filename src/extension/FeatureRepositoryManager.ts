@@ -66,15 +66,21 @@ export class FeatureRepositoryManager implements IFeatureRepository {
   }
 
   async updateFeature(featureId: string, updates: Partial<Feature>): Promise<void> {
-    await this._ownerOf(featureId)?.updateFeature(featureId, updates)
+    const repo = this._ownerOf(featureId)
+    if (!repo) { console.warn(`FeatureRepositoryManager: no repo owns feature '${featureId}'`); return }
+    await repo.updateFeature(featureId, updates)
   }
 
   async moveFeature(featureId: string, newStatus: string, newOrder: number): Promise<void> {
-    await this._ownerOf(featureId)?.moveFeature(featureId, newStatus, newOrder)
+    const repo = this._ownerOf(featureId)
+    if (!repo) { console.warn(`FeatureRepositoryManager: no repo owns feature '${featureId}'`); return }
+    await repo.moveFeature(featureId, newStatus, newOrder)
   }
 
   async deleteFeature(featureId: string): Promise<void> {
-    await this._ownerOf(featureId)?.deleteFeature(featureId)
+    const repo = this._ownerOf(featureId)
+    if (!repo) { console.warn(`FeatureRepositoryManager: no repo owns feature '${featureId}'`); return }
+    await repo.deleteFeature(featureId)
   }
 
   async moveAllFeatures(
