@@ -3,6 +3,7 @@ import * as crypto from 'crypto'
 import * as path from 'path'
 import type { FeatureFrontmatter, EditorExtensionMessage, EditorWebviewMessage } from '../shared/editorTypes'
 import type { FeatureStatus, Priority, AIAgent } from '../shared/types'
+import type { IFeatureRepository } from './FeatureRepository'
 
 /**
  * Provides a webview panel that shows feature metadata (frontmatter) as a header.

@@ -3,6 +3,7 @@ import * as crypto from 'crypto'
 import * as path from 'path'
 import { getTitleFromContent } from '../shared/types'
 import type { FeatureStatus, Priority, KanbanColumn } from '../shared/types'
+import type { IFeatureRepository } from './FeatureRepository'
 import { KanbanPanel } from './KanbanPanel'
 import { t } from './l10n'
 

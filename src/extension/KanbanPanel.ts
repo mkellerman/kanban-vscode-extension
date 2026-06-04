@@ -7,21 +7,12 @@ import type { Feature, FeatureStatus, Priority, KanbanColumn, FeatureFrontmatter
 import { ensureStatusSubfolders, moveFeatureFile, getFeatureFilePath, getStatusFromPath, fileExists } from './featureFileUtils'
 import { parseFeatureFile, serializeFeature } from '../shared/featureFrontmatter'
 import { featureMatchesEpicLane } from '../shared/epicLane'
+import type { IFeatureRepository, CreateFeatureData } from './FeatureRepository'
 import { t, getBundle, getEffectiveLocale, reloadBundle, getAllDefaultColumnNames, getDefaultColumnNamesForLocale } from './l10n'
 
 function normalizeEpic(value: string | null | undefined): string | null {
   const t = value?.trim()
   return t ? t : null
-}
-
-interface CreateFeatureData {
-  status: FeatureStatus
-  priority: Priority
-  content: string
-  assignee: string | null
-  epic: string | null
-  dueDate: string | null
-  labels: string[]
 }
 
 export class KanbanPanel {
