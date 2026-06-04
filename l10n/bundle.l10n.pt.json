@@ -180,6 +180,7 @@
   "panel.renameResult": "{renamed} ficheiro(s) renomeado(s).",
   "panel.renameResultWithSkipped": "{renamed} ficheiro(s) renomeado(s). {skipped} ignorado(s) por conflitos de nome.",
   "panel.aiRequiresTrust": "\"Construir com IA\" requer um espaço de trabalho de confiança. Abra o espaço de trabalho em modo de confiança para usar esta funcionalidade.",
+  "panel.worktreePathMissing": "Worktree path not found — launching in workspace root",
   "panel.noFeatureSelected": "Nenhuma funcionalidade selecionada",
   "panel.languageChanged": "Kanban Markdown: idioma alterado. Atualizar os nomes das colunas?",
   "panel.updateColumns": "Atualizar colunas",

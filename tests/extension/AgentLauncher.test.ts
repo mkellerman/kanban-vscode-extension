@@ -37,6 +37,7 @@ vi.mock('../../src/extension/ai/promptBuilder', () => ({
 }))
 vi.mock('fs')
 
+import * as fs from 'fs'
 import { AgentLauncher } from '../../src/extension/AgentLauncher'
 
 const REVIEW_FEATURE: Feature = {
@@ -63,6 +64,23 @@ const BACKLOG_FEATURE: Feature = {
   dueDate: null, created: '2026-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z',
   completedAt: null, labels: [], order: 'a1', workspace: null, content: '# Backlog Feature',
   filePath: '/workspace/.kanban/features/feat-backlog.md'
+}
+
+const WORKTREE_FEATURE: Feature = {
+  id: 'wt-feat',
+  status: 'in-progress',
+  priority: 'medium',
+  assignee: null,
+  epic: null,
+  dueDate: null,
+  created: '2026-01-01T00:00:00.000Z',
+  modified: '2026-01-01T00:00:00.000Z',
+  completedAt: null,
+  labels: [],
+  order: 'a2',
+  workspace: '/worktrees/wt-feat',
+  content: '# Worktree Feature',
+  filePath: '/workspace/.kanban/features/wt-feat.md'
 }
 
 beforeEach(() => {
@@ -111,6 +129,38 @@ describe('AgentLauncher.launch()', () => {
     const opts = mockCreateTerminal.mock.calls[0][0]
     expect(opts.shellArgs).toContain(dangerous)
     expect(opts.shellArgs.join(' ')).not.toContain("'\\''")
+  })
+
+  it('uses worktree path as CWD when workspace is an absolute path and directory exists', () => {
+    vi.mocked(fs.existsSync).mockReturnValueOnce(true)
+    const launcher = new AgentLauncher({ fsPath: '/ext' } as import('vscode').Uri)
+    launcher.launch(WORKTREE_FEATURE, 'claude', 'default')
+    const opts = mockCreateTerminal.mock.calls[0][0]
+    expect(opts.cwd).toBe('/worktrees/wt-feat')
+  })
+
+  it('falls back to workspace root and shows warning when worktree directory is missing', () => {
+    vi.mocked(fs.existsSync).mockReturnValueOnce(false)
+    const launcher = new AgentLauncher({ fsPath: '/ext' } as import('vscode').Uri)
+    launcher.launch(WORKTREE_FEATURE, 'claude', 'default')
+    const opts = mockCreateTerminal.mock.calls[0][0]
+    expect(opts.cwd).toBe('/workspace')
+    expect(mockShowWarningMessage).toHaveBeenCalledOnce()
+  })
+
+  it('uses workspace root as CWD when workspace is a branch name', () => {
+    const branchFeature = { ...REVIEW_FEATURE, workspace: 'feat/my-story' }
+    const launcher = new AgentLauncher({ fsPath: '/ext' } as import('vscode').Uri)
+    launcher.launch(branchFeature, 'claude', 'default')
+    const opts = mockCreateTerminal.mock.calls[0][0]
+    expect(opts.cwd).toBe('/workspace')
+  })
+
+  it('uses workspace root as CWD when workspace is null', () => {
+    const launcher = new AgentLauncher({ fsPath: '/ext' } as import('vscode').Uri)
+    launcher.launch(REVIEW_FEATURE, 'claude', 'default')
+    const opts = mockCreateTerminal.mock.calls[0][0]
+    expect(opts.cwd).toBe('/workspace')
   })
 })
 
