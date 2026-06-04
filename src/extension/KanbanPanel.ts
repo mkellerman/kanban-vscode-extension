@@ -107,6 +107,13 @@ export class KanbanPanel {
         switch (message.type) {
           case 'ready':
             await this._repo.load()
+            if (this._launcher.activeFeatureIds.length > 0) {
+              this._panel.webview.postMessage({
+                type: 'agentStatus',
+                featureIds: this._launcher.activeFeatureIds,
+                active: true
+              })
+            }
             break
           case 'createFeature': {
             const created = await this._repo.createFeature(message.data as CreateFeatureData)
@@ -232,6 +239,11 @@ export class KanbanPanel {
       null,
       this._disposables
     )
+
+    // Subscribe to agent terminal lifecycle events
+    this._launcher.onAgentStatusChanged(({ featureIds, active }) => {
+      this._panel.webview.postMessage({ type: 'agentStatus', featureIds, active })
+    }, null, this._disposables)
 
     // Subscribe to repo changes
     this._repo.onDidChange(newFeatures => {

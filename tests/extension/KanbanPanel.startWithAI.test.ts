@@ -103,7 +103,11 @@ function makeRepo(features = [REVIEW_FEATURE]) {
 }
 
 function makeLauncher() {
-  return { launch: vi.fn() }
+  return {
+    launch: vi.fn(),
+    onAgentStatusChanged: vi.fn(() => ({ dispose: vi.fn() })),
+    activeFeatureIds: [] as string[]
+  }
 }
 
 function makeContext() {
