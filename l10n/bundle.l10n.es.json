@@ -105,6 +105,7 @@
   "card.daysAgo": "hace {count}d",
   "card.monthsAgo": "hace {count}me",
   "card.yearsAgo": "hace {count}a",
+  "card.agentRunning": "Agente en ejecución",
 
   "column.collapse": "Colapsar {name}",
   "column.addTo": "Añadir a {name}",

@@ -252,4 +252,33 @@ describe('agent status tracking', () => {
     launcher.launch(REVIEW_FEATURE, 'claude', 'default')
     expect(statusListener).not.toHaveBeenCalled()
   })
+
+  it('does not fire active:false for a feature id still active in another terminal', () => {
+    const f2 = { ...REVIEW_FEATURE, id: 'feat-2' }
+    const column: KanbanColumn = { id: 'review', name: 'Review', color: '#8b5cf6' }
+    // terminal 1 tracks REVIEW_FEATURE ('my-feat')
+    launcher.launch(REVIEW_FEATURE, 'claude', 'default')
+    const terminal1 = mockCreateTerminal.mock.results[0].value
+    // terminal 2 tracks REVIEW_FEATURE ('my-feat') AND f2 ('feat-2')
+    launcher.launchLane([REVIEW_FEATURE, f2], column, 'claude', 'default')
+    const terminal2 = mockCreateTerminal.mock.results[1].value
+    vi.clearAllMocks()
+    statusListener.mockClear()
+
+    // close terminal 2 — 'feat-2' becomes inactive, but 'my-feat' is still in terminal 1
+    captureTerminalClose.fn!(terminal2)
+    expect(statusListener).toHaveBeenCalledOnce()
+    expect(statusListener.mock.calls[0][0]).toEqual({
+      featureIds: ['feat-2'],
+      active: false
+    })
+
+    // close terminal 1 — now 'my-feat' truly becomes inactive
+    captureTerminalClose.fn!(terminal1)
+    expect(statusListener).toHaveBeenCalledTimes(2)
+    expect(statusListener.mock.calls[1][0]).toEqual({
+      featureIds: ['my-feat'],
+      active: false
+    })
+  })
 })

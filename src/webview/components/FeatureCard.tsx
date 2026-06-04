@@ -208,7 +208,7 @@ export function FeatureCard({ feature, onClick, isDragging }: FeatureCardProps) 
             className="inline-block w-1.5 h-1.5 rounded-full animate-pulse"
             style={{ backgroundColor: 'var(--vscode-testing-iconPassed)' }}
           />
-          <span className="text-[10px] font-medium">Agent running</span>
+          <span className="text-[10px] font-medium">{t('card.agentRunning')}</span>
         </div>
       )}
     </div>
