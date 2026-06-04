@@ -46,7 +46,7 @@ export class AgentLauncher {
       ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
       ?? null
 
-    const config = vscode.workspace.getConfiguration('kanban-extension')
+    const config = vscode.workspace.getConfiguration('kanban-markdown')
     const columns = config.get<KanbanColumn[]>('columns', DEFAULT_COLUMNS)
     const column = columns.find(c => c.id === feature.status)
       ?? { id: feature.status, name: feature.status, color: '' }

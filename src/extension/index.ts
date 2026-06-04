@@ -109,6 +109,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   const repo = new FeatureRepository(context)
   const launcher = new AgentLauncher(context.extensionUri)
+  context.subscriptions.push(launcher)
 
   const sidebarProvider = new SidebarViewProvider(context.extensionUri, context, repo)
   context.subscriptions.push(
