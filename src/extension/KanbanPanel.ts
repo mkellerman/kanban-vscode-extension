@@ -585,6 +585,7 @@ export class KanbanPanel {
       completedAt: data.status === 'done' ? now : null,
       labels: data.labels,
       order: newOrder,
+      workspace: null,
       content: data.content,
       filePath
     }
@@ -843,7 +844,8 @@ export class KanbanPanel {
       modified: feature.modified,
       completedAt: feature.completedAt,
       labels: feature.labels,
-      order: feature.order
+      order: feature.order,
+      workspace: feature.workspace ?? null
     }
 
     this._panel.webview.postMessage({

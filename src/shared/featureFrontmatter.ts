@@ -34,6 +34,7 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
     completedAt: getValue('completedAt') || null,
     labels: getArrayValue('labels'),
     order: getValue('order') || 'a0',
+    workspace: getValue('workspace') || getValue('worktree') || null,
     content: body.trim(),
     filePath
   }
@@ -53,6 +54,7 @@ export function serializeFeature(feature: Feature): string {
     `completedAt: ${feature.completedAt ? `"${feature.completedAt}"` : 'null'}`,
     `labels: [${feature.labels.map(l => `"${l}"`).join(', ')}]`,
     `order: "${feature.order}"`,
+    ...(feature.workspace !== null ? [`workspace: "${feature.workspace}"`] : []),
     '---',
     ''
   ].join('\n')
