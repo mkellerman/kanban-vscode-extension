@@ -16,16 +16,21 @@ Disk files (`.kanban/features/**/*.md`) are the **persistent projection** of thi
 
 ## Write Path
 
-Every board mutation — create, update, move, delete, archive, label rename/delete, filename migration — follows this sequence:
+Most board mutations — update, move, delete, label rename/delete, filename migration — follow this sequence:
 
-1. **Mutate `_features` in place.** For update, move, and delete operations the in-memory state is updated first; the write is assumed to succeed, with no rollback on failure. `createFeature` is the exception: the feature is constructed locally and written to disk before it is pushed to `_features`, so a failed write leaves the array unchanged.
-2. **Serialize.** The affected feature(s) are serialized to YAML-frontmatter Markdown with `serializeFeature()`.
-3. **Register the echo sentinel.** The serialized content string is stored in `_lastWrittenContents` keyed by file path, before the write is issued. This sentinel allows the watcher to recognise the subsequent filesystem event as an echo of this write.
-4. **Write to disk.** `_fs.writeFile()` is called. If it throws, a toast error is shown. For update and move operations, `load()` is called to re-sync from disk (the in-memory mutation is not rolled back). For `createFeature`, the error is re-thrown without calling `load()`, since the feature was never added to `_features`.
-5. **Done-boundary moves (conditional).** When `status` crosses the `done` boundary (going to or from `'done'`), `_migrating` is set to `true`, `moveFeatureFile()` renames the file into `done/` or back to the root, and `_migrating` is cleared in a `finally` block.
-6. **Notify subscribers.** `_emitter.fire(this._features)` pushes the updated list to all `onDidChange` listeners.
+1. **Mutate `_features` in place.** The in-memory state is updated first; the write is assumed to succeed, with no rollback on failure.
+2. **[Done-boundary guard — conditional.]** If `status` crosses the `done` boundary (going to or from `'done'`), `_migrating` is set to `true` *before* any I/O begins. This covers both the write in step 4 and the rename in step 5.
+3. **Serialize.** The affected feature(s) are serialized to YAML-frontmatter Markdown with `serializeFeature()`.
+4. **Register the echo sentinel.** The serialized content string is stored in `_lastWrittenContents` keyed by file path, before the write is issued. This sentinel allows the watcher to recognise the subsequent filesystem event as an echo of this write.
+5. **Write to disk.** `_fs.writeFile()` is called. If it throws, a toast error is shown and `load()` is called to re-sync from disk (the in-memory mutation is not rolled back).
+6. **Done-boundary file move (conditional).** `moveFeatureFile()` renames the file into `done/` or back to the root; `_migrating` is cleared in the `finally` block that wraps steps 2–6 regardless of success or failure.
+7. **Notify subscribers.** `_emitter.fire(this._features)` pushes the updated list to all `onDidChange` listeners.
 
-`deleteFeature` removes the sentinel entry (step 3) rather than writing one, so a subsequent watcher event for the deleted path falls through to a full reload.
+**`createFeature` exception:** The feature is constructed locally and written to disk (steps 3–5) before it is pushed to `_features`, so a failed write leaves the array unchanged and `load()` is not called.
+
+**`archiveFeatures` exception:** Archive operations rename files rather than write content. They skip steps 3–4; instead, any existing sentinel for the source path is deleted before the rename (so no stale echo guard remains for the moved path). The rename runs under `_migrating = true` (step 2 applies), cleared in the `finally` block.
+
+`deleteFeature` removes the sentinel entry (step 4) rather than writing one, so a subsequent watcher event for the deleted path falls through to a full reload.
 
 ---
 
@@ -36,7 +41,7 @@ Every board mutation — create, update, move, delete, archive, label rename/del
 - On extension activation and on the panel `ready` message.
 - When `featuresDir` changes (user config change or a `setRoot()` call).
 - By the debounced file-watcher callback after an external edit is detected.
-- As an error-recovery fallback when any write call fails.
+- As an error-recovery fallback when an update, move, or label-mutation write fails (`createFeature` re-throws instead of calling `load()`).
 
 ### Version guard
 
@@ -44,9 +49,9 @@ Every board mutation — create, update, move, delete, archive, label rename/del
 
 ### Migration phases
 
-`load()` runs three migration phases before reading final state. All three set `_migrating = true` to suppress watcher re-entry during the file moves and writes they perform.
+`load()` runs up to four migration phases before reading final state. All set `_migrating = true` to suppress watcher re-entry during the file moves and writes they perform.
 
-**Phase 1 — Old-subfolder migration:** Moves files from legacy `backlog/`, `todo/`, `in-progress/`, and `review/` subfolders to the flat root, then removes the now-empty subfolders.
+**Phase 1 — Old-subfolder migration and done-placement:** Moves files from legacy `backlog/`, `todo/`, `in-progress/`, and `review/` subfolders to the flat root, then removes the now-empty subfolders. Also scans the flat root for any file whose `status` frontmatter is `done` and moves it into `done/`.
 
 **Phase 2 — Done-folder read:** Reads feature files from the flat root and the `done/` subdirectory into the candidate list.
 
@@ -64,17 +69,17 @@ Three mechanisms cooperate to prevent the board's own writes from triggering a s
 
 | | |
 |---|---|
-| **Precondition** | Set to `true` before any file operation performed by the load path: all migration phases in `load()`, plus done-folder moves in `updateFeature`, `moveFeature`, `moveAllFeatures`, `archiveFeatures`, and `migrateFilenames`. |
+| **Precondition** | Set to `true` before any file operation performed by the load path: all migration phases in `load()`, plus done-folder moves and archive renames in `updateFeature`, `moveFeature`, `moveAllFeatures` (only when crossing the done boundary), `archiveFeatures`, and `migrateFilenames`. `renameLabel` and `deleteLabel` do **not** set `_migrating`; they rely solely on `_lastWrittenContents` sentinels. |
 | **Postcondition** | Cleared in a `finally` block after the file operations complete, regardless of success or failure. |
 | **Effect** | `_handleFileChange` returns immediately without scheduling a reload when `_migrating` is `true`. |
-| **Failure mode** | The flag is a plain `boolean`, not a reference-counted lock. Nested or concurrent `_migrating = true` blocks do not stack — the inner `finally` clears the flag while the outer block is still running. In practice this does not occur because all async operations are awaited sequentially, but it is a latent hazard if the call graph changes to introduce concurrent awaits. |
+| **Failure mode** | The flag is a plain `boolean`, not a reference-counted lock. Nested or concurrent `_migrating = true` blocks do not stack — the inner `finally` clears the flag while the outer block is still running. In practice this does not occur because all async operations are awaited sequentially, but it is a latent hazard if the call graph changes to introduce concurrent awaits. Note also that `moveAllFeatures` sets `_migrating` only for done-boundary bulk moves; non-done bulk moves clear the flag unconditionally in `finally`, which is safe but creates an asymmetry worth noting if the function is extended. |
 
 ### `_lastWrittenContents: Map<string, string>`
 
 | | |
 |---|---|
 | **Precondition** | Populated with the exact serialized content string immediately before every `writeFile` call in a mutation. |
-| **Postcondition** | Entry deleted after the first comparison in the watcher callback (whether the comparison matched or not); also deleted unconditionally by `deleteFeature` and by `archiveFeatures` (cleared before the rename so no stale sentinel remains for the moved path). |
+| **Postcondition** | Entry deleted after the first comparison in the watcher callback (whether the comparison matched or not); also deleted unconditionally by `deleteFeature` and by `archiveFeatures` (cleared before the rename so no stale sentinel remains for the moved path). Edge case: if `createFeature`'s `writeFile` throws, the entry registered before the write is never cleaned up by the watcher (the file was never written); it will be cleared on the first watcher event that arrives for that path, or remain harmlessly in the map until the next load cycle. |
 | **Effect** | When the watcher fires for a path present in the map, `_handleFileChange` reads the file back and compares disk content against the stored string. If they are equal, the event is an echo and reload is suppressed. If they differ, a concurrent external edit is assumed and `load()` runs. |
 | **Failure mode** | If two rapid watcher events arrive for a file whose write is slow (disk not yet flushed), the first comparison reads pre-write content (mismatch → spurious reload); by the time the second event fires, the entry has already been deleted (second reload also triggers). Both loads contend through `_loadVersion`, so only the last one commits. |
 
