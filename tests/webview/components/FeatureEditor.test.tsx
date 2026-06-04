@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { FeatureEditor } from '../../../src/webview/components/FeatureEditor'
 import { useStore } from '../../../src/webview/store'
-import type { CardDisplaySettings, FeatureFrontmatter } from '../../../src/shared/types'
+import type { CardDisplaySettings, FeatureFrontmatter, AIAgent, AIPermissionMode } from '../../../src/shared/types'
 
 // ---------------------------------------------------------------------------
 // Mock TipTap (doesn't work in jsdom)
@@ -123,5 +123,49 @@ describe('FeatureEditor — workspace indicator', () => {
       />
     )
     expect(screen.queryByText(/⎇/)).not.toBeInTheDocument()
+  })
+})
+
+describe('FeatureEditor — Build with AI closes editor', () => {
+  function renderEditor(
+    onClose: () => void,
+    onStartWithAI: (agent: AIAgent, permissionMode: AIPermissionMode) => void
+  ) {
+    setSettings({ showBuildWithAI: true })
+    render(
+      <FeatureEditor
+        featureId="feat-1"
+        content="# Test"
+        frontmatter={makeFrontmatter()}
+        onSave={noOp}
+        onClose={onClose}
+        onDelete={noOp}
+        onOpenFile={noOp}
+        onStartWithAI={onStartWithAI}
+      />
+    )
+  }
+
+  it('Ctrl+B calls onStartWithAI then onClose', () => {
+    const onStartWithAI = vi.fn()
+    const onClose = vi.fn()
+    renderEditor(onClose, onStartWithAI)
+    fireEvent.keyDown(window, { key: 'b', ctrlKey: true })
+    expect(onStartWithAI).toHaveBeenCalledWith('claude', 'default')
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(onStartWithAI.mock.invocationCallOrder[0]).toBeLessThan(onClose.mock.invocationCallOrder[0])
+  })
+
+  it('AIDropdown selection calls onStartWithAI then onClose', () => {
+    const onStartWithAI = vi.fn()
+    const onClose = vi.fn()
+    renderEditor(onClose, onStartWithAI)
+    // Open the dropdown
+    fireEvent.click(screen.getByText('Build with AI'))
+    // Click the claude/default mode option
+    fireEvent.click(screen.getByText('Default'))
+    expect(onStartWithAI).toHaveBeenCalledWith('claude', 'default')
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(onStartWithAI.mock.invocationCallOrder[0]).toBeLessThan(onClose.mock.invocationCallOrder[0])
   })
 })

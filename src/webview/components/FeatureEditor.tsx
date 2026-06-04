@@ -627,7 +627,10 @@ export function FeatureEditor({
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'b' && cardSettings.showBuildWithAI) {
         e.preventDefault()
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+        save()
         onStartWithAI('claude', 'default')
+        onClose()
       }
       if (e.key === 'Escape') {
         // Flush any pending save before closing
@@ -713,7 +716,16 @@ export function FeatureEditor({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {cardSettings.showBuildWithAI && <AIDropdown onSelect={onStartWithAI} />}
+          {cardSettings.showBuildWithAI && (
+            <AIDropdown
+              onSelect={(agent, mode) => {
+                if (debounceRef.current) clearTimeout(debounceRef.current)
+                save()
+                onStartWithAI(agent, mode)
+                onClose()
+              }}
+            />
+          )}
           {workspaceCtx.type !== 'none' && (
             <span className="text-[10px] text-zinc-400 dark:text-zinc-500 select-none">
               ⎇ {workspaceCtx.label}
