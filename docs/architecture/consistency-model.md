@@ -10,7 +10,7 @@ This document describes how the kanban board keeps its in-memory state and on-di
 
 Disk files (`.kanban/features/**/*.md`) are the **persistent projection** of this in-memory state, not a co-equal source. A disk file is always written *after* the in-memory mutation completes; during the window between the two, the in-memory state is authoritative.
 
-`FeatureRepository` is also the sole owner of the file-system watcher, the echo-suppression sentinels, and every write API. This centralised ownership was established by the `extract-feature-repository-service` refactor. Before that refactor, `KanbanPanel` and `SidebarViewProvider` each maintained their own file watchers and echo-suppression state independently, making them susceptible to out-of-order updates when both received the same filesystem event at different times.
+`FeatureRepository` is also the sole owner of the file-system watcher, the echo-suppression sentinels, and every write API. This centralised ownership was established by the `extract-feature-repository-service` refactor, eliminating the previous per-provider fragility: before that refactor, `KanbanPanel` and `SidebarViewProvider` each maintained their own file watchers and echo-suppression state independently, making them susceptible to out-of-order updates when both received the same filesystem event at different times.
 
 ---
 
