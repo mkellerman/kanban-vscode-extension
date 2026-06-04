@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import * as path from 'path'
 import * as vscode from 'vscode'
 import type { Feature, KanbanColumn } from '../shared/types'
@@ -5,6 +6,7 @@ import { getTitleFromContent, DEFAULT_COLUMNS } from '../shared/types'
 import { buildPrompt, buildLanePrompt, type PromptContext } from './ai/promptBuilder'
 import { launchAgentTerminal } from './ai/agentLauncher'
 import { t } from './l10n'
+import { parseWorkspaceValue } from '../shared/workspaceContext'
 
 export class AgentLauncher {
   constructor(private readonly _extensionUri: vscode.Uri) {}
@@ -38,11 +40,24 @@ export class AgentLauncher {
     const prompt = buildPrompt(ctx, column, this._extensionUri.fsPath, workspaceRoot)
     const terminalTitle = `${column.name}: ${ctx.title}`
 
+    const wsCtx = parseWorkspaceValue(feature.workspace ?? null)
+    let cwd: string | undefined
+    if (wsCtx.type === 'worktree') {
+      if (fs.existsSync(wsCtx.path)) {
+        cwd = wsCtx.path
+      } else {
+        vscode.window.showWarningMessage(t('panel.worktreePathMissing'))
+        cwd = workspaceRoot ?? undefined
+      }
+    } else {
+      cwd = workspaceRoot ?? undefined
+    }
+
     launchAgentTerminal(
       agent || 'claude',
       permissionMode || 'default',
       prompt,
-      workspaceRoot ?? undefined,
+      cwd,
       terminalTitle
     )
   }

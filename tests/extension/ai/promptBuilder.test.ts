@@ -40,14 +40,14 @@ const backlogColumn: KanbanColumn = { id: 'backlog', name: 'Backlog', color: '#6
 const FEAT_A: Feature = {
   id: 'feat-a', status: 'backlog', priority: 'medium', assignee: null, epic: null,
   dueDate: null, created: '2026-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z',
-  completedAt: null, labels: [], order: 'a0', content: '# Feature A',
+  completedAt: null, labels: [], order: 'a0', workspace: null, content: '# Feature A',
   filePath: '/workspace/.kanban/features/feat-a.md'
 }
 
 const FEAT_B: Feature = {
   id: 'feat-b', status: 'backlog', priority: 'high', assignee: null, epic: null,
   dueDate: null, created: '2026-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z',
-  completedAt: null, labels: [], order: 'a1', content: '# Feature B',
+  completedAt: null, labels: [], order: 'a1', workspace: null, content: '# Feature B',
   filePath: '/workspace/.kanban/features/feat-b.md'
 }
 

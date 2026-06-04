@@ -5,6 +5,7 @@ import { epicThemeFromName } from '../../shared/epicColor'
 import { useStore } from '../store'
 import { t } from '../lib/i18n'
 import { parseDueDateLocal, isOverdue, isToday } from '../../shared/dateUtils'
+import { parseWorkspaceValue } from '../../shared/workspaceContext'
 
 interface FeatureCardProps {
   feature: Feature
@@ -96,6 +97,7 @@ export function FeatureCard({ feature, onClick, isDragging }: FeatureCardProps) 
 
   const epicTrimmed = feature.epic?.trim()
   const epicTheme = epicTrimmed ? epicThemeFromName(epicTrimmed, isDarkMode) : null
+  const workspaceCtx = parseWorkspaceValue(feature.workspace ?? null)
 
   return (
     <div
@@ -150,6 +152,13 @@ export function FeatureCard({ feature, onClick, isDragging }: FeatureCardProps) 
             <span className="truncate font-medium" style={{ color: epicTheme.foreground }}>
               {epicTrimmed}
             </span>
+          </div>
+        )}
+
+        {/* Workspace badge */}
+        {workspaceCtx.type !== 'none' && (
+          <div className="flex items-center gap-1 mb-1.5 text-[10px] text-zinc-400 dark:text-zinc-500">
+            <span>⎇ {workspaceCtx.label}</span>
           </div>
         )}
 

@@ -180,6 +180,7 @@
   "panel.renameResult": "Renamed {renamed} file(s).",
   "panel.renameResultWithSkipped": "Renamed {renamed} file(s). Skipped {skipped} due to naming conflicts.",
   "panel.aiRequiresTrust": "\"Build with AI\" requires a trusted workspace. Open the workspace in trusted mode to use this feature.",
+  "panel.worktreePathMissing": "Worktree path not found — launching in workspace root",
   "panel.noFeatureSelected": "No feature selected",
   "panel.languageChanged": "Kanban Markdown: language changed. Update column names to match?",
   "panel.updateColumns": "Update columns",
