@@ -200,3 +200,23 @@ describe('FeatureCard — onClick', () => {
     expect(clicked).toBe(true)
   })
 })
+
+describe('FeatureCard — workspace badge', () => {
+  it('shows a ⎇ badge when workspace is a branch name', () => {
+    setSettings()
+    render(<FeatureCard feature={makeFeature({ workspace: 'feat/my-story' })} onClick={() => {}} />)
+    expect(screen.getByText('⎇ feat/my-story')).toBeInTheDocument()
+  })
+
+  it('shows a ⎇ badge with basename when workspace is a worktree path', () => {
+    setSettings()
+    render(<FeatureCard feature={makeFeature({ workspace: '/worktrees/my-story' })} onClick={() => {}} />)
+    expect(screen.getByText('⎇ my-story')).toBeInTheDocument()
+  })
+
+  it('shows no ⎇ badge when workspace is null', () => {
+    setSettings()
+    render(<FeatureCard feature={makeFeature({ workspace: null })} onClick={() => {}} />)
+    expect(screen.queryByText(/⎇/)).not.toBeInTheDocument()
+  })
+})
