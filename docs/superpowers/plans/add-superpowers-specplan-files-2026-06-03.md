@@ -2,19 +2,14 @@
 id: "add-superpowers-specplan-files-2026-06-03"
 status: "review"
 priority: "medium"
-assignee: null
-epic: null
-dueDate: null
-created: "2026-06-04T06:15:35.531Z"
+created: "2026-06-04T07:11:24.000Z"
 modified: "2026-06-04T07:11:24.000Z"
-completedAt: null
 labels: []
-order: "a0"
 worktree: ".claude/worktrees/story+add-superpowers-specplan-files-2026-06-03"
 ---
-# Frontmatter Grooming + Multi-Repository — Implementation Plan
+# Implementation Plan: Frontmatter Grooming + Multi-Repository
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Load `docs/superpowers/` files onto the kanban board by generalizing `FeatureRepository` to be schema-aware, aggregating multiple repo instances via `FeatureRepositoryManager`, and adding a Claude Code hook that auto-adds frontmatter to any `.md` written in a groomed directory.
 
@@ -49,7 +44,7 @@ worktree: ".claude/worktrees/story+add-superpowers-specplan-files-2026-06-03"
 **Files:**
 - Modify: `src/shared/types.ts`
 
-- [ ] **Step 1: Add the two new types after the existing `FilenamePattern` type**
+- [x] **Step 1: Add the two new types after the existing `FilenamePattern` type**
 
 In `src/shared/types.ts`, after the `FilenamePattern` export (currently line 35), add:
 
@@ -62,7 +57,7 @@ export interface GroomedDirectory {
 }
 ```
 
-- [ ] **Step 2: Run typecheck to confirm no breakage**
+- [x] **Step 2: Run typecheck to confirm no breakage**
 
 ```bash
 pnpm typecheck
@@ -70,7 +65,7 @@ pnpm typecheck
 
 Expected: 0 errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/shared/types.ts
@@ -84,7 +79,7 @@ git commit -m "feat: add SchemaType and GroomedDirectory to shared types"
 **Files:**
 - Modify: `src/extension/FeatureRepository.ts`
 
-- [ ] **Step 1: Export `IFeatureRepository` interface**
+- [x] **Step 1: Export `IFeatureRepository` interface**
 
 Add this block immediately before `export interface CreateFeatureData` (currently line 25):
 
@@ -116,7 +111,7 @@ Then update the class declaration to:
 export class FeatureRepository implements IFeatureRepository {
 ```
 
-- [ ] **Step 2: Replace the private field declarations and constructor**
+- [x] **Step 2: Replace the private field declarations and constructor**
 
 Replace the current field declarations at the top of the class (lines 36–46 in the original) and the constructor (lines 49–52) with:
 
@@ -158,7 +153,7 @@ Replace the current field declarations at the top of the class (lines 36–46 in
   get schema(): SchemaType { return this._schema }
 ```
 
-- [ ] **Step 3: Update `getFeaturesDir()` to use `_relativeDir`**
+- [x] **Step 3: Update `getFeaturesDir()` to use `_relativeDir`**
 
 Replace the body of `getFeaturesDir()` (currently lines 63–68):
 
@@ -172,7 +167,7 @@ Replace the body of `getFeaturesDir()` (currently lines 63–68):
   }
 ```
 
-- [ ] **Step 4: Add `_loadAllMd()` recursive helper**
+- [x] **Step 4: Add `_loadAllMd()` recursive helper**
 
 Add this private method immediately before `dispose()` at the bottom of the class:
 
@@ -200,7 +195,7 @@ Add this private method immediately before `dispose()` at the bottom of the clas
   }
 ```
 
-- [ ] **Step 5: Branch `load()` on schema — add superpowers path at the start**
+- [x] **Step 5: Branch `load()` on schema — add superpowers path at the start**
 
 At the start of the `try` block inside `load()`, just after `await this._fs.createDirectory(...)` (which is currently the first line of the try block), add the superpowers early-return:
 
@@ -222,7 +217,7 @@ Actually, restructure: add the branch **after the watcher setup and null check**
       // ... rest of existing feature-schema load (Phase 1, 2, 3)
 ```
 
-- [ ] **Step 6: Gate done-file moves on `'feature'` schema in `updateFeature`**
+- [x] **Step 6: Gate done-file moves on `'feature'` schema in `updateFeature`**
 
 In `updateFeature()`, change the `crossingDoneUpdate` line (currently uses `oldStatus !== feature.status ...`):
 
@@ -231,7 +226,7 @@ In `updateFeature()`, change the `crossingDoneUpdate` line (currently uses `oldS
       oldStatus !== feature.status && (oldStatus === 'done' || feature.status === 'done')
 ```
 
-- [ ] **Step 7: Gate done-file moves in `moveFeature`**
+- [x] **Step 7: Gate done-file moves in `moveFeature`**
 
 In `moveFeature()`, change the `crossingDone` line:
 
@@ -240,7 +235,7 @@ In `moveFeature()`, change the `crossingDone` line:
       oldStatus !== newStatus && (oldStatus === 'done' || newStatus === 'done')
 ```
 
-- [ ] **Step 8: Gate done-file moves in `moveAllFeatures`**
+- [x] **Step 8: Gate done-file moves in `moveAllFeatures`**
 
 In `moveAllFeatures()`, change the `crossingDone` line:
 
@@ -249,7 +244,7 @@ In `moveAllFeatures()`, change the `crossingDone` line:
       (sourceColumnId === 'done' || targetColumnId === 'done')
 ```
 
-- [ ] **Step 9: Guard `migrateFilenames` for feature schema only**
+- [x] **Step 9: Guard `migrateFilenames` for feature schema only**
 
 At the top of `migrateFilenames()`, add a guard:
 
@@ -259,7 +254,7 @@ At the top of `migrateFilenames()`, add a guard:
     // ... rest unchanged
 ```
 
-- [ ] **Step 10: Run typecheck**
+- [x] **Step 10: Run typecheck**
 
 ```bash
 pnpm typecheck
@@ -267,7 +262,7 @@ pnpm typecheck
 
 Expected: 0 errors.
 
-- [ ] **Step 11: Run existing tests**
+- [x] **Step 11: Run existing tests**
 
 ```bash
 pnpm test -- tests/extension/FeatureRepository.test.ts tests/extension/FeatureRepository.fileErrors.test.ts
@@ -275,7 +270,7 @@ pnpm test -- tests/extension/FeatureRepository.test.ts tests/extension/FeatureRe
 
 Expected: all tests pass (constructor backward-compat means existing tests need no changes).
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add src/extension/FeatureRepository.ts
@@ -289,7 +284,7 @@ git commit -m "feat: generalize FeatureRepository with schema-aware config and I
 **Files:**
 - Modify: `tests/extension/FeatureRepository.test.ts`
 
-- [ ] **Step 1: Extend `MemoryFs.readDirectory` to return subdirectory entries**
+- [x] **Step 1: Extend `MemoryFs.readDirectory` to return subdirectory entries**
 
 In `tests/extension/FeatureRepository.test.ts`, replace the `readDirectory` method inside the `MemoryFs` class (currently returns only files, `if (!rest.includes('/'))`) with:
 
@@ -316,7 +311,7 @@ In `tests/extension/FeatureRepository.test.ts`, replace the `readDirectory` meth
   }
 ```
 
-- [ ] **Step 2: Run existing tests to confirm no regression**
+- [x] **Step 2: Run existing tests to confirm no regression**
 
 ```bash
 pnpm test -- tests/extension/FeatureRepository.test.ts
@@ -324,7 +319,7 @@ pnpm test -- tests/extension/FeatureRepository.test.ts
 
 Expected: all pass (the feature-schema load code skips `type !== 1` entries, so returning dirs is harmless).
 
-- [ ] **Step 3: Write failing superpowers load test**
+- [x] **Step 3: Write failing superpowers load test**
 
 Add this new `describe` block at the end of `tests/extension/FeatureRepository.test.ts`:
 
@@ -422,7 +417,7 @@ describe('FeatureRepository — superpowers schema', () => {
 })
 ```
 
-- [ ] **Step 4: Run new tests to confirm they fail (not yet passing)**
+- [x] **Step 4: Run new tests to confirm they fail (not yet passing)**
 
 ```bash
 pnpm test -- tests/extension/FeatureRepository.test.ts
@@ -430,7 +425,7 @@ pnpm test -- tests/extension/FeatureRepository.test.ts
 
 Expected: the new superpowers tests fail because the schema-aware changes aren't in yet if you're doing strict TDD, OR pass if Task 2 is already done. If Task 2 is done, all tests should pass.
 
-- [ ] **Step 5: Confirm all tests pass**
+- [x] **Step 5: Confirm all tests pass**
 
 ```bash
 pnpm test -- tests/extension/FeatureRepository.test.ts tests/extension/FeatureRepository.fileErrors.test.ts
@@ -438,7 +433,7 @@ pnpm test -- tests/extension/FeatureRepository.test.ts tests/extension/FeatureRe
 
 Expected: all pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add tests/extension/FeatureRepository.test.ts
@@ -454,7 +449,7 @@ git commit -m "test: add superpowers schema tests for FeatureRepository"
 - Modify: `src/extension/SidebarViewProvider.ts`
 - Modify: `src/extension/FeatureHeaderProvider.ts`
 
-- [ ] **Step 1: Update `KanbanPanel.ts`**
+- [x] **Step 1: Update `KanbanPanel.ts`**
 
 Change the import on line 8:
 ```typescript
@@ -471,7 +466,7 @@ Change all three `repo: FeatureRepository` parameter types (in `createOrShow`, `
 repo: IFeatureRepository
 ```
 
-- [ ] **Step 2: Update `SidebarViewProvider.ts`**
+- [x] **Step 2: Update `SidebarViewProvider.ts`**
 
 Change the import on line 5:
 ```typescript
@@ -483,7 +478,7 @@ Change the field declaration on line 18:
     private readonly _repo: IFeatureRepository
 ```
 
-- [ ] **Step 3: Update `FeatureHeaderProvider.ts`**
+- [x] **Step 3: Update `FeatureHeaderProvider.ts`**
 
 Change the import on line 8:
 ```typescript
@@ -500,7 +495,7 @@ Change the `register` static method parameter on line 27:
   public static register(context: vscode.ExtensionContext, launcher: AgentLauncher, repo: IFeatureRepository): vscode.Disposable {
 ```
 
-- [ ] **Step 4: Run typecheck**
+- [x] **Step 4: Run typecheck**
 
 ```bash
 pnpm typecheck
@@ -508,7 +503,7 @@ pnpm typecheck
 
 Expected: 0 errors.
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```bash
 pnpm test
@@ -516,7 +511,7 @@ pnpm test
 
 Expected: all pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/extension/KanbanPanel.ts src/extension/SidebarViewProvider.ts src/extension/FeatureHeaderProvider.ts
@@ -529,8 +524,9 @@ git commit -m "refactor: use IFeatureRepository interface in all consumers"
 
 **Files:**
 - Create: `src/extension/FeatureRepositoryManager.ts`
+- Create: `tests/extension/FeatureRepositoryManager.test.ts`
 
-- [ ] **Step 1: Write the failing test first**
+- [x] **Step 1: Write the failing test first**
 
 Create `tests/extension/FeatureRepositoryManager.test.ts`:
 
@@ -748,7 +744,7 @@ describe('FeatureRepositoryManager', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to confirm they fail**
+- [x] **Step 2: Run tests to confirm they fail**
 
 ```bash
 pnpm test -- tests/extension/FeatureRepositoryManager.test.ts
@@ -756,7 +752,7 @@ pnpm test -- tests/extension/FeatureRepositoryManager.test.ts
 
 Expected: FAIL with "Cannot find module '../../src/extension/FeatureRepositoryManager'".
 
-- [ ] **Step 3: Implement `FeatureRepositoryManager`**
+- [x] **Step 3: Implement `FeatureRepositoryManager`**
 
 Create `src/extension/FeatureRepositoryManager.ts`:
 
@@ -872,7 +868,7 @@ export class FeatureRepositoryManager implements IFeatureRepository {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 pnpm test -- tests/extension/FeatureRepositoryManager.test.ts
@@ -880,7 +876,7 @@ pnpm test -- tests/extension/FeatureRepositoryManager.test.ts
 
 Expected: all pass.
 
-- [ ] **Step 5: Run full suite**
+- [x] **Step 5: Run full suite**
 
 ```bash
 pnpm test
@@ -888,7 +884,7 @@ pnpm test
 
 Expected: all pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/extension/FeatureRepositoryManager.ts tests/extension/FeatureRepositoryManager.test.ts
@@ -902,7 +898,7 @@ git commit -m "feat: add FeatureRepositoryManager that aggregates multiple schem
 **Files:**
 - Modify: `src/extension/index.ts`
 
-- [ ] **Step 1: Replace the import and instantiation in `index.ts`**
+- [x] **Step 1: Replace the import and instantiation in `index.ts`**
 
 Change the import on line 10 (replacing `import { FeatureRepository } from './FeatureRepository'`):
 ```typescript
@@ -930,7 +926,7 @@ In the `activate` function, replace `const repo = new FeatureRepository(context)
   const repo = new FeatureRepositoryManager(context, effectiveDirs)
 ```
 
-- [ ] **Step 2: Run typecheck**
+- [x] **Step 2: Run typecheck**
 
 ```bash
 pnpm typecheck
@@ -938,7 +934,7 @@ pnpm typecheck
 
 Expected: 0 errors.
 
-- [ ] **Step 3: Run full test suite**
+- [x] **Step 3: Run full test suite**
 
 ```bash
 pnpm test
@@ -946,7 +942,7 @@ pnpm test
 
 Expected: all pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/extension/index.ts
@@ -961,7 +957,7 @@ git commit -m "feat: wire FeatureRepositoryManager in index.ts from groomedDirec
 - Modify: `package.json`
 - Modify: `package.nls.json`
 
-- [ ] **Step 1: Add the setting to `package.json`**
+- [x] **Step 1: Add the setting to `package.json`**
 
 In `package.json`, find the `"kanban-extension.featuresDirectory"` block inside `"contributes.configuration.properties"`. Add the following entry immediately after it:
 
@@ -991,7 +987,7 @@ In `package.json`, find the `"kanban-extension.featuresDirectory"` block inside 
 
 (Note: `default: []` means VS Code returns empty array if user hasn't configured it, and `index.ts` falls back to the two default dirs. This lets users opt in to a custom list by setting the key explicitly.)
 
-- [ ] **Step 2: Add the NLS description string**
+- [x] **Step 2: Add the NLS description string**
 
 In `package.nls.json`, after the `"config.featuresDirectory.description"` line, add:
 
@@ -999,7 +995,7 @@ In `package.nls.json`, after the `"config.featuresDirectory.description"` line, 
 "config.groomedDirectories.description": "List of directories (relative to workspace root) to load as kanban cards, each with a schema type. When empty, defaults to .kanban/features (feature schema) and docs/superpowers (superpowers schema).",
 ```
 
-- [ ] **Step 3: Verify `pnpm check-l10n` passes**
+- [x] **Step 3: Verify `pnpm check-l10n` passes**
 
 ```bash
 pnpm check-l10n
@@ -1007,7 +1003,7 @@ pnpm check-l10n
 
 Expected: no missing keys reported.
 
-- [ ] **Step 4: Run typecheck and tests**
+- [x] **Step 4: Run typecheck and tests**
 
 ```bash
 pnpm typecheck && pnpm test
@@ -1015,7 +1011,7 @@ pnpm typecheck && pnpm test
 
 Expected: all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add package.json package.nls.json
@@ -1029,7 +1025,7 @@ git commit -m "feat: add kanban-extension.groomedDirectories VS Code setting"
 **Files:**
 - Create: `.claude/hooks/groom_frontmatter.py`
 
-- [ ] **Step 1: Create the hooks directory and write the script**
+- [x] **Step 1: Create the hooks directory and write the script**
 
 ```bash
 mkdir -p /Users/me/GitHub/kanban-vscode-extension/.claude/hooks
@@ -1319,13 +1315,13 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 2: Make the script executable**
+- [x] **Step 2: Make the script executable**
 
 ```bash
 chmod +x /Users/me/GitHub/kanban-vscode-extension/.claude/hooks/groom_frontmatter.py
 ```
 
-- [ ] **Step 3: Smoke-test the hook against a file with no frontmatter**
+- [x] **Step 3: Smoke-test the hook against a file with no frontmatter**
 
 ```bash
 echo "# My Test Spec
@@ -1338,7 +1334,7 @@ echo '{"tool_name":"Write","tool_input":{"file_path":"/tmp/test-spec.md"}}' \
 
 Expected: exits 0. The file is not modified (not in a groomed dir) — that's correct.
 
-- [ ] **Step 4: Smoke-test against a file in the superpowers dir**
+- [x] **Step 4: Smoke-test against a file in the superpowers dir**
 
 ```bash
 mkdir -p /Users/me/GitHub/kanban-vscode-extension/docs/superpowers/specs
@@ -1357,13 +1353,13 @@ head -20 /Users/me/GitHub/kanban-vscode-extension/docs/superpowers/specs/test-ho
 
 Expected output: the file now starts with `---` YAML frontmatter containing at minimum `id`, `type: "spec"`, `title: "Test Hook Spec"`, `status: "todo"`, `created: "2026-06-04T00:00:00Z"`.
 
-- [ ] **Step 5: Clean up test file**
+- [x] **Step 5: Clean up test file**
 
 ```bash
 rm /Users/me/GitHub/kanban-vscode-extension/docs/superpowers/specs/test-hook-2026-06-04.md
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .claude/hooks/groom_frontmatter.py
@@ -1377,7 +1373,7 @@ git commit -m "feat: add groom_frontmatter PostToolUse hook for auto-frontmatter
 **Files:**
 - Create: `.claude/settings.json`
 
-- [ ] **Step 1: Write failing validation**
+- [x] **Step 1: Write failing validation**
 
 Verify `.claude/settings.json` does NOT yet exist:
 
@@ -1387,7 +1383,7 @@ ls /Users/me/GitHub/kanban-vscode-extension/.claude/settings.json
 
 Expected: `ls: .claude/settings.json: No such file or directory`
 
-- [ ] **Step 2: Create `.claude/settings.json`**
+- [x] **Step 2: Create `.claude/settings.json`**
 
 Create `.claude/settings.json`:
 
@@ -1409,7 +1405,7 @@ Create `.claude/settings.json`:
 }
 ```
 
-- [ ] **Step 3: Verify JSON is valid**
+- [x] **Step 3: Verify JSON is valid**
 
 ```bash
 python3 -c "import json; json.load(open('.claude/settings.json')); print('valid')"
@@ -1417,7 +1413,7 @@ python3 -c "import json; json.load(open('.claude/settings.json')); print('valid'
 
 Expected: `valid`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .claude/settings.json
@@ -1428,7 +1424,7 @@ git commit -m "feat: register groom_frontmatter hook in .claude/settings.json"
 
 ### Task 10: Final verification
 
-- [ ] **Step 1: Run full test suite**
+- [x] **Step 1: Run full test suite**
 
 ```bash
 pnpm test
@@ -1436,7 +1432,7 @@ pnpm test
 
 Expected: all tests pass.
 
-- [ ] **Step 2: Run typecheck**
+- [x] **Step 2: Run typecheck**
 
 ```bash
 pnpm typecheck
@@ -1444,7 +1440,7 @@ pnpm typecheck
 
 Expected: 0 errors.
 
-- [ ] **Step 3: Run l10n check**
+- [x] **Step 3: Run l10n check**
 
 ```bash
 pnpm check-l10n
@@ -1452,7 +1448,7 @@ pnpm check-l10n
 
 Expected: no missing keys.
 
-- [ ] **Step 4: Build extension bundle**
+- [x] **Step 4: Build extension bundle**
 
 ```bash
 pnpm build
@@ -1460,13 +1456,42 @@ pnpm build
 
 Expected: `dist/extension.js` built successfully, no errors.
 
-- [ ] **Step 5: Verify existing superpowers files get frontmatter on next write**
+- [x] **Step 5: Verify existing superpowers files get frontmatter on next write**
 
 Write a superpowers spec that currently has no frontmatter (e.g. `docs/superpowers/specs/2026-06-03-epic-filter-design.md`) using the Claude Code Write or Edit tool — the hook fires and adds frontmatter. Confirm the file now starts with `---`.
 
-- [ ] **Step 6: Commit final state**
+- [x] **Step 6: Commit final state**
 
 ```bash
 git add -A
 git commit -m "feat: complete frontmatter grooming + multi-repo board loading"
 ```
+
+---
+
+## Test Plan
+
+| Acceptance Criterion | Task | Verification |
+|---------------------|------|--------------|
+| `FeatureRepository` loads superpowers files recursively | Task 2 + 3 | `FeatureRepository — superpowers schema` test suite |
+| Files in `done/` are not moved for superpowers schema | Task 2 + 3 | `does not move files to done/` test |
+| `FeatureRepositoryManager` aggregates N repos | Task 5 | `aggregates features from both repos` test |
+| Writes route to the owning repo | Task 5 | `routes updateFeature to the owning repo` test |
+| `index.ts` uses manager from `groomedDirectories` config | Task 6 | typecheck + full test suite |
+| VS Code setting appears in settings UI | Task 7 | `pnpm check-l10n` passes |
+| Hook adds frontmatter to new superpowers files | Task 8 | smoke-test steps 3–4 |
+| Hook is idempotent (no double-write) | Task 8 | re-running hook on already-groomed file exits 0 with no changes |
+| All existing tests still pass | Task 10 | `pnpm test` |
+| Extension bundle compiles | Task 10 | `pnpm build` succeeds |
+
+## Out of Scope
+
+- UI changes to the kanban board (superpowers cards appear alongside feature cards using existing column logic)
+- Filtering or sorting by schema type
+- Editing superpowers files via the kanban UI (read/update only — no create-from-board for superpowers schema)
+- Hook support for tools other than `Write`, `Edit`, `MultiEdit`
+- PyYAML availability — the hook falls back to `_parse_simple` when PyYAML is not installed
+
+## Dependencies
+
+- None — this is a self-contained feature. No blocking stories.
