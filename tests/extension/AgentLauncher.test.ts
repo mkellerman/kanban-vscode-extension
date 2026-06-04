@@ -1,17 +1,34 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Feature, KanbanColumn } from '../../src/shared/types'
+import type * as vscode from 'vscode'
 
-const { mockCreateTerminal, mockShowWarningMessage, mockShow, mockIsTrusted, mockGetWorkspaceFolder } = vi.hoisted(() => {
+const {
+  mockCreateTerminal, mockShowWarningMessage, mockShow, mockIsTrusted,
+  mockGetWorkspaceFolder, captureTerminalClose
+} = vi.hoisted(() => {
   const mockShow = vi.fn()
   const mockCreateTerminal = vi.fn(() => ({ show: mockShow }))
   const mockShowWarningMessage = vi.fn()
   const mockIsTrusted = { value: true }
   const mockGetWorkspaceFolder = vi.fn(() => ({ uri: { fsPath: '/workspace' } }))
-  return { mockCreateTerminal, mockShowWarningMessage, mockShow, mockIsTrusted, mockGetWorkspaceFolder }
+  const captureTerminalClose = {
+    fn: undefined as ((t: vscode.Terminal) => void) | undefined
+  }
+  return {
+    mockCreateTerminal, mockShowWarningMessage, mockShow, mockIsTrusted,
+    mockGetWorkspaceFolder, captureTerminalClose
+  }
 })
 
 vi.mock('vscode', () => ({
-  window: { createTerminal: mockCreateTerminal, showWarningMessage: mockShowWarningMessage },
+  window: {
+    createTerminal: mockCreateTerminal,
+    showWarningMessage: mockShowWarningMessage,
+    onDidCloseTerminal: vi.fn((cb: (t: unknown) => void) => {
+      captureTerminalClose.fn = cb as (t: vscode.Terminal) => void
+      return { dispose: vi.fn() }
+    })
+  },
   workspace: {
     get isTrusted() { return mockIsTrusted.value },
     workspaceFolders: [{ uri: { fsPath: '/workspace' } }],
@@ -24,7 +41,13 @@ vi.mock('vscode', () => ({
     }))
   },
   Uri: { file: (p: string) => ({ fsPath: p }) },
-  Disposable: { from: (...d: { dispose: () => void }[]) => ({ dispose: () => d.forEach(x => x.dispose()) }) }
+  Disposable: { from: (...d: { dispose: () => void }[]) => ({ dispose: () => d.forEach(x => x.dispose()) }) },
+  EventEmitter: class EventEmitterMock<T> {
+    private _listeners: ((e: T) => void)[] = []
+    event = (cb: (e: T) => void) => { this._listeners.push(cb); return { dispose: vi.fn() } }
+    fire(e: T) { [...this._listeners].forEach(l => l(e)) }
+    dispose() { this._listeners = [] }
+  }
 }))
 
 const { mockBuildPrompt, mockBuildLanePrompt } = vi.hoisted(() => ({
@@ -161,5 +184,72 @@ describe('AgentLauncher.launchLane()', () => {
     launcher.launchLane([BACKLOG_FEATURE], BACKLOG_COLUMN, 'claude', 'default')
     const opts = mockCreateTerminal.mock.calls[0][0]
     expect(opts.cwd).toBe('/workspace')
+  })
+})
+
+describe('agent status tracking', () => {
+  let launcher: AgentLauncher
+  let statusListener: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockIsTrusted.value = true
+    launcher = new AgentLauncher({ fsPath: '/ext' } as import('vscode').Uri)
+    statusListener = vi.fn()
+    launcher.onAgentStatusChanged(statusListener)
+  })
+
+  it('fires active:true with the feature id when launch() creates a terminal', () => {
+    launcher.launch(REVIEW_FEATURE, 'claude', 'default')
+    expect(statusListener).toHaveBeenCalledOnce()
+    expect(statusListener.mock.calls[0][0]).toEqual({
+      featureIds: ['my-feat'],
+      active: true
+    })
+  })
+
+  it('fires active:true with all feature ids when launchLane() runs', () => {
+    const f2 = { ...REVIEW_FEATURE, id: 'feat-2' }
+    const column: KanbanColumn = { id: 'review', name: 'Review', color: '#8b5cf6' }
+    launcher.launchLane([REVIEW_FEATURE, f2], column, 'claude', 'default')
+    expect(statusListener).toHaveBeenCalledOnce()
+    expect(statusListener.mock.calls[0][0]).toEqual({
+      featureIds: ['my-feat', 'feat-2'],
+      active: true
+    })
+  })
+
+  it('fires active:false with the feature id when the terminal closes', () => {
+    launcher.launch(REVIEW_FEATURE, 'claude', 'default')
+    const terminal = mockCreateTerminal.mock.results[0].value
+    captureTerminalClose.fn!(terminal)
+    expect(statusListener).toHaveBeenCalledTimes(2)
+    expect(statusListener.mock.calls[1][0]).toEqual({
+      featureIds: ['my-feat'],
+      active: false
+    })
+  })
+
+  it('activeFeatureIds returns deduplicated ids across all active terminals', () => {
+    const f2 = { ...REVIEW_FEATURE, id: 'feat-2' }
+    const column: KanbanColumn = { id: 'review', name: 'Review', color: '#8b5cf6' }
+    launcher.launch(REVIEW_FEATURE, 'claude', 'default')
+    launcher.launchLane([f2], column, 'claude', 'default')
+    const ids = launcher.activeFeatureIds
+    expect(ids).toContain('my-feat')
+    expect(ids).toContain('feat-2')
+    expect(ids).toHaveLength(2)
+  })
+
+  it('closing an untracked terminal does not fire the event', () => {
+    const untracked = { show: vi.fn() }
+    captureTerminalClose.fn!(untracked as unknown as vscode.Terminal)
+    expect(statusListener).not.toHaveBeenCalled()
+  })
+
+  it('does not fire active:true when workspace is not trusted', () => {
+    mockIsTrusted.value = false
+    launcher.launch(REVIEW_FEATURE, 'claude', 'default')
+    expect(statusListener).not.toHaveBeenCalled()
   })
 })
