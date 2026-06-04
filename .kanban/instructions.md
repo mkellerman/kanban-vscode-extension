@@ -23,7 +23,7 @@ frontmatter_fields:
   - completedAt
   - labels
   - order
-  - worktree
+  - workspace
   - blockedBy
 ---
 

@@ -34,6 +34,7 @@ vi.mock('vscode', () => ({
       dispose: vi.fn(),
     })),
   },
+  extensions: { getExtension: vi.fn(() => undefined) },
   EventEmitter: class<T> {
     private _ls: ((e: T) => void)[] = []
     event = (cb: (e: T) => void) => {
