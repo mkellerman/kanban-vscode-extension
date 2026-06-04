@@ -7,7 +7,9 @@ import { serializeFeature } from '../shared/featureFrontmatter'
 import type { Feature, FeatureStatus, Priority } from '../shared/types'
 import { ensureStatusSubfolders, getFeatureFilePath } from './featureFileUtils'
 import { t, loadBundle } from './l10n'
-import { FeatureRepository } from './FeatureRepository'
+import { FeatureRepositoryManager } from './FeatureRepositoryManager'
+import type { IFeatureRepository } from './FeatureRepository'
+import type { GroomedDirectory, SchemaType } from '../shared/types'
 import { AgentLauncher } from './AgentLauncher'
 import { FeatureHeaderProvider } from './FeatureHeaderProvider'
 
@@ -19,7 +21,7 @@ interface PriorityQuickPickItem extends vscode.QuickPickItem {
   priorityValue: Priority
 }
 
-async function createFeatureFromPrompts(repo: FeatureRepository): Promise<void> {
+async function createFeatureFromPrompts(repo: IFeatureRepository): Promise<void> {
   const featuresDir = repo.getFeaturesDir()
   if (!featuresDir) {
     vscode.window.showErrorMessage(t('ext.noWorkspace'))
@@ -108,7 +110,15 @@ async function createFeatureFromPrompts(repo: FeatureRepository): Promise<void> 
 export function activate(context: vscode.ExtensionContext) {
   loadBundle(context.extensionPath)
 
-  const repo = new FeatureRepository(context)
+  const config = vscode.workspace.getConfiguration('kanban-extension')
+  const groomedDirs = config.get<GroomedDirectory[]>('groomedDirectories') ?? []
+  const effectiveDirs: GroomedDirectory[] = groomedDirs.length > 0
+    ? groomedDirs
+    : [
+        { path: config.get<string>('featuresDirectory') || '.kanban/features', schema: 'feature' as SchemaType },
+        { path: 'docs/superpowers', schema: 'superpowers' as SchemaType }
+      ]
+  const repo = new FeatureRepositoryManager(context, effectiveDirs)
   const launcher = new AgentLauncher(context.extensionUri)
   context.subscriptions.push(launcher)
 

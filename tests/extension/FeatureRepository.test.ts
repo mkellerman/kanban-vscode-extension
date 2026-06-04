@@ -86,10 +86,19 @@ class MemoryFs {
   async readDirectory(uri: { fsPath: string }): Promise<[string, number][]> {
     const prefix = uri.fsPath.replace(/\/?$/, '/')
     const result: [string, number][] = []
+    const seenDirs = new Set<string>()
     for (const [p] of this._files) {
       if (p.startsWith(prefix)) {
         const rest = p.slice(prefix.length)
-        if (!rest.includes('/')) result.push([rest, 1]) // FileType.File
+        if (!rest.includes('/')) {
+          result.push([rest, 1]) // FileType.File
+        } else {
+          const dir = rest.split('/')[0]
+          if (!seenDirs.has(dir)) {
+            seenDirs.add(dir)
+            result.push([dir, 2]) // FileType.Directory
+          }
+        }
       }
     }
     return result
@@ -782,5 +791,97 @@ describe('FeatureRepository.setRoot()', () => {
     // setRoot(null) keeps the same effective dir (/workspace) — must still re-create watcher
     await repo.setRoot(null)
     expect(mockCreateFileSystemWatcher.mock.calls.length).toBeGreaterThan(afterLoad)
+  })
+})
+
+describe('FeatureRepository — superpowers schema', () => {
+  let memFs: MemoryFs
+  const SP_DIR = '/workspace/docs/superpowers'
+
+  beforeEach(() => {
+    memFs = new MemoryFs()
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function makeSpMd(id: string, status = 'todo') {
+    return [
+      '---',
+      `id: "${id}"`,
+      `type: "spec"`,
+      `title: "My Spec"`,
+      `slug: "${id}"`,
+      `status: "${status}"`,
+      `priority: "medium"`,
+      `parent: null`,
+      `blockedBy: []`,
+      `relatedTo: []`,
+      `labels: []`,
+      `created: "2026-06-03T00:00:00Z"`,
+      `modified: "2026-06-03T00:00:00Z"`,
+      '---',
+      '',
+      '# My Spec',
+      '',
+      'Content here.'
+    ].join('\n')
+  }
+
+  it('loads .md files from root of superpowers dir', async () => {
+    memFs.write(`${SP_DIR}/my-spec.md`, makeSpMd('my-spec'))
+    const repo = new FeatureRepository(
+      makeContext(),
+      { relativeDir: 'docs/superpowers', schema: 'superpowers' },
+      memFs as unknown as FsAdapter
+    )
+    await repo.load()
+    expect(repo.features).toHaveLength(1)
+    expect(repo.features[0].id).toBe('my-spec')
+    expect(repo.features[0].status).toBe('todo')
+  })
+
+  it('loads .md files recursively from subdirectories', async () => {
+    memFs.write(`${SP_DIR}/specs/spec-a.md`, makeSpMd('spec-a'))
+    memFs.write(`${SP_DIR}/plans/plan-b.md`, makeSpMd('plan-b', 'done'))
+    const repo = new FeatureRepository(
+      makeContext(),
+      { relativeDir: 'docs/superpowers', schema: 'superpowers' },
+      memFs as unknown as FsAdapter
+    )
+    await repo.load()
+    expect(repo.features).toHaveLength(2)
+    const ids = repo.features.map(f => f.id).sort()
+    expect(ids).toEqual(['plan-b', 'spec-a'])
+  })
+
+  it('does not move files to done/ on status change', async () => {
+    memFs.write(`${SP_DIR}/my-spec.md`, makeSpMd('my-spec', 'todo'))
+    const repo = new FeatureRepository(
+      makeContext(),
+      { relativeDir: 'docs/superpowers', schema: 'superpowers' },
+      memFs as unknown as FsAdapter
+    )
+    await repo.load()
+    await repo.updateFeature('my-spec', { status: 'done' })
+    // file stays at original path — no done/ subdir
+    expect(memFs.has(`${SP_DIR}/my-spec.md`)).toBe(true)
+    expect(memFs.has(`${SP_DIR}/done/my-spec.md`)).toBe(false)
+  })
+
+  it('fires onDidChange after superpowers load', async () => {
+    memFs.write(`${SP_DIR}/my-spec.md`, makeSpMd('my-spec'))
+    const repo = new FeatureRepository(
+      makeContext(),
+      { relativeDir: 'docs/superpowers', schema: 'superpowers' },
+      memFs as unknown as FsAdapter
+    )
+    const listener = vi.fn()
+    repo.onDidChange(listener)
+    await repo.load()
+    expect(listener).toHaveBeenCalledOnce()
+    expect(listener.mock.calls[0][0]).toHaveLength(1)
   })
 })

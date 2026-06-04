@@ -5,7 +5,7 @@ import type { FeatureFrontmatter, EditorExtensionMessage, EditorWebviewMessage }
 import type { FeatureStatus, Priority, AIAgent } from '../shared/types'
 import { parseFeatureFile } from '../shared/featureFrontmatter'
 import type { AgentLauncher } from './AgentLauncher'
-import type { FeatureRepository } from './FeatureRepository'
+import type { IFeatureRepository } from './FeatureRepository'
 import { t } from './l10n'
 
 /**
@@ -21,10 +21,10 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly _launcher: AgentLauncher,
-    private readonly _repo: FeatureRepository
+    private readonly _repo: IFeatureRepository
   ) {}
 
-  public static register(context: vscode.ExtensionContext, launcher: AgentLauncher, repo: FeatureRepository): vscode.Disposable {
+  public static register(context: vscode.ExtensionContext, launcher: AgentLauncher, repo: IFeatureRepository): vscode.Disposable {
     const provider = new FeatureHeaderProvider(context.extensionUri, launcher, repo)
 
     const disposables: vscode.Disposable[] = []

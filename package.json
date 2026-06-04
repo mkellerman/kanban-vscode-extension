@@ -99,6 +99,27 @@
           "default": ".kanban/features",
           "description": "%config.featuresDirectory.description%"
         },
+        "kanban-extension.groomedDirectories": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Relative path from workspace root"
+              },
+              "schema": {
+                "type": "string",
+                "enum": ["feature", "superpowers"],
+                "description": "Frontmatter schema to apply to files in this directory"
+              }
+            },
+            "required": ["path", "schema"],
+            "additionalProperties": false
+          },
+          "description": "%config.groomedDirectories.description%"
+        },
         "kanban-extension.filenamePattern": {
           "type": "string",
           "default": "name-date",

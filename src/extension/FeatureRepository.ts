@@ -2,7 +2,7 @@ import * as vscode from 'vscode'
 import * as path from 'path'
 import { t } from './l10n'
 import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing'
-import type { Feature, FeatureStatus, Priority, FilenamePattern } from '../shared/types'
+import type { Feature, FeatureStatus, Priority, FilenamePattern, SchemaType } from '../shared/types'
 import { getTitleFromContent, generateFeatureFilename } from '../shared/types'
 import { parseFeatureFile, serializeFeature } from '../shared/featureFrontmatter'
 import { featureMatchesEpicLane } from '../shared/epicLane'
@@ -22,6 +22,26 @@ interface GitRepository {
 interface GitAPI { repositories: GitRepository[] }
 interface GitExtension { getAPI(version: number): GitAPI }
 
+export interface IFeatureRepository extends vscode.Disposable {
+  readonly features: readonly Feature[]
+  readonly onDidChange: vscode.Event<readonly Feature[]>
+  readonly schema: SchemaType
+  getFeaturesDir(): string | null
+  getEffectiveRoot(): string | null
+  setRoot(newRoot: string | null): Promise<void>
+  setRootSync(newRoot: string | null): void
+  load(): Promise<void>
+  createFeature(data: CreateFeatureData): Promise<Feature>
+  updateFeature(featureId: string, updates: Partial<Feature>): Promise<void>
+  moveFeature(featureId: string, newStatus: string, newOrder: number): Promise<void>
+  deleteFeature(featureId: string): Promise<void>
+  moveAllFeatures(sourceColumnId: string, targetColumnId: string, epicLane?: string | null): Promise<void>
+  archiveFeatures(sourceColumnId: string): Promise<{ failedCount: number }>
+  renameLabel(oldName: string, newName: string): Promise<number>
+  deleteLabel(labelName: string): Promise<void>
+  migrateFilenames(pattern: FilenamePattern): Promise<{ renamed: number; skipped: number }>
+}
+
 export interface CreateFeatureData {
   status: FeatureStatus
   priority: Priority
@@ -32,7 +52,7 @@ export interface CreateFeatureData {
   labels: string[]
 }
 
-export class FeatureRepository implements vscode.Disposable {
+export class FeatureRepository implements IFeatureRepository {
   private _features: Feature[] = []
   private _emitter = new vscode.EventEmitter<readonly Feature[]>()
   private _fileWatcher?: vscode.FileSystemWatcher
@@ -43,13 +63,31 @@ export class FeatureRepository implements vscode.Disposable {
   private _lastWrittenContents = new Map<string, string>()
   private _rootOverride: string | null = null
   private _loadVersion = 0
+  private readonly _relativeDir: string | null
+  private readonly _schema: SchemaType
+  private readonly _fs: FsAdapter
 
   readonly onDidChange: vscode.Event<readonly Feature[]> = this._emitter.event
 
   constructor(
     private readonly _context: vscode.ExtensionContext,
-    private readonly _fs: FsAdapter = vscode.workspace.fs as unknown as FsAdapter
-  ) {}
+    configOrFs?: { relativeDir?: string; schema?: SchemaType } | FsAdapter,
+    fs?: FsAdapter
+  ) {
+    if (configOrFs && 'readFile' in configOrFs) {
+      // backward-compat: new FeatureRepository(context, memFs)
+      this._fs = configOrFs as FsAdapter
+      this._relativeDir = null
+      this._schema = 'feature'
+    } else {
+      const cfg = configOrFs as { relativeDir?: string; schema?: SchemaType } | undefined
+      this._relativeDir = cfg?.relativeDir ?? null
+      this._schema = cfg?.schema ?? 'feature'
+      this._fs = fs ?? (vscode.workspace.fs as unknown as FsAdapter)
+    }
+  }
+
+  get schema(): SchemaType { return this._schema }
 
   get features(): readonly Feature[] {
     return this._features
@@ -62,8 +100,8 @@ export class FeatureRepository implements vscode.Disposable {
   getFeaturesDir(): string | null {
     const root = this.getEffectiveRoot()
     if (!root) return null
-    const config = vscode.workspace.getConfiguration('kanban-extension')
-    const dir = config.get<string>('featuresDirectory') || '.kanban/features'
+    const dir = this._relativeDir ??
+      (vscode.workspace.getConfiguration('kanban-extension').get<string>('featuresDirectory') || '.kanban/features')
     return path.join(root, dir)
   }
 
@@ -101,6 +139,15 @@ export class FeatureRepository implements vscode.Disposable {
     }
 
     try {
+      if (this._schema === 'superpowers') {
+        const features = await this._loadAllMd(featuresDir)
+        if (myVersion === this._loadVersion) {
+          this._features = features
+          this._emitter.fire(this._features)
+        }
+        return
+      }
+
       await this._fs.createDirectory(vscode.Uri.file(featuresDir))
       await ensureStatusSubfolders(featuresDir, this._fs)
 
@@ -361,7 +408,8 @@ export class FeatureRepository implements vscode.Disposable {
       feature.completedAt = feature.status === 'done' ? feature.modified : null
     }
 
-    const crossingDoneUpdate = oldStatus !== feature.status && (oldStatus === 'done' || feature.status === 'done')
+    const crossingDoneUpdate = this._schema === 'feature' &&
+      oldStatus !== feature.status && (oldStatus === 'done' || feature.status === 'done')
     if (crossingDoneUpdate) this._migrating = true
     try {
       const serialized = serializeFeature(feature)
@@ -410,7 +458,8 @@ export class FeatureRepository implements vscode.Disposable {
       clamped < targetCol.length ? targetCol[clamped].order : null
     )
 
-    const crossingDone = oldStatus !== newStatus && (oldStatus === 'done' || newStatus === 'done')
+    const crossingDone = this._schema === 'feature' &&
+      oldStatus !== newStatus && (oldStatus === 'done' || newStatus === 'done')
     if (crossingDone) this._migrating = true
     try {
       const serialized = serializeFeature(feature)
@@ -465,7 +514,8 @@ export class FeatureRepository implements vscode.Disposable {
     const lastOrder = targetTail[targetTail.length - 1]?.order ?? null
     const keys = generateNKeysBetween(lastOrder, null, source.length)
 
-    const crossingDone = sourceColumnId === 'done' || targetColumnId === 'done'
+    const crossingDone = this._schema === 'feature' &&
+      (sourceColumnId === 'done' || targetColumnId === 'done')
     this._migrating = crossingDone
     let failedCount = 0
     try {
@@ -509,6 +559,7 @@ export class FeatureRepository implements vscode.Disposable {
   }
 
   async archiveFeatures(sourceColumnId: string): Promise<{ failedCount: number }> {
+    if (this._schema !== 'feature') return { failedCount: 0 }
     const featuresDir = this.getFeaturesDir()
     if (!featuresDir) return { failedCount: 0 }
 
@@ -622,6 +673,7 @@ export class FeatureRepository implements vscode.Disposable {
   }
 
   async migrateFilenames(pattern: FilenamePattern): Promise<{ renamed: number; skipped: number }> {
+    if (this._schema !== 'feature') return { renamed: 0, skipped: 0 }
     const featuresDir = this.getFeaturesDir()
     if (!featuresDir) return { renamed: 0, skipped: 0 }
 
@@ -655,6 +707,28 @@ export class FeatureRepository implements vscode.Disposable {
 
     await this.load() // reloads and fires onDidChange
     return { renamed, skipped }
+  }
+
+  private async _loadAllMd(dir: string): Promise<Feature[]> {
+    const features: Feature[] = []
+    let entries: [string, number][]
+    try {
+      entries = await this._fs.readDirectory(vscode.Uri.file(dir))
+    } catch { return features }
+    for (const [name, type] of entries) {
+      const fullPath = path.join(dir, name)
+      if (type === 1 /* File */ && name.endsWith('.md')) {
+        try {
+          const bytes = await this._fs.readFile(vscode.Uri.file(fullPath))
+          const raw = new TextDecoder().decode(bytes)
+          const feature = parseFeatureFile(raw, fullPath)
+          if (feature) features.push(feature)
+        } catch { /* skip unreadable files */ }
+      } else if (type === 2 /* Directory */) {
+        features.push(...await this._loadAllMd(fullPath))
+      }
+    }
+    return features
   }
 
   dispose(): void {

@@ -2,14 +2,13 @@ import * as path from 'path'
 import { parse, Document, YAMLMap, YAMLSeq, Scalar, Pair } from 'yaml'
 import type { Feature, FeatureStatus, Priority } from './types'
 
-/**
- * Parses a markdown file with YAML frontmatter into a Feature object.
- * Extracts metadata from the frontmatter block and markdown content.
- * If no id field is present, uses the filename (without .md extension) as the id.
- * @param content The full file content (frontmatter + markdown body)
- * @param filePath The file path, used for id fallback and stored in Feature
- * @returns Feature object or null if file lacks frontmatter
- */
+// Fields handled explicitly by parseFeatureFile — excluded from _extraFrontmatter
+const KNOWN_KEYS = new Set([
+  'id', 'status', 'priority', 'assignee', 'epic', 'dueDate',
+  'created', 'modified', 'completedAt', 'completed',
+  'labels', 'order', 'workspace', 'worktree'
+])
+
 export function parseFeatureFile(content: string, filePath: string): Feature | null {
   content = content.replace(/\r\n/g, '\n')
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
@@ -33,6 +32,14 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
     return String(val)
   }
 
+  // Capture any frontmatter fields not in the feature schema for lossless round-trips
+  const extraKeys = Object.keys(parsed).filter(key => !KNOWN_KEYS.has(key))
+  const _extraFrontmatter: Record<string, string> = {}
+  for (const key of extraKeys) {
+    const val = parsed[key]
+    _extraFrontmatter[key] = val === null || val === undefined ? 'null' : String(val)
+  }
+
   return {
     id: getString('id') || path.basename(filePath, '.md'),
     status: (getString('status') as FeatureStatus) || 'backlog',
@@ -42,7 +49,7 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
     dueDate: getString('dueDate'),
     created: getString('created') || new Date().toISOString(),
     modified: getString('modified') || new Date().toISOString(),
-    completedAt: getString('completedAt'),
+    completedAt: getString('completedAt') ?? getString('completed'),
     labels: Array.isArray(parsed['labels'])
       ? (parsed['labels'] as unknown[])
           .filter((item): item is string | number | boolean => item !== null && item !== undefined && item !== '')
@@ -51,16 +58,11 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
     order: getString('order') || 'a0',
     workspace: getString('workspace') ?? getString('worktree'),
     content: body.trim(),
-    filePath
+    filePath,
+    ...(extraKeys.length > 0 ? { _extraFrontmatter } : {})
   }
 }
 
-/**
- * Serializes a Feature object into a markdown file with YAML frontmatter.
- * Converts the Feature's metadata into YAML frontmatter followed by the content body.
- * @param feature The Feature object to serialize
- * @returns The complete file content (frontmatter + markdown body)
- */
 export function serializeFeature(feature: Feature): string {
   const frontmatterObj: Record<string, unknown> = {
     id: feature.id,
@@ -74,7 +76,8 @@ export function serializeFeature(feature: Feature): string {
     completedAt: feature.completedAt,
     labels: feature.labels,
     order: feature.order,
-    ...(feature.workspace !== null ? { workspace: feature.workspace } : {})
+    ...(feature.workspace !== null && feature.workspace !== undefined ? { workspace: feature.workspace } : {}),
+    ...(feature._extraFrontmatter ?? {})
   }
 
   const doc = new Document()

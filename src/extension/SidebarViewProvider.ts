@@ -2,7 +2,7 @@ import * as vscode from 'vscode'
 import * as crypto from 'crypto'
 import * as path from 'path'
 import type { KanbanColumn, Feature } from '../shared/types'
-import type { FeatureRepository } from './FeatureRepository'
+import type { IFeatureRepository } from './FeatureRepository'
 import { KanbanPanel } from './KanbanPanel'
 import { t } from './l10n'
 
@@ -15,7 +15,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly _context: vscode.ExtensionContext,
-    private readonly _repo: FeatureRepository
+    private readonly _repo: IFeatureRepository
   ) {
     this._repo.onDidChange(features => {
       this._postUpdate(features)

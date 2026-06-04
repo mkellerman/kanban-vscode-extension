@@ -22,6 +22,8 @@ export interface Feature {
   workspace: string | null
   content: string
   filePath: string
+  /** Extra frontmatter fields not in the feature schema — preserved verbatim on write */
+  _extraFrontmatter?: Record<string, string>
 }
 
 // Parse title from the first # heading in markdown content, falling back to the first line
@@ -33,6 +35,13 @@ export function getTitleFromContent(content: string): string {
 }
 
 export type FilenamePattern = 'name-date' | 'date-name' | 'name-datetime' | 'datetime-name'
+
+export type SchemaType = 'feature' | 'superpowers'
+
+export interface GroomedDirectory {
+  path: string
+  schema: SchemaType
+}
 
 // Generate a filename-safe slug from a title
 export function generateFeatureFilename(

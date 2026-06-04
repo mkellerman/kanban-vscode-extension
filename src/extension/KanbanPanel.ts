@@ -5,7 +5,7 @@ import { getTitleFromContent, generateFeatureFilename, DEFAULT_COLUMNS } from '.
 import type { Feature, FeatureStatus, Priority, KanbanColumn, FeatureFrontmatter, CardDisplaySettings, FilenamePattern, BoardViewMode } from '../shared/types'
 import { serializeFeature } from '../shared/featureFrontmatter'
 import { t, getBundle, getEffectiveLocale, reloadBundle, getAllDefaultColumnNames, getDefaultColumnNamesForLocale } from './l10n'
-import type { FeatureRepository, CreateFeatureData } from './FeatureRepository'
+import type { IFeatureRepository, CreateFeatureData } from './FeatureRepository'
 import type { AgentLauncher } from './AgentLauncher'
 
 export class KanbanPanel {
@@ -15,7 +15,7 @@ export class KanbanPanel {
   private readonly _panel: vscode.WebviewPanel
   private readonly _extensionUri: vscode.Uri
   private readonly _context: vscode.ExtensionContext
-  private _repo: FeatureRepository
+  private _repo: IFeatureRepository
   private _launcher: AgentLauncher
   private _disposables: vscode.Disposable[] = []
   private _currentEditingFeatureId: string | null = null
@@ -26,7 +26,7 @@ export class KanbanPanel {
   public static createOrShow(
     extensionUri: vscode.Uri,
     context: vscode.ExtensionContext,
-    repo: FeatureRepository,
+    repo: IFeatureRepository,
     launcher: AgentLauncher
   ) {
     const column = vscode.window.activeTextEditor
@@ -67,7 +67,7 @@ export class KanbanPanel {
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     context: vscode.ExtensionContext,
-    repo: FeatureRepository,
+    repo: IFeatureRepository,
     launcher: AgentLauncher
   ) {
     KanbanPanel.currentPanel = new KanbanPanel(panel, extensionUri, context, repo, launcher)
@@ -77,7 +77,7 @@ export class KanbanPanel {
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     context: vscode.ExtensionContext,
-    repo: FeatureRepository,
+    repo: IFeatureRepository,
     launcher: AgentLauncher
   ) {
     this._panel = panel
