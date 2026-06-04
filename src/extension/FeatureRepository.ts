@@ -27,6 +27,7 @@ export interface IFeatureRepository extends vscode.Disposable {
   readonly onDidChange: vscode.Event<readonly Feature[]>
   readonly schema: SchemaType
   getFeaturesDir(): string | null
+  getEffectiveRoot(): string | null
   setRoot(newRoot: string | null): Promise<void>
   setRootSync(newRoot: string | null): void
   load(): Promise<void>
@@ -92,7 +93,7 @@ export class FeatureRepository implements IFeatureRepository {
     return this._features
   }
 
-  private getEffectiveRoot(): string | null {
+  getEffectiveRoot(): string | null {
     return this._rootOverride ?? (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null)
   }
 

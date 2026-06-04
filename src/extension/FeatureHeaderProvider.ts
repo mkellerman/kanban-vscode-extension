@@ -3,23 +3,29 @@ import * as crypto from 'crypto'
 import * as path from 'path'
 import type { FeatureFrontmatter, EditorExtensionMessage, EditorWebviewMessage } from '../shared/editorTypes'
 import type { FeatureStatus, Priority, AIAgent } from '../shared/types'
+import { parseFeatureFile } from '../shared/featureFrontmatter'
+import type { AgentLauncher } from './AgentLauncher'
 import type { IFeatureRepository } from './FeatureRepository'
+import { t } from './l10n'
 
 /**
  * Provides a webview panel that shows feature metadata (frontmatter) as a header.
  * The actual markdown editing is done by VSCode's native text editor.
  */
 export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'kanban-markdown.featureHeader'
+  public static readonly viewType = 'kanban-extension.featureHeader'
 
   private _view?: vscode.WebviewView
   private _currentDocument?: vscode.TextDocument
-  private _disposables: vscode.Disposable[] = []
 
-  constructor(private readonly _extensionUri: vscode.Uri) {}
+  constructor(
+    private readonly _extensionUri: vscode.Uri,
+    private readonly _launcher: AgentLauncher,
+    private readonly _repo: IFeatureRepository
+  ) {}
 
-  public static register(context: vscode.ExtensionContext): vscode.Disposable {
-    const provider = new FeatureHeaderProvider(context.extensionUri)
+  public static register(context: vscode.ExtensionContext, launcher: AgentLauncher, repo: IFeatureRepository): vscode.Disposable {
+    const provider = new FeatureHeaderProvider(context.extensionUri, launcher, repo)
 
     const disposables: vscode.Disposable[] = []
 
@@ -53,7 +59,7 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
     // Listen for settings changes
     disposables.push(
       vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('kanban-markdown')) {
+        if (e.affectsConfiguration('kanban-extension')) {
           // Re-evaluate current editor against fresh config
           // (e.g. featuresDirectory may have changed)
           provider._onActiveEditorChanged(vscode.window.activeTextEditor)
@@ -99,71 +105,20 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
           break
 
         case 'startWithAI': {
+          if (!vscode.workspace.isTrusted) {
+            vscode.window.showWarningMessage(t('panel.aiRequiresTrust'))
+            return
+          }
           if (!this._currentDocument) return
           await this._currentDocument.save()
-
-          const fullText = this._currentDocument.getText()
-          const { frontmatter: fm, content: docContent } = this._parseDocument(fullText)
-
-          // Parse title from the first # heading in content
-          const titleMatch = docContent.match(/^#\s+(.+)$/m)
-          const title = titleMatch ? titleMatch[1].trim() : 'Untitled'
-
-          const labels = fm.labels.length > 0 ? ` [${fm.labels.join(', ')}]` : ''
-          const description = docContent.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
-          const shortDesc = description.length > 200 ? description.substring(0, 200) + '...' : description
-
-          const prompt = `Implement this feature: "${title}" (${fm.priority} priority)${labels}. ${shortDesc} See full details in: ${this._currentDocument.uri.fsPath}`
-
+          const parsedFeature = parseFeatureFile(
+            this._currentDocument.getText(),
+            this._currentDocument.uri.fsPath
+          )
+          if (!parsedFeature) return
           const agent: AIAgent = message.agent || 'claude'
           const permissionMode = message.permissionMode || 'default'
-
-          let args: string[]
-
-          switch (agent) {
-            case 'claude': {
-              args = []
-              if (permissionMode !== 'default') {
-                args.push('--permission-mode', permissionMode)
-              }
-              args.push(prompt)
-              break
-            }
-            case 'codex': {
-              const approvalMap: Record<string, string> = {
-                'default': 'ask',
-                'plan': 'ask',
-                'acceptEdits': 'auto',
-                'bypassPermissions': 'full-auto'
-              }
-              const approvalMode = approvalMap[permissionMode] || 'suggest'
-              args = ['--ask-for-approval', approvalMode, prompt]
-              break
-            }
-            case 'opencode': {
-              args = [prompt]
-              break
-            }
-            case 'copilot': {
-              args = [prompt]
-              break
-            }
-            default:
-              args = [prompt]
-          }
-
-          const agentNames: Record<string, string> = {
-            'claude': 'Claude Code',
-            'copilot': 'GitHub Copilot',
-            'codex': 'Codex',
-            'opencode': 'OpenCode'
-          }
-          const terminal = vscode.window.createTerminal({
-            name: agentNames[agent] || 'AI Agent',
-            cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-          })
-          terminal.show()
-          terminal.sendText([this._shellQuote(agent), ...args.map(a => this._shellQuote(a))].join(' '))
+          this._launcher.launch(parsedFeature, agent, permissionMode, this._repo.getEffectiveRoot())
           break
         }
       }
@@ -188,11 +143,8 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
 
     // Only track .md files in the features directory (including status subfolders)
     const uri = editor.document.uri
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
-    const featuresDirectory = config.get<string>('featuresDirectory') || '.devtool/features'
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-    const fullFeaturesDir = workspaceRoot ? path.join(workspaceRoot, featuresDirectory) : featuresDirectory
-    if (uri.fsPath.endsWith('.md') && uri.fsPath.startsWith(fullFeaturesDir + path.sep)) {
+    const fullFeaturesDir = this._repo.getFeaturesDir()
+    if (uri.fsPath.endsWith('.md') && fullFeaturesDir && uri.fsPath.startsWith(fullFeaturesDir + path.sep)) {
       this._currentDocument = editor.document
       this._updateViewForCurrentEditor()
     } else {
@@ -288,7 +240,7 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
       completedAt: getValue('completedAt') || null,
       labels: getArrayValue('labels'),
       order: getValue('order') || 'a0',
-      workspace: getValue('workspace') || null
+      workspace: getValue('workspace') ?? getValue('worktree') ?? null
     }
 
     return { frontmatter, content: content.trim() }
@@ -331,6 +283,7 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
       `completedAt: ${updatedFrontmatter.completedAt ? `"${updatedFrontmatter.completedAt}"` : 'null'}`,
       `labels: [${frontmatter.labels.map((l: string) => `"${l}"`).join(', ')}]`,
       `order: "${frontmatter.order}"`,
+      ...(frontmatter.workspace ? [`workspace: '${frontmatter.workspace}'`] : []),
       '---',
       ''
     ].join('\n')
@@ -340,10 +293,6 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
 
   private _getNonce(): string {
     return crypto.randomBytes(24).toString('base64url')
-  }
-
-  private _shellQuote(arg: string): string {
-    return "'" + arg.replace(/'/g, "'\\''") + "'"
   }
 
   private _getHtmlForWebview(webview: vscode.Webview): string {

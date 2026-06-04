@@ -1,37 +1,33 @@
 import * as vscode from 'vscode'
 import * as crypto from 'crypto'
 import * as path from 'path'
-import { getTitleFromContent } from '../shared/types'
-import type { FeatureStatus, Priority, KanbanColumn } from '../shared/types'
+import type { KanbanColumn, Feature } from '../shared/types'
 import type { IFeatureRepository } from './FeatureRepository'
 import { KanbanPanel } from './KanbanPanel'
 import { t } from './l10n'
 
-interface SidebarFeature {
-  id: string
-  title: string
-  status: FeatureStatus
-  priority: Priority
-}
-
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'kanban-markdown.boardView'
+  public static readonly viewType = 'kanban-extension.boardView'
 
   private _view?: vscode.WebviewView
-  private _features: SidebarFeature[] = []
-  private _fileWatcher?: vscode.FileSystemWatcher
-  private _debounceTimer?: NodeJS.Timeout
   private _disposables: vscode.Disposable[] = []
 
-  constructor(private readonly _extensionUri: vscode.Uri, private readonly _context: vscode.ExtensionContext) {
-    this._setupFileWatcher()
+  constructor(
+    private readonly _extensionUri: vscode.Uri,
+    private readonly _context: vscode.ExtensionContext,
+    private readonly _repo: IFeatureRepository
+  ) {
+    this._repo.onDidChange(features => {
+      this._postUpdate(features)
+    }, null, this._disposables)
 
     vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration('kanban-markdown')) {
-        if (e.affectsConfiguration('kanban-markdown.featuresDirectory')) {
-          this._setupFileWatcher()
+      if (e.affectsConfiguration('kanban-extension')) {
+        if (e.affectsConfiguration('kanban-extension.featuresDirectory')) {
+          this._repo.load()
+        } else {
+          this._postUpdate(this._repo.features as Feature[])
         }
-        this._refresh()
       }
     }, null, this._disposables)
   }
@@ -47,33 +43,67 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       enableScripts: true
     }
 
-    webviewView.webview.onDidReceiveMessage(message => {
+    webviewView.webview.onDidReceiveMessage(async message => {
       switch (message.type) {
         case 'ready':
-          this._refresh()
+          this._postUpdate(this._repo.features as Feature[])
           break
         case 'openBoard':
-          vscode.commands.executeCommand('kanban-markdown.open')
+          vscode.commands.executeCommand('kanban-extension.open')
           break
         case 'newFeature':
-          vscode.commands.executeCommand('kanban-markdown.open')
+          vscode.commands.executeCommand('kanban-extension.open')
           // Wait for the panel to be ready, then trigger create dialog
           setTimeout(() => {
             KanbanPanel.currentPanel?.triggerCreateDialog()
           }, 500)
           break
         case 'openFeature':
-          vscode.commands.executeCommand('kanban-markdown.open')
+          vscode.commands.executeCommand('kanban-extension.open')
           setTimeout(() => {
             KanbanPanel.currentPanel?.openFeature(message.featureId)
           }, 500)
           break
+        case 'switchWorkspace': {
+          try {
+            const folders = vscode.workspace.workspaceFolders ?? []
+            const folderItems = folders.map(f => ({
+              label: f.name,
+              description: f.uri.fsPath
+            }))
+            const openItem = { label: t('sidebar.switchWorkspace.openFolder'), description: '__open__' }
+            const items = [...folderItems, openItem]
+
+            const selected = await vscode.window.showQuickPick(items, {
+              placeHolder: t('sidebar.switchWorkspace.placeholder')
+            })
+            if (!selected) break
+
+            if (selected.description === '__open__') {
+              const uris = await vscode.window.showOpenDialog({
+                canSelectFolders: true,
+                canSelectFiles: false,
+                canSelectMany: false,
+                openLabel: t('sidebar.switchWorkspace.openLabel')
+              })
+              if (!uris || uris.length === 0) break
+              await this._repo.setRoot(uris[0].fsPath)
+            } else {
+              await this._repo.setRoot(selected.description!)
+            }
+          } catch (err) {
+            vscode.window.showErrorMessage(
+              t('sidebar.switchWorkspace.error', { error: err instanceof Error ? err.message : String(err) })
+            )
+          }
+          break
+        }
       }
     }, null, this._disposables)
 
     webviewView.onDidChangeVisibility(() => {
       if (webviewView.visible) {
-        vscode.commands.executeCommand('kanban-markdown.open')
+        vscode.commands.executeCommand('kanban-extension.open')
       }
     }, null, this._disposables)
 
@@ -82,7 +112,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     })
 
     // Auto-open the board when the sidebar first loads
-    vscode.commands.executeCommand('kanban-markdown.open')
+    vscode.commands.executeCommand('kanban-extension.open')
 
     webviewView.webview.html = this._getHtml()
   }
@@ -94,63 +124,31 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   }
 
   public dispose(): void {
-    if (this._fileWatcher) {
-      this._fileWatcher.dispose()
-    }
-    if (this._debounceTimer) {
-      clearTimeout(this._debounceTimer)
-    }
-    for (const d of this._disposables) {
-      d.dispose()
-    }
+    for (const d of this._disposables) d.dispose()
   }
 
-  private _setupFileWatcher(): void {
-    if (this._fileWatcher) {
-      this._fileWatcher.dispose()
-    }
-
-    const featuresDir = this._getFeaturesDir()
-    if (!featuresDir) return
-
-    const pattern = new vscode.RelativePattern(featuresDir, '**/*.md')
-    this._fileWatcher = vscode.workspace.createFileSystemWatcher(pattern)
-
-    const handleChange = () => {
-      if (this._debounceTimer) clearTimeout(this._debounceTimer)
-      this._debounceTimer = setTimeout(() => this._refresh(), 300)
-    }
-
-    this._fileWatcher.onDidChange(handleChange, null, this._disposables)
-    this._fileWatcher.onDidCreate(handleChange, null, this._disposables)
-    this._fileWatcher.onDidDelete(handleChange, null, this._disposables)
-  }
-
-  private async _refresh(): Promise<void> {
-    await this._loadFeatures()
-    if (this._view) {
-      this._view.webview.postMessage({
-        type: 'update',
-        features: this._features,
-        columns: this._getColumns()
-      })
-      this._view.webview.postMessage({
-        type: 'boardOpenChanged',
-        open: !!KanbanPanel.currentPanel
-      })
-    }
-  }
-
-  private _getFeaturesDir(): string | null {
-    const workspaceFolders = vscode.workspace.workspaceFolders
-    if (!workspaceFolders || workspaceFolders.length === 0) return null
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
-    const dir = config.get<string>('featuresDirectory') || '.devtool/features'
-    return path.join(workspaceFolders[0].uri.fsPath, dir)
+  private _postUpdate(features: readonly Feature[]): void {
+    if (!this._view) return
+    const mapped = features.map(f => ({
+      id: f.id,
+      title: f.content.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? f.id,
+      status: f.status,
+      priority: f.priority
+    }))
+    this._view.webview.postMessage({
+      type: 'update',
+      features: mapped,
+      columns: this._getColumns(),
+      folderName: path.basename(this._repo.getEffectiveRoot() ?? '')
+    })
+    this._view.webview.postMessage({
+      type: 'boardOpenChanged',
+      open: !!KanbanPanel.currentPanel
+    })
   }
 
   private _getColumns(): KanbanColumn[] {
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const defaultColumns: KanbanColumn[] = [
       { id: 'backlog', name: 'Backlog', color: '#6b7280' },
       { id: 'todo', name: 'To Do', color: '#3b82f6' },
@@ -159,78 +157,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       { id: 'done', name: 'Done', color: '#22c55e' }
     ]
     return config.get<KanbanColumn[]>('columns', defaultColumns)
-  }
-
-  private async _loadFeatures(): Promise<void> {
-    const featuresDir = this._getFeaturesDir()
-    if (!featuresDir) {
-      this._features = []
-      return
-    }
-
-    const features: SidebarFeature[] = []
-
-    // Load root-level files (non-done statuses)
-    try {
-      const rootEntries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(featuresDir))
-      for (const [file, fileType] of rootEntries) {
-        if (fileType !== vscode.FileType.File || !file.endsWith('.md')) continue
-        const filePath = path.join(featuresDir, file)
-        try {
-          const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath)))
-          const parsed = this._parseFrontmatter(content, file)
-          if (parsed) features.push(parsed)
-        } catch {
-          // Skip unreadable files
-        }
-      }
-    } catch {
-      // Root directory may not exist
-    }
-
-    // Load done/ subfolder files
-    const doneDir = path.join(featuresDir, 'done')
-    try {
-      const doneEntries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(doneDir))
-      for (const [file, fileType] of doneEntries) {
-        if (fileType !== vscode.FileType.File || !file.endsWith('.md')) continue
-        const filePath = path.join(doneDir, file)
-        try {
-          const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(vscode.Uri.file(filePath)))
-          const parsed = this._parseFrontmatter(content, file)
-          if (parsed) features.push(parsed)
-        } catch {
-          // Skip unreadable files
-        }
-      }
-    } catch {
-      // done/ subfolder may not exist
-    }
-
-    this._features = features
-  }
-
-  private _parseFrontmatter(content: string, filename: string): SidebarFeature | null {
-    content = content.replace(/\r\n/g, '\n')
-    const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
-    if (!match) return null
-
-    const fm = match[1]
-    const body = match[2] || ''
-
-    const getValue = (key: string): string => {
-      const m = fm.match(new RegExp(`^${key}:\\s*(.*)$`, 'm'))
-      if (!m) return ''
-      const v = m[1].trim().replace(/^["']|["']$/g, '')
-      return v === 'null' ? '' : v
-    }
-
-    const id = getValue('id') || path.basename(filename, '.md')
-    const status = (getValue('status') as FeatureStatus) || 'backlog'
-    const priority = (getValue('priority') as Priority) || 'medium'
-    const title = getTitleFromContent(body)
-
-    return { id, title, status, priority }
   }
 
   private _getHtml(): string {
@@ -289,6 +215,33 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     }
     .btn-secondary:hover {
       background: var(--vscode-button-secondaryHoverBackground);
+    }
+
+    .btn-folder {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      width: 100%;
+      padding: 5px 10px;
+      border: 1px solid var(--vscode-panel-border, var(--vscode-sideBarSectionHeader-border, transparent));
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      line-height: 20px;
+      background: var(--vscode-sideBar-background, transparent);
+      color: var(--vscode-foreground);
+    }
+    .btn-folder:hover {
+      background: var(--vscode-list-hoverBackground);
+    }
+    .btn-folder span {
+      flex: 1;
+      text-align: left;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .section {
@@ -388,6 +341,11 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div class="actions">
+    <button class="btn-folder" id="switchWorkspace" title="${t('sidebar.switchWorkspace.title')}">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.19a2 2 0 0 1 1.45.63l.06.06a1 1 0 0 0 .72.31H13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3.87zm.05.13H2a1 1 0 0 0-.99.91L1 4v8a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H7.53a2 2 0 0 1-1.45-.63l-.06-.06a1 1 0 0 0-.72-.31H2.5a1 1 0 0 0-.98.84L1.54 4z"/></svg>
+      <span id="folderName">${path.basename(this._repo.getEffectiveRoot() ?? '') || t('sidebar.switchWorkspace.noFolder')}</span>
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>
+    </button>
     <button class="btn-primary" id="openBoard">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M14 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2zm3 4a1 1 0 0 0-1 1v6a1 1 0 0 0 2 0V5a1 1 0 0 0-1-1zm3 0a1 1 0 0 0-1 1v4a1 1 0 0 0 2 0V5a1 1 0 0 0-1-1zm3 0a1 1 0 0 0-1 1v8a1 1 0 0 0 2 0V5a1 1 0 0 0-1-1z"/></svg>
       ${t('sidebar.openBoard')}
@@ -423,6 +381,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       let columns = [];
       let features = [];
 
+      document.getElementById('switchWorkspace').addEventListener('click', () => {
+        vscode.postMessage({ type: 'switchWorkspace' });
+      });
       document.getElementById('openBoard').addEventListener('click', () => {
         vscode.postMessage({ type: 'openBoard' });
       });
@@ -435,6 +396,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         if (msg.type === 'update') {
           columns = msg.columns;
           features = msg.features;
+          if (msg.folderName !== undefined) {
+            document.getElementById('folderName').textContent = msg.folderName || '${t('sidebar.switchWorkspace.noFolder')}';
+          }
           render();
         } else if (msg.type === 'boardOpenChanged') {
           document.getElementById('openBoard').style.display = msg.open ? 'none' : '';
