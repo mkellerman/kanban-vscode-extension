@@ -8,7 +8,7 @@ This document describes how the kanban board keeps its in-memory state and on-di
 
 `FeatureRepository._features: Feature[]` is the single authoritative in-memory state for the board. All consumers — `KanbanPanel` and `SidebarViewProvider` — receive feature-list updates exclusively through `onDidChange`, a `vscode.Event<readonly Feature[]>` fired after every mutation. Neither consumer holds its own copy of the feature list; both re-render from the event payload.
 
-Disk files (`.kanban/features/**/*.md`) are the **persistent projection** of this in-memory state, not a co-equal source. A disk file is always written *after* the in-memory mutation completes; during the window between the two, the in-memory state is authoritative.
+Disk files (`.kanban/features/**/*.md`) are the **persistent projection** of this in-memory state, not a co-equal source. For update, move, and delete operations the disk file is written *after* the in-memory mutation; during that window the in-memory state is authoritative. `createFeature` is the exception: the file is written before the feature is pushed to `_features`, so a failed write leaves no stale in-memory state.
 
 `FeatureRepository` is also the sole owner of the file-system watcher, the echo-suppression sentinels, and every write API. This centralised ownership was established by the `extract-feature-repository-service` refactor, eliminating the previous per-provider fragility: before that refactor, `KanbanPanel` and `SidebarViewProvider` each maintained their own file watchers and echo-suppression state independently, making them susceptible to out-of-order updates when both received the same filesystem event at different times.
 
@@ -18,10 +18,10 @@ Disk files (`.kanban/features/**/*.md`) are the **persistent projection** of thi
 
 Every board mutation — create, update, move, delete, archive, label rename/delete, filename migration — follows this sequence:
 
-1. **Mutate `_features` in place.** The in-memory state is updated first. There is no optimistic-then-rollback pattern; the write is assumed to succeed.
+1. **Mutate `_features` in place.** For update, move, and delete operations the in-memory state is updated first; the write is assumed to succeed, with no rollback on failure. `createFeature` is the exception: the feature is constructed locally and written to disk before it is pushed to `_features`, so a failed write leaves the array unchanged.
 2. **Serialize.** The affected feature(s) are serialized to YAML-frontmatter Markdown with `serializeFeature()`.
 3. **Register the echo sentinel.** The serialized content string is stored in `_lastWrittenContents` keyed by file path, before the write is issued. This sentinel allows the watcher to recognise the subsequent filesystem event as an echo of this write.
-4. **Write to disk.** `_fs.writeFile()` is called. If it throws, a toast error is shown and `load()` is called to re-sync from disk; the mutation is not rolled back from memory in this path.
+4. **Write to disk.** `_fs.writeFile()` is called. If it throws, a toast error is shown. For update and move operations, `load()` is called to re-sync from disk (the in-memory mutation is not rolled back). For `createFeature`, the error is re-thrown without calling `load()`, since the feature was never added to `_features`.
 5. **Done-boundary moves (conditional).** When `status` crosses the `done` boundary (going to or from `'done'`), `_migrating` is set to `true`, `moveFeatureFile()` renames the file into `done/` or back to the root, and `_migrating` is cleared in a `finally` block.
 6. **Notify subscribers.** `_emitter.fire(this._features)` pushes the updated list to all `onDidChange` listeners.
 
@@ -74,7 +74,7 @@ Three mechanisms cooperate to prevent the board's own writes from triggering a s
 | | |
 |---|---|
 | **Precondition** | Populated with the exact serialized content string immediately before every `writeFile` call in a mutation. |
-| **Postcondition** | Entry deleted after the first comparison in the watcher callback (whether the comparison matched or not); also deleted unconditionally by `deleteFeature`. |
+| **Postcondition** | Entry deleted after the first comparison in the watcher callback (whether the comparison matched or not); also deleted unconditionally by `deleteFeature` and by `archiveFeatures` (cleared before the rename so no stale sentinel remains for the moved path). |
 | **Effect** | When the watcher fires for a path present in the map, `_handleFileChange` reads the file back and compares disk content against the stored string. If they are equal, the event is an echo and reload is suppressed. If they differ, a concurrent external edit is assumed and `load()` runs. |
 | **Failure mode** | If two rapid watcher events arrive for a file whose write is slow (disk not yet flushed), the first comparison reads pre-write content (mismatch → spurious reload); by the time the second event fires, the entry has already been deleted (second reload also triggers). Both loads contend through `_loadVersion`, so only the last one commits. |
 
