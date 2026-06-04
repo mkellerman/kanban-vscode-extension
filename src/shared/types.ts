@@ -107,6 +107,7 @@ export type ExtensionMessage =
   | { type: 'featurePatch'; add?: Feature[]; update?: Feature[]; remove?: string[] }
   | { type: 'triggerCreateDialog' }
   | { type: 'featureContent'; featureId: string; content: string; frontmatter: FeatureFrontmatter }
+  | { type: 'agentStatus'; featureIds: string[]; active: boolean }
 
 // Frontmatter for editing
 export interface FeatureFrontmatter {
