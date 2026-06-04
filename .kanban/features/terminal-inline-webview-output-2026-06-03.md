@@ -6,7 +6,7 @@ assignee: null
 epic: "Developer experience"
 dueDate: null
 created: "2026-06-03T22:13:29.854Z"
-modified: "2026-06-04T05:00:00.000Z"
+modified: "2026-06-04T05:37:00.000Z"
 completedAt: null
 labels: ["webview", "agent"]
 order: "a1"
