@@ -8,5 +8,3 @@ For each story, read the feature file and check readiness for planning:
 - Ambiguous scope or missing decisions
 - Dependencies on stories still in backlog
 - No implementation plan yet written
-
-If present, reference `.kanban/instructions.md` for board conventions.

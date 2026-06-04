@@ -8,5 +8,3 @@ For each story, read the feature file and surface:
 - Missing `blockedBy` entries for known dependencies
 - Duplicate stories covering the same scope
 - Stories lacking enough context to plan
-
-If present, reference `.kanban/instructions.md` for board conventions.

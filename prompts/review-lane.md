@@ -8,5 +8,3 @@ For each story, read the feature file and surface:
 - Unresolved code review comments
 - Failing checks or missing test coverage notes
 - Go/no-go decisions that need to be made before merging
-
-If present, reference `.kanban/instructions.md` for board conventions.

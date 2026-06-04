@@ -8,5 +8,3 @@ For each story, read the feature file and surface:
 - Missing or stale `worktree` context
 - Newly introduced blockers not yet captured in `blockedBy`
 - Stories that appear stalled or at risk
-
-If present, reference `.kanban/instructions.md` for board conventions.
