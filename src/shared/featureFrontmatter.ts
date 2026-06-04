@@ -49,7 +49,7 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
           .map(String)
       : [],
     order: getString('order') || 'a0',
-    workspace: null,
+    workspace: getString('workspace') ?? getString('worktree'),
     content: body.trim(),
     filePath
   }
@@ -74,6 +74,7 @@ export function serializeFeature(feature: Feature): string {
     completedAt: feature.completedAt,
     labels: feature.labels,
     order: feature.order,
+    ...(feature.workspace !== null ? { workspace: feature.workspace } : {})
   }
 
   const doc = new Document()

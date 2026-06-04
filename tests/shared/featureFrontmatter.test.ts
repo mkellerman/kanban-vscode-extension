@@ -176,6 +176,28 @@ describe('parseFeatureFile', () => {
       expect(parseFeatureFile(content, FIXTURE_PATH)!.content).toBe('')
     })
   })
+
+  describe('workspace', () => {
+    it('parses the workspace key', () => {
+      const content = makeFrontmatter({ workspace: '"main"' }) + ''
+      expect(parseFeatureFile(content, FIXTURE_PATH)!.workspace).toBe('main')
+    })
+
+    it('falls back to worktree key when workspace is absent', () => {
+      const content = makeFrontmatter({ worktree: '"/abs/worktree"' }) + ''
+      expect(parseFeatureFile(content, FIXTURE_PATH)!.workspace).toBe('/abs/worktree')
+    })
+
+    it('returns null when both workspace and worktree are absent', () => {
+      const content = makeFrontmatter() + ''
+      expect(parseFeatureFile(content, FIXTURE_PATH)!.workspace).toBeNull()
+    })
+
+    it('prefers workspace over worktree when both are present', () => {
+      const content = makeFrontmatter({ workspace: '"feat/new"', worktree: '"/old/path"' }) + ''
+      expect(parseFeatureFile(content, FIXTURE_PATH)!.workspace).toBe('feat/new')
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -217,6 +239,16 @@ describe('serializeFeature', () => {
     const feature = makeFeature({ content: '# Title\n\nBody text.' })
     const output = serializeFeature(feature)
     expect(output).toContain('---\n# Title\n\nBody text.')
+  })
+
+  it('writes workspace when non-null', () => {
+    const output = serializeFeature(makeFeature({ workspace: 'main' }))
+    expect(output).toContain('workspace: "main"')
+  })
+
+  it('omits workspace when null', () => {
+    const output = serializeFeature(makeFeature({ workspace: null }))
+    expect(output).not.toContain('workspace:')
   })
 })
 
@@ -260,6 +292,18 @@ describe('round-trip: serializeFeature → parseFeatureFile', () => {
     const original = makeFeature({ status: 'done', completedAt: '2026-02-28T18:00:00.000Z' })
     const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
     expect(recovered.completedAt).toBe('2026-02-28T18:00:00.000Z')
+  })
+
+  it('round-trips a non-null workspace value', () => {
+    const original = makeFeature({ workspace: '/abs/path/to/worktree' })
+    const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
+    expect(recovered.workspace).toBe('/abs/path/to/worktree')
+  })
+
+  it('round-trips a null workspace value (field absent in output)', () => {
+    const original = makeFeature({ workspace: null })
+    const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
+    expect(recovered.workspace).toBeNull()
   })
 })
 
