@@ -25,6 +25,7 @@ interface GitExtension { getAPI(version: number): GitAPI }
 export interface IFeatureRepository extends vscode.Disposable {
   readonly features: readonly Feature[]
   readonly onDidChange: vscode.Event<readonly Feature[]>
+  readonly schema: SchemaType
   getFeaturesDir(): string | null
   setRoot(newRoot: string | null): Promise<void>
   setRootSync(newRoot: string | null): void
@@ -91,7 +92,7 @@ export class FeatureRepository implements IFeatureRepository {
     return this._features
   }
 
-  getEffectiveRoot(): string | null {
+  private getEffectiveRoot(): string | null {
     return this._rootOverride ?? (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null)
   }
 
@@ -557,6 +558,7 @@ export class FeatureRepository implements IFeatureRepository {
   }
 
   async archiveFeatures(sourceColumnId: string): Promise<{ failedCount: number }> {
+    if (this._schema !== 'feature') return { failedCount: 0 }
     const featuresDir = this.getFeaturesDir()
     if (!featuresDir) return { failedCount: 0 }
 
