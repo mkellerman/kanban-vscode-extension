@@ -1,5 +1,5 @@
 ---
-status: "review"
+status: "done"
 worktree: "/Users/me/Documents/GitHub/kanban-vscode-extension/.claude/worktrees/story+2026-06-03-lane-scrum-master-actions"
 ---
 

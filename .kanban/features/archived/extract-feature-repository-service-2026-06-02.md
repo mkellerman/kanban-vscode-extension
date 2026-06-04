@@ -1,15 +1,15 @@
 ---
 id: "extract-feature-repository-service-2026-06-02"
-status: "completed"
+status: "done"
 priority: "medium"
 assignee: null
 epic: "Architecture remediation"
 dueDate: null
 created: "2026-06-02T18:00:00.000Z"
-modified: "2026-06-03T16:00:52.000Z"
+modified: "2026-06-04T20:28:51.191Z"
 completedAt: "2026-06-03T16:00:52.000Z"
 labels: ["refactor", "architecture"]
-order: "a2"
+order: "a0"
 ---
 # Extract a shared FeatureRepository and AgentLauncher
 
@@ -21,15 +21,15 @@ The absence of a domain layer is the root cause behind the duplicated parsing, t
 
 ## Acceptance criteria
 
-- [ ] `FeatureRepository` exposes `onDidChange: vscode.Event<readonly Feature[]>`, `features: readonly Feature[]`, `load()`, `getFeaturesDir()`, and the full write API (`createFeature`, `updateFeature`, `moveFeature`, `moveAllFeatures`, `deleteFeature`, `archiveFeatures`, `renameLabel`, `deleteLabel`, `migrateFilenames`).
-- [ ] `FeatureRepository` constructor accepts an optional `FsAdapter` parameter so unit tests can inject an in-memory filesystem.
-- [ ] The single `vscode.FileSystemWatcher`, echo-suppression sentinel, and `_migrating` flag all live in `FeatureRepository`; no provider creates its own watcher or writes feature files directly.
-- [ ] `AgentLauncher.launch(feature, agent, permissionMode)` replaces the ~40-line AI-launch block that was duplicated in `KanbanPanel._startWithAI()` and `FeatureHeaderProvider`'s `startWithAI` handler.
-- [ ] `SidebarViewProvider._parseFrontmatter()` (stale regex parser) is deleted; the sidebar subscribes to `repo.onDidChange` instead.
-- [ ] `index.ts` constructs `FeatureRepository` and `AgentLauncher` and injects them into all three providers.
-- [ ] No user-observable behaviour change; all existing tests pass.
-- [ ] New `tests/extension/FeatureRepository.test.ts` covers `load()`, all write methods, echo suppression, and external-edit reload using an injected `FsAdapter`.
-- [ ] `KanbanPanel.startWithAI.test.ts` and `FeatureHeaderProvider.startWithAI.test.ts` inject an `AgentLauncher` mock.
+- [x] `FeatureRepository` exposes `onDidChange: vscode.Event<readonly Feature[]>`, `features: readonly Feature[]`, `load()`, `getFeaturesDir()`, and the full write API (`createFeature`, `updateFeature`, `moveFeature`, `moveAllFeatures`, `deleteFeature`, `archiveFeatures`, `renameLabel`, `deleteLabel`, `migrateFilenames`).
+- [x] `FeatureRepository` constructor accepts an optional `FsAdapter` parameter so unit tests can inject an in-memory filesystem.
+- [x] The single `vscode.FileSystemWatcher`, echo-suppression sentinel, and `_migrating` flag all live in `FeatureRepository`; no provider creates its own watcher or writes feature files directly.
+- [x] `AgentLauncher.launch(feature, agent, permissionMode)` replaces the ~40-line AI-launch block that was duplicated in `KanbanPanel._startWithAI()` and `FeatureHeaderProvider`'s `startWithAI` handler.
+- [x] `SidebarViewProvider._parseFrontmatter()` (stale regex parser) is deleted; the sidebar subscribes to `repo.onDidChange` instead.
+- [x] `index.ts` constructs `FeatureRepository` and `AgentLauncher` and injects them into all three providers.
+- [x] No user-observable behaviour change; all existing tests pass. (437/437 — verified 2026-06-04)
+- [x] New `tests/extension/FeatureRepository.test.ts` covers `load()`, all write methods, echo suppression, and external-edit reload using an injected `FsAdapter`.
+- [x] `KanbanPanel.startWithAI.test.ts` and `FeatureHeaderProvider.startWithAI.test.ts` inject an `AgentLauncher` mock.
 
 ## Context & constraints
 

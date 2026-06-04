@@ -1,6 +1,6 @@
 ---
 id: "2026-06-03-workspace-field-design"
-status: "review"
+status: "done"
 priority: "medium"
 created: "2026-06-03T22:00:00.000Z"
 modified: "2026-06-03T22:23:00.000Z"

@@ -1,6 +1,6 @@
 ---
 id: "optimize-webview-bundle-size"
-status: "completed"
+status: "done"
 priority: "medium"
 assignee: null
 epic: "Performance"

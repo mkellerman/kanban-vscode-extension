@@ -13,20 +13,15 @@ export default defineConfig({
         index: resolve(__dirname, 'src/webview/main.tsx')
       },
       output: {
+        format: 'iife' as const,
         entryFileNames: '[name].js',
-        chunkFileNames: '[name]-[hash].js',
         assetFileNames: '[name].[ext]',
-        // Split vendor deps into separate chunks for parallel loading
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'icons': ['lucide-react']
-        }
+        inlineDynamicImports: true
       }
     },
     cssCodeSplit: false,
-    sourcemap: true,
-    // Optimize chunk size
-    chunkSizeWarningLimit: 300
+    sourcemap: false,
+    chunkSizeWarningLimit: 1500
   },
   resolve: {
     alias: {

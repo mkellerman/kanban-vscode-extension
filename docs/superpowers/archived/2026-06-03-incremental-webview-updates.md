@@ -4,7 +4,7 @@ status: "done"
 priority: "low"
 created: "2026-06-03T08:00:00.000Z"
 modified: "2026-06-03T07:23:00.000Z"
-completed: "2026-06-03T07:23:00.000Z"
+completedAt: "2026-06-03T07:23:00.000Z"
 worktree: "/Users/me/Documents/GitHub/kanban-vscode-extension/.claude/worktrees/story+incremental-webview-updates-2026-06-02"
 labels: ["performance"]
 ---

@@ -1,6 +1,6 @@
 ---
 id: "2026-06-03-add-a-epic-filter-to-the-kanban-board"
-status: "completed"
+status: "done"
 priority: "medium"
 assignee: null
 epic: null

@@ -1,9 +1,10 @@
 ---
 id: "document-consistency-model-2026-06-02"
-status: "review"
+status: "done"
 priority: "medium"
 created: "2026-06-03T18:00:00.000Z"
-modified: "2026-06-04T06:30:00.000Z"
+modified: "2026-06-04T08:36:00.000Z"
+completedAt: "2026-06-04T08:36:00.000Z"
 labels: ["documentation", "architecture"]
 worktree: ".claude/worktrees/story+document-consistency-model-2026-06-02"
 ---

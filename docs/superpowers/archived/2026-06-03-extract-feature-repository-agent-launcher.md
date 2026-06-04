@@ -1,6 +1,6 @@
 ---
 id: "extract-feature-repository-service-2026-06-02"
-status: "review"
+status: "done"
 priority: "medium"
 created: "2026-06-03T10:00:00.000Z"
 modified: "2026-06-03T14:55:00.000Z"

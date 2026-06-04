@@ -1,13 +1,13 @@
 ---
 id: "2026-06-03-lane-scrum-master-actions"
-status: "completed"
+status: "done"
 priority: "medium"
 assignee: null
 epic: "Workflow automation"
 dueDate: null
 created: "2026-06-03T00:00:00.000Z"
-modified: "2026-06-03T20:35:00.000Z"
-completedAt: "2026-06-03T20:35:00.000Z"
+modified: "2026-06-04T20:49:00.620Z"
+completedAt: "2026-06-04T20:49:00.620Z"
 labels: ["ux", "workflow", "automation"]
 order: "a0"
 ---
@@ -23,19 +23,19 @@ The lane action should treat `.kanban/features/<id>.md` as the source of truth a
 
 ## Acceptance criteria
 
-- [ ] Each default lane (`backlog`, `todo`, `in-progress`, `review`, `done`) has a "Scrum Master" item in its three-dots menu, hidden when `showBuildWithAI` is false.
-- [ ] Clicking "Scrum Master" launches an agent terminal (same mechanism as per-card "Build with AI") with a lane-specific prompt.
-- [ ] The prompt operates on the currently visible (filtered) stories — not all stories in the lane — using the IDs passed in the `laneAction` webview message.
-- [ ] The `backlog` lane prompt surfaces vague acceptance criteria, missing `blockedBy` entries, duplicate stories, and stories not ready to plan.
-- [ ] The `todo` lane prompt checks readiness: unresolved blockers, ambiguous scope, missing decisions.
-- [ ] The `in-progress` lane prompt surfaces scope drift, stale `worktree` context, and newly introduced blockers.
-- [ ] The `review` lane prompt surfaces missing evidence, unresolved comments, failing checks, and go/no-go decisions.
-- [ ] The `done` lane prompt confirms `completedAt` is set, archive placement, and follow-up stories.
-- [ ] The menu item is disabled (not hidden) when the lane has no visible stories.
-- [ ] The existing column menu items (collapse, add, move all, archive all) are unchanged.
-- [ ] A local workspace override at `.kanban/instructions/{columnId}-lane.md` takes precedence over the bundled prompt (same pattern as per-card prompts).
-- [ ] `buildLanePrompt` supports `{{columnName}}`, `{{count}}`, and `{{featurePaths}}` template variables.
-- [ ] Workspace trust check: shows warning and does not launch if the workspace is not trusted.
+- \[x\] Each default lane (`backlog`, `todo`, `in-progress`, `review`, `done`) has a "Scrum Master" item in its three-dots menu, hidden when `showBuildWithAI` is false.
+- \[x\] Clicking "Scrum Master" launches an agent terminal (same mechanism as per-card "Build with AI") with a lane-specific prompt.
+- \[x\] The prompt operates on the currently visible (filtered) stories — not all stories in the lane — using the IDs passed in the `laneAction` webview message.
+- \[x\] The `backlog` lane prompt surfaces vague acceptance criteria, missing `blockedBy` entries, duplicate stories, and stories not ready to plan.
+- \[x\] The `todo` lane prompt checks readiness: unresolved blockers, ambiguous scope, missing decisions.
+- \[x\] The `in-progress` lane prompt surfaces scope drift, stale `worktree` context, and newly introduced blockers.
+- \[x\] The `review` lane prompt surfaces missing evidence, unresolved comments, failing checks, and go/no-go decisions.
+- \[x\] The `done` lane prompt confirms `completedAt` is set, archive placement, and follow-up stories.
+- \[x\] The menu item is disabled (not hidden) when the lane has no visible stories.
+- \[x\] The existing column menu items (collapse, add, move all, archive all) are unchanged.
+- \[x\] A local workspace override at `.kanban/instructions/{columnId}-lane.md` takes precedence over the bundled prompt (same pattern as per-card prompts).
+- \[x\] `buildLanePrompt` supports `{{columnName}}`, `{{count}}`, and `{{featurePaths}}` template variables.
+- \[x\] Workspace trust check: shows warning and does not launch if the workspace is not trusted.
 
 ## Context & constraints
 
@@ -50,4 +50,4 @@ The lane action should treat `.kanban/features/<id>.md` as the source of truth a
 
 ## Open questions
 
-_(all resolved — see design spec)_
+*(all resolved — see design spec)*

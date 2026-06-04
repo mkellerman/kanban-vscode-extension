@@ -1,3 +1,13 @@
+---
+id: "terminal-title-status-2026-06-02"
+status: "done"
+priority: "medium"
+labels: ["agent-launcher"]
+created: "2026-06-02T00:00:00Z"
+modified: "2026-06-04T00:00:00Z"
+completedAt: "2026-06-04T00:00:00Z"
+---
+
 # Terminal Title Shows Column Name and Story Title — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

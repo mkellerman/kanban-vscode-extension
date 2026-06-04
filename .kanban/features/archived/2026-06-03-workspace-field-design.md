@@ -1,12 +1,12 @@
 ---
 id: "2026-06-03-workspace-field-design"
-status: "completed"
+status: "done"
 priority: "medium"
 assignee: null
 epic: "Developer experience"
 dueDate: null
 created: "2026-06-03T00:00:00.000Z"
-modified: "2026-06-04T05:32:00.000Z"
+modified: "2026-06-04T08:40:00.000Z"
 completedAt: "2026-06-04T05:32:00.000Z"
 labels: ["git", "worktree", "agent-launcher"]
 order: "a1"

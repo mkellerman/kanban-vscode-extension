@@ -1,6 +1,6 @@
 ---
 id: "terminal-inline-webview-output-2026-06-03"
-status: "review"
+status: "done"
 priority: "low"
 created: "2026-06-03T22:45:00.000Z"
 modified: "2026-06-04T05:20:00.000Z"

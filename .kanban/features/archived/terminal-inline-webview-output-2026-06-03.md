@@ -1,12 +1,12 @@
 ---
 id: "terminal-inline-webview-output-2026-06-03"
-status: "completed"
+status: "done"
 priority: "low"
 assignee: null
 epic: "Developer experience"
 dueDate: null
 created: "2026-06-03T22:13:29.854Z"
-modified: "2026-06-03T22:47:00.000Z"
+modified: "2026-06-04T08:40:00.000Z"
 completedAt: "2026-06-03T22:47:00.000Z"
 labels: ["webview", "agent"]
 order: "a1"
@@ -17,13 +17,13 @@ When an agent terminal is launched for a card, that card shows a live "Agent run
 
 ## Acceptance criteria
 
-- \[ \] When `AgentLauncher.launch()` is called, the corresponding card immediately shows the Option-C indicator (green left border, green tint, pulsing "Agent running" label)
-- \[ \] When `AgentLauncher.launchLane()` is called, all cards in the lane batch show the indicator simultaneously
-- \[ \] When the agent terminal closes (via `vscode.window.onDidCloseTerminal`), all associated card indicators disappear immediately with no trace
-- \[ \] Multiple agent terminals can be active at the same time across different cards — each card correctly reflects its own terminal's state
-- \[ \] If the webview panel is closed and reopened while a terminal is running, the indicator is shown on the correct cards on first render (replay on `ready`)
-- \[ \] The indicator is purely in-memory — no disk writes, no frontmatter changes, nothing persisted across VS Code restarts
-- \[ \] Existing tests for `AgentLauncher`, `KanbanPanel`, `FeatureCard` continue to pass
+- [x] When `AgentLauncher.launch()` is called, the corresponding card immediately shows the Option-C indicator (green left border, green tint, pulsing "Agent running" label)
+- [x] When `AgentLauncher.launchLane()` is called, all cards in the lane batch show the indicator simultaneously
+- [x] When the agent terminal closes (via `vscode.window.onDidCloseTerminal`), all associated card indicators disappear immediately with no trace
+- [x] Multiple agent terminals can be active at the same time across different cards — each card correctly reflects its own terminal's state
+- [x] If the webview panel is closed and reopened while a terminal is running, the indicator is shown on the correct cards on first render (replay on `ready`)
+- [x] The indicator is purely in-memory — no disk writes, no frontmatter changes, nothing persisted across VS Code restarts
+- [x] Existing tests for `AgentLauncher`, `KanbanPanel`, `FeatureCard` continue to pass (437/437 — verified 2026-06-04)
 
 ## Context & constraints
 
