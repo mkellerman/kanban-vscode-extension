@@ -192,6 +192,25 @@ describe('FeatureRepositoryManager', () => {
     expect(manager.features).toHaveLength(0)
   })
 
+  it('moveAllFeatures does not mutate superpowers files', async () => {
+    memFs.write(`${FEAT_DIR}/feat-a.md`, makeFeatureMd('feat-a', 'backlog'))
+    memFs.write(`${SP_DIR}/spec-b.md`, makeSpMd('spec-b', 'backlog'))
+    const manager = new FeatureRepositoryManager(
+      makeContext(),
+      [
+        { path: '.kanban/features', schema: 'feature' },
+        { path: 'docs/superpowers', schema: 'superpowers' }
+      ],
+      memFs as unknown as FsAdapter
+    )
+    await manager.load()
+    await manager.moveAllFeatures('backlog', 'done')
+    const featA = manager.features.find(f => f.id === 'feat-a')
+    const specB = manager.features.find(f => f.id === 'spec-b')
+    expect(featA?.status).toBe('done')
+    expect(specB?.status).toBe('backlog')
+  })
+
   it('renameLabel broadcasts to all repos', async () => {
     memFs.write(`${FEAT_DIR}/feat-a.md`, makeFeatureMd('feat-a').replace('labels: []', 'labels: ["alpha"]'))
     memFs.write(`${SP_DIR}/spec-b.md`, makeSpMd('spec-b').replace('labels: []', 'labels: ["alpha"]'))

@@ -499,6 +499,7 @@ export class FeatureRepository implements IFeatureRepository {
     targetColumnId: string,
     epicLane?: string | null
   ): Promise<void> {
+    if (this._schema !== 'feature') return
     const featuresDir = this.getFeaturesDir()
     if (!featuresDir) return
 
