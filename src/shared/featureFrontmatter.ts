@@ -1,6 +1,13 @@
 import * as path from 'path'
 import type { Feature, FeatureStatus, Priority } from './types'
 
+// Fields handled explicitly by parseFeatureFile — excluded from _extraFrontmatter
+const KNOWN_KEYS = new Set([
+  'id', 'status', 'priority', 'assignee', 'epic', 'dueDate',
+  'created', 'modified', 'completedAt', 'completed',
+  'labels', 'order', 'workspace', 'worktree'
+])
+
 export function parseFeatureFile(content: string, filePath: string): Feature | null {
   content = content.replace(/\r\n/g, '\n')
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
@@ -22,6 +29,14 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
     return match[1].split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
   }
 
+  // Capture any frontmatter fields not in the feature schema for lossless round-trips
+  const extraEntries = [...frontmatter.matchAll(/^(\w+):\s*(.*)$/gm)]
+    .filter(([, key]) => !KNOWN_KEYS.has(key))
+  const _extraFrontmatter: Record<string, string> = {}
+  for (const [, key, rawVal] of extraEntries) {
+    _extraFrontmatter[key] = rawVal.trim()
+  }
+
   return {
     id: getValue('id') || path.basename(filePath, '.md'),
     status: (getValue('status') as FeatureStatus) || 'backlog',
@@ -31,12 +46,13 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
     dueDate: getValue('dueDate') || null,
     created: getValue('created') || new Date().toISOString(),
     modified: getValue('modified') || new Date().toISOString(),
-    completedAt: getValue('completedAt') || null,
+    completedAt: getValue('completedAt') || getValue('completed') || null,
     labels: getArrayValue('labels'),
     order: getValue('order') || 'a0',
     workspace: getValue('workspace') || getValue('worktree') || null,
     content: body.trim(),
-    filePath
+    filePath,
+    ...(extraEntries.length > 0 ? { _extraFrontmatter } : {})
   }
 }
 
@@ -54,7 +70,10 @@ export function serializeFeature(feature: Feature): string {
     `completedAt: ${feature.completedAt ? `"${feature.completedAt}"` : 'null'}`,
     `labels: [${feature.labels.map(l => `"${l}"`).join(', ')}]`,
     `order: "${feature.order}"`,
-    ...(feature.workspace !== null ? [`workspace: "${feature.workspace}"`] : []),
+    ...(feature.workspace !== null && feature.workspace !== undefined ? [`workspace: "${feature.workspace}"`] : []),
+    ...(feature._extraFrontmatter
+      ? Object.entries(feature._extraFrontmatter).map(([k, v]) => `${k}: ${v}`)
+      : []),
     '---',
     ''
   ].join('\n')

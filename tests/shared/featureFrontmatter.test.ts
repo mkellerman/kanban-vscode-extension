@@ -21,6 +21,7 @@ function makeFeature(overrides: Partial<Feature> = {}): Feature {
     completedAt: null,
     labels: ['frontend', 'bug'],
     order: 'a1',
+    workspace: null,
     content: '# My Feature\n\nSome description.',
     filePath: FIXTURE_PATH,
     ...overrides
@@ -245,5 +246,47 @@ describe('round-trip: serializeFeature → parseFeatureFile', () => {
     const original = makeFeature({ status: 'done', completedAt: '2026-02-28T18:00:00.000Z' })
     const recovered = parseFeatureFile(serializeFeature(original), original.filePath)!
     expect(recovered.completedAt).toBe('2026-02-28T18:00:00.000Z')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Extra frontmatter (superpowers-schema preservation)
+// ---------------------------------------------------------------------------
+
+describe('extra frontmatter fields', () => {
+  it('captures unknown fields in _extraFrontmatter', () => {
+    const content = `---\nid: "plan-x"\nstatus: "in-progress"\npriority: "medium"\ncreated: "2026-06-01T00:00:00.000Z"\nmodified: "2026-06-01T00:00:00.000Z"\nlabels: []\norder: "a0"\nspec: "docs/specs/plan-x.md"\n---\n# Plan X`
+    const feature = parseFeatureFile(content, '/repo/docs/plans/plan-x.md')!
+    expect(feature._extraFrontmatter).toEqual({ spec: '"docs/specs/plan-x.md"' })
+  })
+
+  it('does not set _extraFrontmatter when all fields are known', () => {
+    const content = `---\nid: "abc"\nstatus: "backlog"\npriority: "medium"\ncreated: "2026-01-01T00:00:00.000Z"\nmodified: "2026-01-01T00:00:00.000Z"\nlabels: []\norder: "a0"\n---\n`
+    const feature = parseFeatureFile(content, '/repo/docs/plans/abc.md')!
+    expect(feature._extraFrontmatter).toBeUndefined()
+  })
+
+  it('aliases completed to completedAt', () => {
+    const content = `---\nid: "done-plan"\nstatus: "done"\npriority: "low"\ncreated: "2026-01-01T00:00:00.000Z"\nmodified: "2026-01-01T00:00:00.000Z"\ncompleted: "2026-06-03T07:23:00.000Z"\nlabels: []\norder: "a0"\n---\n`
+    const feature = parseFeatureFile(content, '/repo/docs/plans/done-plan.md')!
+    expect(feature.completedAt).toBe('2026-06-03T07:23:00.000Z')
+    expect(feature._extraFrontmatter).toBeUndefined()
+  })
+
+  it('re-emits _extraFrontmatter fields in serializeFeature', () => {
+    const feature = makeFeature({ _extraFrontmatter: { spec: '"docs/specs/plan-x.md"', milestone: '"Q3"' } })
+    const output = serializeFeature(feature)
+    expect(output).toContain('spec: "docs/specs/plan-x.md"')
+    expect(output).toContain('milestone: "Q3"')
+  })
+
+  it('round-trips a superpowers file preserving extra fields', () => {
+    const content = `---\nid: "plan-y"\nstatus: "review"\npriority: "high"\ncreated: "2026-06-01T00:00:00.000Z"\nmodified: "2026-06-01T00:00:00.000Z"\nlabels: []\norder: "a0"\nspec: "docs/specs/plan-y.md"\n---\n# Plan Y`
+    const original = parseFeatureFile(content, '/repo/docs/plans/plan-y.md')!
+    const serialized = serializeFeature(original)
+    const recovered = parseFeatureFile(serialized, original.filePath)!
+    expect(recovered._extraFrontmatter).toEqual({ spec: '"docs/specs/plan-y.md"' })
+    expect(recovered.id).toBe('plan-y')
+    expect(recovered.status).toBe('review')
   })
 })
