@@ -33,6 +33,13 @@ export function getTitleFromContent(content: string): string {
 
 export type FilenamePattern = 'name-date' | 'date-name' | 'name-datetime' | 'datetime-name'
 
+export type SchemaType = 'feature' | 'superpowers'
+
+export interface GroomedDirectory {
+  path: string
+  schema: SchemaType
+}
+
 // Generate a filename-safe slug from a title
 export function generateFeatureFilename(
   title: string,
