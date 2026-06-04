@@ -28,6 +28,7 @@ import type {
 import { cn } from '../lib/utils'
 import { t } from '../lib/i18n'
 import { useStore } from '../store'
+import { parseWorkspaceValue } from '../../shared/workspaceContext'
 import { AssigneeInput } from './AssigneeInput'
 import { EpicInput } from './EpicInput'
 
@@ -537,6 +538,7 @@ export function FeatureEditor({
   const { cardSettings } = useStore()
   const [currentFrontmatter, setCurrentFrontmatter] = useState(frontmatter)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const workspaceCtx = parseWorkspaceValue(currentFrontmatter.workspace ?? null)
   const priorityLabels = getPriorityLabels()
   const statusLabels = getStatusLabels()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -712,6 +714,11 @@ export function FeatureEditor({
         </div>
         <div className="flex items-center gap-2">
           {cardSettings.showBuildWithAI && <AIDropdown onSelect={onStartWithAI} />}
+          {workspaceCtx.type !== 'none' && (
+            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 select-none">
+              ⎇ {workspaceCtx.label}
+            </span>
+          )}
           <button
             onClick={onClose}
             className="p-1.5 rounded transition-colors vscode-hover-bg"
