@@ -1,6 +1,6 @@
 ---
 id: "when-user-clicks-build-with-ai-the-side-panel-shou-2026-06-04"
-status: "todo"
+status: "review"
 priority: "medium"
 assignee: null
 epic: null
