@@ -240,7 +240,7 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
       completedAt: getValue('completedAt') || null,
       labels: getArrayValue('labels'),
       order: getValue('order') || 'a0',
-      workspace: getValue('workspace') || getValue('worktree') || null
+      workspace: getValue('workspace') ?? getValue('worktree') ?? null
     }
 
     return { frontmatter, content: content.trim() }
@@ -283,7 +283,7 @@ export class FeatureHeaderProvider implements vscode.WebviewViewProvider {
       `completedAt: ${updatedFrontmatter.completedAt ? `"${updatedFrontmatter.completedAt}"` : 'null'}`,
       `labels: [${frontmatter.labels.map((l: string) => `"${l}"`).join(', ')}]`,
       `order: "${frontmatter.order}"`,
-      ...(frontmatter.workspace ? [`workspace: "${frontmatter.workspace}"`] : []),
+      ...(frontmatter.workspace ? [`workspace: '${frontmatter.workspace}'`] : []),
       '---',
       ''
     ].join('\n')
