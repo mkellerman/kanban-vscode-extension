@@ -116,7 +116,7 @@ export function activate(context: vscode.ExtensionContext) {
     ? groomedDirs
     : [
         { path: config.get<string>('featuresDirectory') || '.kanban/features', schema: 'feature' as SchemaType },
-        { path: 'docs/superpowers', schema: 'superpowers' as SchemaType }
+        { path: 'docs/superpowers/plans', schema: 'superpowers' as SchemaType }
       ]
   const repo = new FeatureRepositoryManager(context, effectiveDirs)
   const launcher = new AgentLauncher(context.extensionUri)
