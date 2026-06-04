@@ -25,6 +25,7 @@ function makeFeature(overrides: Partial<Feature> = {}): Feature {
     completedAt: null,
     labels: [],
     order: 'a0',
+    workspace: null,
     content: '# Feature',
     filePath: '/workspace/features/feature.md',
     ...overrides
@@ -413,6 +414,7 @@ function makeLargeFixture(count: number): Feature[] {
     completedAt: null,
     labels: i % 2 === 0 ? ['a'] : ['b'],
     order: `a${String(i).padStart(6, '0')}`,
+    workspace: null,
     content: `# Feature ${i}`,
     filePath: `/workspace/features/f${i}.md`
   }))

@@ -21,6 +21,7 @@ function makeFeature(overrides: Partial<Feature> = {}): Feature {
     completedAt: null,
     labels: ['frontend', 'bug'],
     order: 'a1',
+    workspace: null,
     content: '# My Feature\n\nSome description.',
     filePath: FIXTURE_PATH,
     ...overrides

@@ -309,6 +309,7 @@ export class FeatureRepository implements vscode.Disposable {
       completedAt: data.status === 'done' ? now : null,
       labels: data.labels,
       order: newOrder,
+      workspace: null,
       content: data.content,
       filePath
     }

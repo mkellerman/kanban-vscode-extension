@@ -42,6 +42,7 @@ function makeFeature(epic: string | null, id: string): Feature {
     completedAt: null,
     labels: [],
     order: 'a0',
+    workspace: null,
     content: `# ${id}`,
     filePath: `/workspace/${id}.md`,
   }

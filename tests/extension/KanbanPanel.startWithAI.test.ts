@@ -77,7 +77,7 @@ const REVIEW_FEATURE = {
   assignee: null, epic: null, dueDate: null,
   created: '2026-01-01T00:00:00.000Z',
   modified: '2026-01-01T00:00:00.000Z',
-  completedAt: null, labels: ['bug'], order: 'a0',
+  completedAt: null, labels: ['bug'], order: 'a0', workspace: null,
   content: '# My Review Feature\nSome description',
   filePath: '/workspace/.kanban/features/my-review-feature.md'
 }

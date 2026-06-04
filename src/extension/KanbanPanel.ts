@@ -417,7 +417,8 @@ export class KanbanPanel {
       modified: feature.modified,
       completedAt: feature.completedAt,
       labels: feature.labels,
-      order: feature.order
+      order: feature.order,
+      workspace: feature.workspace
     }
 
     this._lastSentEditorContent = serializeFeature(feature)

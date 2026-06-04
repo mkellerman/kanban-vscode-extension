@@ -122,6 +122,7 @@ function makeFeature(overrides: Record<string, unknown> = {}) {
     completedAt: null,
     labels: [],
     order: 'a0',
+    workspace: null,
     content: '# Test Feature',
     filePath: `${FEATURES_DIR}/test-feature.md`,
     ...overrides,

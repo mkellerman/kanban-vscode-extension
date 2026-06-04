@@ -51,6 +51,7 @@ const REVIEW_FEATURE: Feature = {
   completedAt: null,
   labels: ['bug'],
   order: 'a0',
+  workspace: null,
   content: '# My Feature\n\nDesc.',
   filePath: '/workspace/.kanban/features/my-feat.md'
 }
@@ -60,7 +61,7 @@ const BACKLOG_COLUMN: KanbanColumn = { id: 'backlog', name: 'Backlog', color: '#
 const BACKLOG_FEATURE: Feature = {
   id: 'feat-backlog', status: 'backlog', priority: 'medium', assignee: null, epic: null,
   dueDate: null, created: '2026-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z',
-  completedAt: null, labels: [], order: 'a1', content: '# Backlog Feature',
+  completedAt: null, labels: [], order: 'a1', workspace: null, content: '# Backlog Feature',
   filePath: '/workspace/.kanban/features/feat-backlog.md'
 }
 

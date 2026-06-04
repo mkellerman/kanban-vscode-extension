@@ -94,6 +94,7 @@ const FRONTMATTER: FeatureFrontmatter = {
   completedAt: null,
   labels: [],
   order: 'a0',
+  workspace: null,
 }
 
 describe('App', () => {

@@ -131,6 +131,7 @@ function makeFeatureMd(overrides: Partial<{
     'completedAt: null',
     'labels: []',
     `order: "${order}"`,
+    'workspace: null',
     '---',
     '',
     content

@@ -73,6 +73,7 @@ function makeFeature(overrides: Partial<Feature> = {}): Feature {
     completedAt: null,
     labels: ['backend', 'api'],
     order: 'a0',
+    workspace: null,
     content: '# Test Feature\n\nA test description.',
     filePath: '',
     ...overrides

@@ -19,6 +19,7 @@ export interface Feature {
   completedAt: string | null
   labels: string[]
   order: string
+  workspace: string | null
   content: string
   filePath: string
 }
@@ -121,6 +122,7 @@ export interface FeatureFrontmatter {
   completedAt: string | null
   labels: string[]
   order: string
+  workspace: string | null
 }
 
 export type WebviewMessage =

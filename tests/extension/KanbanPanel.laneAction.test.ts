@@ -74,14 +74,14 @@ import { KanbanPanel } from '../../src/extension/KanbanPanel'
 const BACKLOG_FEATURE_1: Feature = {
   id: 'feat-backlog-1', status: 'backlog', priority: 'medium', assignee: null, epic: null,
   dueDate: null, created: '2026-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z',
-  completedAt: null, labels: [], order: 'a0', content: '# Backlog Feature 1',
+  completedAt: null, labels: [], order: 'a0', workspace: null, content: '# Backlog Feature 1',
   filePath: '/workspace/.kanban/features/feat-backlog-1.md'
 }
 
 const BACKLOG_FEATURE_2: Feature = {
   id: 'feat-backlog-2', status: 'backlog', priority: 'high', assignee: null, epic: null,
   dueDate: null, created: '2026-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z',
-  completedAt: null, labels: [], order: 'a1', content: '# Backlog Feature 2',
+  completedAt: null, labels: [], order: 'a1', workspace: null, content: '# Backlog Feature 2',
   filePath: '/workspace/.kanban/features/feat-backlog-2.md'
 }
 

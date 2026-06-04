@@ -49,6 +49,7 @@ export function parseFeatureFile(content: string, filePath: string): Feature | n
           .map(String)
       : [],
     order: getString('order') || 'a0',
+    workspace: null,
     content: body.trim(),
     filePath
   }

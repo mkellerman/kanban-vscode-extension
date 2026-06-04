@@ -50,6 +50,7 @@ function makeFeature(overrides: Partial<Feature> = {}): Feature {
     completedAt: null,
     labels: [],
     order: 'a0',
+    workspace: null,
     content: '# My Feature',
     filePath: '/workspace/features/feat.md',
     ...overrides
