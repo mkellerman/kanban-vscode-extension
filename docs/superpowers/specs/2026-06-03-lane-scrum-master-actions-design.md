@@ -77,7 +77,7 @@ case 'laneAction': {
     .map((id: string) => this._repo.features.find(f => f.id === id))
     .filter((f): f is Feature => f !== undefined)
   if (features.length === 0) return
-  const config = vscode.workspace.getConfiguration('kanban-markdown')
+  const config = vscode.workspace.getConfiguration('kanban-extension')
   const columns = config.get<KanbanColumn[]>('columns', DEFAULT_COLUMNS)
   const column = columns.find(c => c.id === message.columnId)
     ?? { id: message.columnId, name: message.columnId, color: '' }

@@ -108,7 +108,7 @@ Replace the existing `getFeaturesDir()` method body:
 getFeaturesDir(): string | null {
   const root = this._rootOverride ?? (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null)
   if (!root) return null
-  const config = vscode.workspace.getConfiguration('kanban-markdown')
+  const config = vscode.workspace.getConfiguration('kanban-extension')
   const featuresDirectory = config.get<string>('featuresDirectory') || '.kanban/features'
   return path.join(root, featuresDirectory)
 }
@@ -614,7 +614,7 @@ With only one workspace folder open, confirm:
 - Persisting the selected folder across VS Code restarts (always resets to `workspaceFolders[0]` on startup).
 - Adding the chosen folder to the VS Code workspace (`vscode.workspace.updateWorkspaceFolders`) — only used as a root override for file I/O.
 - Per-folder board state (collapsed columns, view mode) — always loads fresh from the new folder's disk.
-- A dedicated `kanban-markdown.switchWorkspace` VS Code command (command palette entry). The UX entry point is the sidebar button only.
+- A dedicated `kanban-extension.switchWorkspace` VS Code command (command palette entry). The UX entry point is the sidebar button only.
 
 ---
 

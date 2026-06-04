@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/LachyFS/kanban-markdown-vscode-extension/main/resources/icon.png" alt="Kanban Markdown" width="60" />
+<img src="https://raw.githubusercontent.com/mkellerman/kanban-vscode-extension/main/resources/icon.png" alt="Kanban Markdown" width="60" />
 
 # Kanban Markdown
 
@@ -8,11 +8,11 @@
 
 **An agent native kanban board for VS Code, backed by markdown files.**
 
-[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/LachyFS.kanban-markdown?label=VS%20Marketplace&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=LachyFS.kanban-markdown)
-[![Open VSX](https://img.shields.io/open-vsx/v/LachyFS/kanban-markdown?label=Open%20VSX&logo=vscodium)](https://open-vsx.org/extension/LachyFS/kanban-markdown)
-[![Open VSX Downloads](https://img.shields.io/open-vsx/dt/LachyFS/kanban-markdown?label=Downloads&logo=vscodium)](https://open-vsx.org/extension/LachyFS/kanban-markdown)
-[![GitHub Stars](https://img.shields.io/github/stars/LachyFS/kanban-markdown-vscode-extension?style=flat&logo=github)](https://github.com/LachyFS/kanban-markdown-vscode-extension)
-[![CI](https://img.shields.io/github/actions/workflow/status/LachyFS/kanban-markdown-vscode-extension/ci.yml?label=CI&logo=github)](https://github.com/LachyFS/kanban-markdown-vscode-extension/actions/workflows/ci.yml)
+[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/mkellerman.kanban-extension?label=VS%20Marketplace&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=mkellerman.kanban-extension)
+[![Open VSX](https://img.shields.io/open-vsx/v/mkellerman/kanban-extension?label=Open%20VSX&logo=vscodium)](https://open-vsx.org/extension/mkellerman/kanban-extension)
+[![Open VSX Downloads](https://img.shields.io/open-vsx/dt/mkellerman/kanban-extension?label=Downloads&logo=vscodium)](https://open-vsx.org/extension/mkellerman/kanban-extension)
+[![GitHub Stars](https://img.shields.io/github/stars/mkellerman/kanban-vscode-extension?style=flat&logo=github)](https://github.com/mkellerman/kanban-vscode-extension)
+[![CI](https://img.shields.io/github/actions/workflow/status/mkellerman/kanban-vscode-extension/ci.yml?label=CI&logo=github)](https://github.com/mkellerman/kanban-vscode-extension/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 [![Claude Code](https://img.shields.io/badge/Claude_Code-supported-f97316?logo=anthropic&logoColor=white)](https://docs.anthropic.com/en/docs/claude-code)
@@ -21,7 +21,7 @@
 [![OpenCode](https://img.shields.io/badge/OpenCode-supported-64748b)](https://github.com/opencode-ai/opencode)
 [![skills.sh](https://img.shields.io/badge/skills.sh-compatible-a855f7)](https://skills.sh)
 
-<img src="https://raw.githubusercontent.com/LachyFS/kanban-markdown-vscode-extension/main/docs/images/editor-view.png" alt="Editor View" width="800" />
+<img src="https://raw.githubusercontent.com/mkellerman/kanban-vscode-extension/main/docs/images/editor-view.png" alt="Editor View" width="800" />
 
 </div>
 
@@ -31,7 +31,7 @@ Features are stored as markdown files with YAML frontmatter — version-controll
 
 ## Quick Start
 
-1. **Install** — search "Kanban Markdown" in the Extensions view ([VS Marketplace](https://marketplace.visualstudio.com/items?itemName=LachyFS.kanban-markdown) / [Open VSX](https://open-vsx.org/extension/LachyFS/kanban-markdown))
+1. **Install** — search "Kanban Markdown" in the Extensions view ([VS Marketplace](https://marketplace.visualstudio.com/items?itemName=mkellerman.kanban-extension) / [Open VSX](https://open-vsx.org/extension/mkellerman/kanban-extension))
 2. **Open** — run `Open Kanban Board` from the command palette (`Cmd+Shift+P` / `Ctrl+Shift+P`)
 3. **Create** — press `N` to add your first feature card
 
@@ -52,7 +52,7 @@ Features are stored as markdown files with YAML frontmatter — version-controll
 Each card is a markdown file with YAML frontmatter.
 
 <div align="center">
-<img src="https://raw.githubusercontent.com/LachyFS/kanban-markdown-vscode-extension/main/docs/images/board-overview.png" alt="Kanban Board Overview" width="800" />
+<img src="https://raw.githubusercontent.com/mkellerman/kanban-vscode-extension/main/docs/images/board-overview.png" alt="Kanban Board Overview" width="800" />
 </div>
 
 - Priority levels — Critical, High, Medium, Low with color-coded badges
@@ -95,7 +95,7 @@ Each column has a default prompt. The agent receives whichever prompt applies fi
 | Priority | Source | Who controls it |
 |----------|--------|-----------------|
 | 1 (highest) | `.kanban/instructions/{column-id}.md` in your repo | Project team (committed to repo) |
-| 2 | `prompt` field on the column in `kanban-markdown.columns` | Individual user (VS Code settings) |
+| 2 | `prompt` field on the column in `kanban-extension.columns` | Individual user (VS Code settings) |
 | 3 (lowest) | Bundled default for the column | Extension |
 
 **Bundled defaults:**
@@ -137,7 +137,7 @@ If your template contains `{{filePath}}`, it is substituted in place. If absent,
     done.md
 ```
 
-**Per-user override** — add a `prompt` field to a column in `kanban-markdown.columns`:
+**Per-user override** — add a `prompt` field to a column in `kanban-extension.columns`:
 
 ```json
 {
@@ -155,10 +155,10 @@ The settings template is overridden by a local `.kanban/instructions/` file when
 Give agents read/write access to your board from the terminal:
 
 ```bash
-npx skills add https://github.com/LachyFS/kanban-skill
+npx skills add https://github.com/mkellerman/kanban-skill
 ```
 
-Compatible with Claude Code, Codex, OpenCode, and [skills.sh](https://skills.sh)-compatible agents. See [kanban-skill](https://github.com/LachyFS/kanban-skill) for details.
+Compatible with Claude Code, Codex, OpenCode, and [skills.sh](https://skills.sh)-compatible agents. See [kanban-skill](https://github.com/mkellerman/kanban-skill) for details.
 
 ## File Format
 
@@ -184,7 +184,7 @@ Add a toggle in settings to switch between light and dark themes...
 
 ## Configuration
 
-Settings live under `kanban-markdown.*` in your VS Code/Cursor preferences.
+Settings live under `kanban-extension.*` in your VS Code/Cursor preferences.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -222,15 +222,15 @@ Each column accepts an optional `prompt` field to override the "Build with AI" t
 
 ### VS Code Marketplace
 
-Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=LachyFS.kanban-markdown) or search "Kanban Markdown" in the Extensions view.
+Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=mkellerman.kanban-extension) or search "Kanban Markdown" in the Extensions view.
 
 ### Open VSX (VSCodium, Cursor, etc.)
 
-Install from [Open VSX](https://open-vsx.org/extension/LachyFS/kanban-markdown) or search "Kanban Markdown" in the Extensions view.
+Install from [Open VSX](https://open-vsx.org/extension/mkellerman/kanban-extension) or search "Kanban Markdown" in the Extensions view.
 
 ### From VSIX
 
-1. Download the `.vsix` from [Releases](https://github.com/LachyFS/kanban-markdown-vscode-extension/releases)
+1. Download the `.vsix` from [Releases](https://github.com/mkellerman/kanban-vscode-extension/releases)
 2. In VS Code: Extensions > `...` > Install from VSIX
 3. Select the downloaded file
 

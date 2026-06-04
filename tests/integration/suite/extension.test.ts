@@ -1,5 +1,5 @@
 /**
- * Integration tests for kanban-markdown VS Code extension.
+ * Integration tests for kanban-extension VS Code extension.
  *
  * This suite runs inside a real VS Code host (via @vscode/test-electron),
  * so it has access to the actual vscode module and the real file system.
@@ -327,7 +327,7 @@ suite('Integration: frontmatter round-trip with vscode.workspace.fs', () => {
 
 suite('Integration: extension activation', () => {
   test('the extension is available in the extension host', async () => {
-    const ext = vscode.extensions.getExtension('LachyFS.kanban-markdown')
+    const ext = vscode.extensions.getExtension('mkellerman.kanban-extension')
     // The extension may or may not auto-activate in this minimal workspace;
     // the important thing is it can be found and activated without throwing.
     assert.ok(ext !== undefined, 'Extension should be registered in the host')

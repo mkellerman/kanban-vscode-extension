@@ -119,7 +119,7 @@ export function activate(context: vscode.ExtensionContext) {
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('kanban-markdown.open', () => {
+    vscode.commands.registerCommand('kanban-extension.open', () => {
       const wasOpen = !!KanbanPanel.currentPanel
       KanbanPanel.createOrShow(context.extensionUri, context, repo, launcher)
       if (!wasOpen && KanbanPanel.currentPanel) {
@@ -132,7 +132,7 @@ export function activate(context: vscode.ExtensionContext) {
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('kanban-markdown.addFeature', () => {
+    vscode.commands.registerCommand('kanban-extension.addFeature', () => {
       createFeatureFromPrompts(repo)
     })
   )

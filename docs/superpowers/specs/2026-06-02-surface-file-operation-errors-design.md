@@ -34,7 +34,7 @@ All changes are confined to `KanbanPanel.ts` and the three l10n bundle files (`e
 try {
   await vscode.workspace.fs.writeFile(...)
 } catch (err) {
-  console.error('[kanban-markdown] writeFile failed:', err)
+  console.error('[kanban-extension] writeFile failed:', err)
   vscode.window.showErrorMessage(t('panel.XxxFailed', { error: String(err) }))
   await this._loadFeatures()
   this._sendFeaturesToWebview()
@@ -52,7 +52,7 @@ for (const feature of ...) {
   try {
     await vscode.workspace.fs.writeFile(...)
   } catch (err) {
-    console.error('[kanban-markdown] writeFile failed for', feature.id, err)
+    console.error('[kanban-extension] writeFile failed for', feature.id, err)
     failedCount++
     continue
   }
@@ -75,7 +75,7 @@ if (failedCount > 0) {
 
 ```
 } catch (err) {
-  console.error('[kanban-markdown] _loadFeatures failed:', err)
+  console.error('[kanban-extension] _loadFeatures failed:', err)
   vscode.window.showErrorMessage(t('panel.loadFailed', { error: String(err) }))
   this._features = []
 }

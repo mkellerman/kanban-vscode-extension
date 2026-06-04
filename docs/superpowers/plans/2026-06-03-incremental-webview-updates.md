@@ -232,7 +232,7 @@ private _relativizeFeature(f: Feature): Feature {
 }
 
 private _initWebview(): void {
-  const config = vscode.workspace.getConfiguration('kanban-markdown')
+  const config = vscode.workspace.getConfiguration('kanban-extension')
 
   const defaultColumns: KanbanColumn[] = [
     { id: 'backlog', name: 'Backlog', color: '#6b7280' },
@@ -257,9 +257,9 @@ private _initWebview(): void {
     defaultStatus: config.get<FeatureStatus>('defaultStatus', 'backlog')
   }
 
-  const collapsedColumns: string[] = this._context.workspaceState.get('kanban-markdown.collapsedColumns', [])
-  const boardViewMode: BoardViewMode = this._context.workspaceState.get('kanban-markdown.boardViewMode', 'standard')
-  const collapsedEpics: string[] = this._context.workspaceState.get('kanban-markdown.collapsedEpics', [])
+  const collapsedColumns: string[] = this._context.workspaceState.get('kanban-extension.collapsedColumns', [])
+  const boardViewMode: BoardViewMode = this._context.workspaceState.get('kanban-extension.boardViewMode', 'standard')
+  const collapsedEpics: string[] = this._context.workspaceState.get('kanban-extension.collapsedEpics', [])
 
   this._panel.webview.postMessage({
     type: 'init',
@@ -324,13 +324,13 @@ Find:
 ```ts
 } else {
   this._sendFeaturesToWebview()
-  if (e.affectsConfiguration('kanban-markdown.filenamePattern')) {
+  if (e.affectsConfiguration('kanban-extension.filenamePattern')) {
 ```
 Replace with:
 ```ts
 } else {
   this._initWebview()
-  if (e.affectsConfiguration('kanban-markdown.filenamePattern')) {
+  if (e.affectsConfiguration('kanban-extension.filenamePattern')) {
 ```
 
 Find (the `chat.disableAIFeatures` branch):

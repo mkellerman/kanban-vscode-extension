@@ -62,7 +62,7 @@ export class FeatureRepository implements vscode.Disposable {
   getFeaturesDir(): string | null {
     const root = this.getEffectiveRoot()
     if (!root) return null
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const dir = config.get<string>('featuresDirectory') || '.kanban/features'
     return path.join(root, dir)
   }
@@ -283,7 +283,7 @@ export class FeatureRepository implements vscode.Disposable {
     await ensureStatusSubfolders(featuresDir, this._fs)
 
     const title = getTitleFromContent(data.content)
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const pattern = config.get<FilenamePattern>('filenamePattern', 'name-date')
     const now = new Date().toISOString()
     const addToTop = config.get<boolean>('addNewCardsToTop', false)
@@ -336,7 +336,7 @@ export class FeatureRepository implements vscode.Disposable {
     try {
       await this._fs.writeFile(vscode.Uri.file(filePath), new TextEncoder().encode(serialized))
     } catch (err) {
-      console.error('[kanban-markdown] writeFile failed:', err)
+      console.error('[kanban-extension] writeFile failed:', err)
       vscode.window.showErrorMessage(t('panel.createFailed', { error: String(err) }))
       throw err
     }
@@ -369,7 +369,7 @@ export class FeatureRepository implements vscode.Disposable {
       try {
         await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
       } catch (err) {
-        console.error('[kanban-markdown] writeFile failed:', err)
+        console.error('[kanban-extension] writeFile failed:', err)
         vscode.window.showErrorMessage(t('panel.saveFailed', { error: String(err) }))
         await this.load()
         return
@@ -418,7 +418,7 @@ export class FeatureRepository implements vscode.Disposable {
       try {
         await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
       } catch (err) {
-        console.error('[kanban-markdown] writeFile failed:', err)
+        console.error('[kanban-extension] writeFile failed:', err)
         vscode.window.showErrorMessage(t('panel.moveFailed', { error: String(err) }))
         await this.load()
         return
@@ -481,7 +481,7 @@ export class FeatureRepository implements vscode.Disposable {
         try {
           await this._fs.writeFile(vscode.Uri.file(f.filePath), new TextEncoder().encode(serialized))
         } catch (err) {
-          console.error('[kanban-markdown] writeFile failed for', f.id, err)
+          console.error('[kanban-extension] writeFile failed for', f.id, err)
           failedCount++
           continue
         }
@@ -571,7 +571,7 @@ export class FeatureRepository implements vscode.Disposable {
         await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
         count++
       } catch (err) {
-        console.error('[kanban-markdown] writeFile failed for', feature.id, err)
+        console.error('[kanban-extension] writeFile failed for', feature.id, err)
         failedCount++
       }
     }
@@ -605,7 +605,7 @@ export class FeatureRepository implements vscode.Disposable {
         await this._fs.writeFile(vscode.Uri.file(feature.filePath), new TextEncoder().encode(serialized))
         changed = true
       } catch (err) {
-        console.error('[kanban-markdown] writeFile failed for', feature.id, err)
+        console.error('[kanban-extension] writeFile failed for', feature.id, err)
         failedCount++
       }
     }

@@ -3,9 +3,8 @@ id: "terminal-inline-webview-output-2026-06-03"
 status: "review"
 priority: "low"
 created: "2026-06-03T22:45:00.000Z"
-modified: "2026-06-04T05:00:00.000Z"
+modified: "2026-06-04T05:20:00.000Z"
 labels: ["webview", "agent"]
-worktree: "/Users/me/GitHub/kanban-vscode-extension/.claude/worktrees/story+terminal-inline-webview-output-2026-06-03"
 ---
 
 # Terminal + Inline Webview Output — Implementation Plan

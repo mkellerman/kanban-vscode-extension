@@ -48,7 +48,7 @@ Preserves git history. `.devtool/plans/` stays in place (separate concern).
 
 ## Out of Scope
 
-- **Config key name** — `kanban-markdown.featuresDirectory` stays; it remains accurate
+- **Config key name** — `kanban-extension.featuresDirectory` stays; it remains accurate
 - **`.devtool/plans/`** — not moved; used by the AI dev workflow, not the extension
 - **Migration logic** — no auto-migration; users with existing `.devtool/features` data update `featuresDirectory` in settings or move the folder manually
 - **`done/` subfolder** — works identically under `.kanban/features/done/`

@@ -417,7 +417,7 @@ export class FeatureRepository implements vscode.Disposable {
   getFeaturesDir(): string | null {
     const folders = vscode.workspace.workspaceFolders
     if (!folders || folders.length === 0) return null
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const dir = config.get<string>('featuresDirectory') || '.kanban/features'
     return path.join(folders[0].uri.fsPath, dir)
   }
@@ -806,7 +806,7 @@ async createFeature(data: CreateFeatureData): Promise<Feature> {
   await ensureStatusSubfolders(featuresDir, this._fs)
 
   const title = getTitleFromContent(data.content)
-  const config = vscode.workspace.getConfiguration('kanban-markdown')
+  const config = vscode.workspace.getConfiguration('kanban-extension')
   const pattern = config.get<FilenamePattern>('filenamePattern', 'name-date')
   const filename = generateFeatureFilename(title, pattern)
   const now = new Date().toISOString()
@@ -1599,7 +1599,7 @@ export class AgentLauncher {
       ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
       ?? null
 
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const columns = config.get<KanbanColumn[]>('columns', DEFAULT_COLUMNS)
     const column = columns.find(c => c.id === feature.status)
       ?? { id: feature.status, name: feature.status, color: '' }
@@ -1670,7 +1670,7 @@ export function activate(context: vscode.ExtensionContext) {
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('kanban-markdown.open', () => {
+    vscode.commands.registerCommand('kanban-extension.open', () => {
       const wasOpen = !!KanbanPanel.currentPanel
       KanbanPanel.createOrShow(context.extensionUri, context, repo, launcher)
       if (!wasOpen && KanbanPanel.currentPanel) {
@@ -1683,7 +1683,7 @@ export function activate(context: vscode.ExtensionContext) {
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('kanban-markdown.addFeature', () => {
+    vscode.commands.registerCommand('kanban-extension.addFeature', () => {
       createFeatureFromPrompts(repo)
     })
   )
@@ -2087,7 +2087,7 @@ Replace `case 'createFeature':`:
 ```ts
 case 'createFeature': {
   await this._repo.createFeature(message.data as CreateFeatureData)
-  const createConfig = vscode.workspace.getConfiguration('kanban-markdown')
+  const createConfig = vscode.workspace.getConfiguration('kanban-extension')
   if (createConfig.get<boolean>('markdownEditorMode', false)) {
     const features = this._repo.features
     const created = features[features.length - 1]
@@ -2155,7 +2155,7 @@ case 'startWithAI': {
   }
   const feature = this._repo.features.find(f => f.id === this._currentEditingFeatureId)
   if (feature) {
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const agent = message.agent || config.get<string>('aiAgent') || 'claude'
     this._launcher.launch(feature, agent, message.permissionMode || 'default')
   }
@@ -2166,18 +2166,18 @@ case 'startWithAI': {
 Replace the `onDidChangeConfiguration` listener to remove `_setupFileWatcher` and `_loadFeatures`:
 ```ts
 vscode.workspace.onDidChangeConfiguration(e => {
-  if (e.affectsConfiguration('kanban-markdown')) {
-    if (e.affectsConfiguration('kanban-markdown.language')) {
+  if (e.affectsConfiguration('kanban-extension')) {
+    if (e.affectsConfiguration('kanban-extension.language')) {
       reloadBundle()
     }
-    if (e.affectsConfiguration('kanban-markdown.featuresDirectory')) {
+    if (e.affectsConfiguration('kanban-extension.featuresDirectory')) {
       this._repo.load() // repo re-creates its watcher for new directory
     } else {
       this._sendFeaturesToWebview()
-      if (e.affectsConfiguration('kanban-markdown.filenamePattern')) {
+      if (e.affectsConfiguration('kanban-extension.filenamePattern')) {
         this._promptFilenamePatternMigration()
       }
-      if (e.affectsConfiguration('kanban-markdown.language')) {
+      if (e.affectsConfiguration('kanban-extension.language')) {
         this._promptColumnLanguageMigration()
       }
     }
@@ -2300,7 +2300,7 @@ private async _renameLabel(oldName: string, newName: string): Promise<void> {
 `_migrateFilenames`:
 ```ts
 private async _migrateFilenames(): Promise<void> {
-  const config = vscode.workspace.getConfiguration('kanban-markdown')
+  const config = vscode.workspace.getConfiguration('kanban-extension')
   const pattern = config.get<FilenamePattern>('filenamePattern', 'name-date')
   const { renamed, skipped } = await this._repo.migrateFilenames(pattern)
   const msg = skipped > 0
@@ -2375,7 +2375,7 @@ import type { FeatureRepository } from './FeatureRepository'
 import type { Feature } from '../shared/types'
 
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'kanban-markdown.boardView'
+  public static readonly viewType = 'kanban-extension.boardView'
 
   private _view?: vscode.WebviewView
   private _disposables: vscode.Disposable[] = []
@@ -2390,8 +2390,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     }, null, this._disposables)
 
     vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration('kanban-markdown')) {
-        if (e.affectsConfiguration('kanban-markdown.featuresDirectory')) {
+      if (e.affectsConfiguration('kanban-extension')) {
+        if (e.affectsConfiguration('kanban-extension.featuresDirectory')) {
           this._repo.load()
         } else {
           this._postUpdate(this._repo.features as Feature[])

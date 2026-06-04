@@ -23,7 +23,7 @@ The prompt string currently embeds the card's title, labels, a 200-character des
 
 ### Registration status of FeatureHeaderProvider
 
-`FeatureHeaderProvider.register` is **not called** in `src/extension/index.ts` and the view type `kanban-markdown.featureHeader` does not appear in `package.json`. The provider is defined but never registered, so its `startWithAI` handler is currently unreachable. However, it shares the same vulnerable pattern and will be active once registered. Both call sites must be fixed in this story so the provider can be registered safely in a future change without introducing the vulnerability.
+`FeatureHeaderProvider.register` is **not called** in `src/extension/index.ts` and the view type `kanban-extension.featureHeader` does not appear in `package.json`. The provider is defined but never registered, so its `startWithAI` handler is currently unreachable. However, it shares the same vulnerable pattern and will be active once registered. Both call sites must be fixed in this story so the provider can be registered safely in a future change without introducing the vulnerability.
 
 ### Why `terminal.sendText` is unsafe for untrusted content
 

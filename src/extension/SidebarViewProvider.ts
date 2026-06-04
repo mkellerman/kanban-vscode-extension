@@ -7,7 +7,7 @@ import { KanbanPanel } from './KanbanPanel'
 import { t } from './l10n'
 
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'kanban-markdown.boardView'
+  public static readonly viewType = 'kanban-extension.boardView'
 
   private _view?: vscode.WebviewView
   private _disposables: vscode.Disposable[] = []
@@ -22,8 +22,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     }, null, this._disposables)
 
     vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration('kanban-markdown')) {
-        if (e.affectsConfiguration('kanban-markdown.featuresDirectory')) {
+      if (e.affectsConfiguration('kanban-extension')) {
+        if (e.affectsConfiguration('kanban-extension.featuresDirectory')) {
           this._repo.load()
         } else {
           this._postUpdate(this._repo.features as Feature[])
@@ -49,17 +49,17 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
           this._postUpdate(this._repo.features as Feature[])
           break
         case 'openBoard':
-          vscode.commands.executeCommand('kanban-markdown.open')
+          vscode.commands.executeCommand('kanban-extension.open')
           break
         case 'newFeature':
-          vscode.commands.executeCommand('kanban-markdown.open')
+          vscode.commands.executeCommand('kanban-extension.open')
           // Wait for the panel to be ready, then trigger create dialog
           setTimeout(() => {
             KanbanPanel.currentPanel?.triggerCreateDialog()
           }, 500)
           break
         case 'openFeature':
-          vscode.commands.executeCommand('kanban-markdown.open')
+          vscode.commands.executeCommand('kanban-extension.open')
           setTimeout(() => {
             KanbanPanel.currentPanel?.openFeature(message.featureId)
           }, 500)
@@ -103,7 +103,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.onDidChangeVisibility(() => {
       if (webviewView.visible) {
-        vscode.commands.executeCommand('kanban-markdown.open')
+        vscode.commands.executeCommand('kanban-extension.open')
       }
     }, null, this._disposables)
 
@@ -112,7 +112,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     })
 
     // Auto-open the board when the sidebar first loads
-    vscode.commands.executeCommand('kanban-markdown.open')
+    vscode.commands.executeCommand('kanban-extension.open')
 
     webviewView.webview.html = this._getHtml()
   }
@@ -148,7 +148,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   }
 
   private _getColumns(): KanbanColumn[] {
-    const config = vscode.workspace.getConfiguration('kanban-markdown')
+    const config = vscode.workspace.getConfiguration('kanban-extension')
     const defaultColumns: KanbanColumn[] = [
       { id: 'backlog', name: 'Backlog', color: '#6b7280' },
       { id: 'todo', name: 'To Do', color: '#3b82f6' },

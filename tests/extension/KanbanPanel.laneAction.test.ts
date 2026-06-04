@@ -169,7 +169,7 @@ describe('KanbanPanel laneAction handling', () => {
     expect(permissionMode).toBe('default')
   })
 
-  it('reads agent from kanban-markdown.aiAgent config', async () => {
+  it('reads agent from kanban-extension.aiAgent config', async () => {
     mockGetConfiguration.mockReturnValue(makeConfigMock('codex'))
     mockGetWorkspaceFolder.mockReturnValue({ uri: { fsPath: '/workspace' } })
 

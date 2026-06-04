@@ -35,7 +35,7 @@ Rationale: Approach A (read-only repository) would leave write-path duplication 
 
 ### Responsibilities
 
-- Features directory resolution (reads `kanban-markdown.featuresDirectory` config + workspace root, per call — not cached)
+- Features directory resolution (reads `kanban-extension.featuresDirectory` config + workspace root, per call — not cached)
 - `load()`: phases 1–3 of the current `KanbanPanel._loadFeatures()` (old-subfolder migration, root + done/ reading, done ↔ non-done reconciliation, legacy order migration)
 - In-memory `Feature[]` as the single source of truth
 - Single `vscode.FileSystemWatcher` for `**/*.md` in the features directory
@@ -167,7 +167,7 @@ export function activate(context: vscode.ExtensionContext) {
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('kanban-markdown.open', () => {
+    vscode.commands.registerCommand('kanban-extension.open', () => {
       KanbanPanel.createOrShow(context.extensionUri, context, repo, launcher)
       // ... setBoardOpen wiring unchanged
     })

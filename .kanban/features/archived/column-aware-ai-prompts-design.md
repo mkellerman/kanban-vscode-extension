@@ -39,7 +39,7 @@ DependencyDirectionStatusNotes`harden-ai-agent-launch-2026-06-02`independent par
 
 Introduce a three-level prompt resolution chain, identical `.md` template format at every level:
 
-PrioritySourceWho controls it1 (highest)`.kanban/instructions/{columnId}.md`Project team (committed to repo — `.kanban/` is not git-ignored)2`prompt` field on column in `kanban-markdown.columns` VS Code settingIndividual user3 (lowest)`prompts/{columnId}.md` bundled with extensionExtension defaults (editable in source)
+PrioritySourceWho controls it1 (highest)`.kanban/instructions/{columnId}.md`Project team (committed to repo — `.kanban/` is not git-ignored)2`prompt` field on column in `kanban-extension.columns` VS Code settingIndividual user3 (lowest)`prompts/{columnId}.md` bundled with extensionExtension defaults (editable in source)
 
 If no level produces a non-blank template, a generic inline fallback is used.
 
@@ -55,7 +55,7 @@ VariableRendered value`{{title}}`Feature title from first `# heading`; falls bac
 
 `{{labels}}` **note:** the leading space is baked in so templates can write `({{priority}} priority){{labels}}.` and get `(high priority) [bug].` or `(high priority).` without extra spacing.
 
-`{{status}}` **/ column ID note:** `buildPrompt` must handle any runtime `column.id` value — including the five built-in `FeatureStatus` values, custom column IDs from `kanban-markdown.columns`, and arbitrary status strings preserved in existing feature files. For column IDs with no matching `.kanban/instructions/` file, no settings `prompt`, and no bundled `prompts/{id}.md`, the generic fallback applies. Tests must include at least one case with a non-default column ID to verify the fallback path.
+`{{status}}` **/ column ID note:** `buildPrompt` must handle any runtime `column.id` value — including the five built-in `FeatureStatus` values, custom column IDs from `kanban-extension.columns`, and arbitrary status strings preserved in existing feature files. For column IDs with no matching `.kanban/instructions/` file, no settings `prompt`, and no bundled `prompts/{id}.md`, the generic fallback applies. Tests must include at least one case with a non-default column ID to verify the fallback path.
 
 `{{description}}` **note:** computed inside `buildPrompt` from raw `content` via `content.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()`, truncated at 200 chars with ASCII `...`. Callers pass raw content — description normalization belongs exclusively in `buildPrompt`.
 
@@ -184,13 +184,13 @@ try {
 
 `KanbanPanel._startWithAI` is the only currently-registered `startWithAI` entry point. `FeatureHeaderProvider` contains a duplicate handler that is not yet registered, but it is updated in this same change to prevent prompt divergence if it is activated later — it shares the same `buildPrompt` call.
 
-Reads `kanban-markdown.columns` fresh from VS Code config on each call — no cache. Workspace root is derived from the feature file's containing workspace folder, not `workspaceFolders[0]`:
+Reads `kanban-extension.columns` fresh from VS Code config on each call — no cache. Workspace root is derived from the feature file's containing workspace folder, not `workspaceFolders[0]`:
 
 ```ts
 const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(feature.filePath))
 const workspaceRoot = workspaceFolder?.uri.fsPath ?? null  // null → skip .kanban/ lookup
 
-const config = vscode.workspace.getConfiguration('kanban-markdown')
+const config = vscode.workspace.getConfiguration('kanban-extension')
 const columns = config.get<KanbanColumn[]>('columns', DEFAULT_COLUMNS)
 const column = columns.find(c => c.id === feature.status)
   ?? { id: feature.status, name: feature.status, color: '' }
@@ -220,7 +220,7 @@ const prompt = buildPrompt(ctx, column, this._extensionUri.fsPath, workspaceRoot
 const workspaceFolder = vscode.workspace.getWorkspaceFolder(this._currentDocument.uri)
 const workspaceRoot = workspaceFolder?.uri.fsPath ?? null
 
-const config = vscode.workspace.getConfiguration('kanban-markdown')
+const config = vscode.workspace.getConfiguration('kanban-extension')
 const columns = config.get<KanbanColumn[]>('columns', DEFAULT_COLUMNS)
 const column = columns.find(c => c.id === fm.status)
   ?? { id: fm.status, name: fm.status, color: '' }
@@ -258,7 +258,7 @@ export interface KanbanColumn {
 
 ### `package.json` — column schema
 
-Add `prompt` to the `kanban-markdown.columns` items schema with a localization key:
+Add `prompt` to the `kanban-extension.columns` items schema with a localization key:
 
 ```json
 "prompt": {
@@ -293,7 +293,7 @@ No change needed — `prompts/` is not currently excluded and will ship with the
 **User-level rollback** (removes customizations, keeps new defaults):
 
 - Delete `.kanban/instructions/` files → local overrides removed
-- Remove `prompt` fields from `kanban-markdown.columns` → settings cleared
+- Remove `prompt` fields from `kanban-extension.columns` → settings cleared
 - The new bundled defaults remain in effect
 
 **Code-level rollback** (restores current behavior fully):
@@ -364,7 +364,7 @@ tests/extension/
 
 **Wiring test (**`tests/extension/KanbanPanel.startWithAI.test.ts`**):**
 
-Stub `buildPrompt`. Trigger `_startWithAI` with `status: 'review'`. Assert `buildPrompt` was called with: the column from `kanban-markdown.columns` config matching `review`, `extensionUri.fsPath`, workspace-derived root, and `column.prompt` as `settingsTemplate`. Also assert `workspaceRoot: null` path reaches `buildPrompt` without error.
+Stub `buildPrompt`. Trigger `_startWithAI` with `status: 'review'`. Assert `buildPrompt` was called with: the column from `kanban-extension.columns` config matching `review`, `extensionUri.fsPath`, workspace-derived root, and `column.prompt` as `settingsTemplate`. Also assert `workspaceRoot: null` path reaches `buildPrompt` without error.
 
 ---
 
@@ -372,7 +372,7 @@ Stub `buildPrompt`. Trigger `_startWithAI` with `status: 'review'`. Assert `buil
 
 - \[x\] Cards in different columns launch the AI with contextually appropriate prompts — verified manually by triggering "Build with AI" on a card in each of the five default columns and observing the terminal command.
 - \[x\] A `.kanban/instructions/review.md` file in the project root overrides both the VS Code setting and the bundled default for the `review` column — verified by: (1) creating the file, (2) setting a `prompt` on the `review` column in settings, and (3) confirming the local file's text is used.
-- \[x\] `prompt` field in `kanban-markdown.columns` setting overrides the bundled default but is overridden by the local file — verified via the wiring unit test.
+- \[x\] `prompt` field in `kanban-extension.columns` setting overrides the bundled default but is overridden by the local file — verified via the wiring unit test.
 - \[x\] A whitespace-only `prompt` value in settings is treated as absent — the next-priority template (bundled default or generic fallback) is used instead; verified in `promptBuilder.test.ts`.
 - \[x\] A template containing `{{filePath}}` places the path exactly where written; one without it gets the path auto-appended — both cases verified in `promptBuilder.test.ts`.
 - \[x\] All seven template variables (`{{title}}`, `{{priority}}`, `{{status}}`, `{{columnName}}`, `{{labels}}`, `{{description}}`, `{{filePath}}`) are substituted correctly — verified in `promptBuilder.test.ts`.
@@ -529,7 +529,7 @@ Stub `buildPrompt`. Trigger `_startWithAI` with `status: 'review'`. Assert `buil
 - \[x\] `tests/extension/KanbanPanel.startWithAI.test.ts` exists and stubs `buildPrompt`.
 - \[x\] `tests/extension/FeatureHeaderProvider.startWithAI.test.ts` exists and stubs `buildPrompt`.
 - \[x\] `src/shared/types.ts` — `KanbanColumn.prompt?` field added.
-- \[x\] `package.json` — `prompt` property added to `kanban-markdown.columns` items schema with `%config.columns.prompt.description%` localization key; `"required"` array unchanged (field is optional).
+- \[x\] `package.json` — `prompt` property added to `kanban-extension.columns` items schema with `%config.columns.prompt.description%` localization key; `"required"` array unchanged (field is optional).
 - \[x\] `package.nls.json`, `package.nls.es.json`, `package.nls.pt.json` — `config.columns.prompt.description` key added to each file.
 - \[x\] `prompts/backlog.md`, `prompts/todo.md`, `prompts/in-progress.md`, `prompts/review.md`, `prompts/done.md` exist with the specified template text.
 - \[x\] `KanbanPanel._startWithAI` and `FeatureHeaderProvider`'s `startWithAI` case both call `buildPrompt`; neither contains an inline prompt string.

@@ -16,7 +16,7 @@ order: "a2"
 As a user of the kanban extension, I want the default features directory to be `.kanban/features` instead of `.devtool/features`, so that the folder name is self-describing and clearly associated with the extension.
 
 ## Acceptance criteria
-- [x] `kanban-markdown.featuresDirectory` config default is `.kanban/features` in `package.json`
+- [x] `kanban-extension.featuresDirectory` config default is `.kanban/features` in `package.json`
 - [x] All 4 source fallback strings (`KanbanPanel.ts`, `FeatureHeaderProvider.ts`, `SidebarViewProvider.ts`, `index.ts`) use `.kanban/features`
 - [x] `README.md` configuration table reflects `.kanban/features` as the default
 - [x] All test files use `.kanban/features` in hardcoded path strings
@@ -27,6 +27,6 @@ As a user of the kanban extension, I want the default features directory to be `
 ## Context & constraints
 - Design spec: `docs/superpowers/specs/2026-06-02-replace-devtool-kanban-folder-design.md`
 - Implementation plan: `docs/superpowers/plans/2026-06-02-replace-devtool-kanban-folder.md`
-- Config key name (`kanban-markdown.featuresDirectory`) is NOT renamed — it remains accurate
+- Config key name (`kanban-extension.featuresDirectory`) is NOT renamed — it remains accurate
 - `.devtool/plans/` is NOT moved — it belongs to the AI dev workflow, not the extension
 - No auto-migration: this is a default-only change with no backward-compat fallback

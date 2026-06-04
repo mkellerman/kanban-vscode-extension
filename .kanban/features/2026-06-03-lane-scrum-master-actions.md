@@ -45,7 +45,7 @@ The lane action should treat `.kanban/features/<id>.md` as the source of truth a
 - Template resolution: `.kanban/instructions/{columnId}-lane.md` → `prompts/{columnId}-lane.md` → generic fallback
 - Gated by `showBuildWithAI` setting (respects `chat.disableAIFeatures`)
 - Collapsed columns do not receive the `onLaneAction` prop
-- `agent` read from `kanban-markdown.aiAgent` setting (same as `startWithAI`)
+- `agent` read from `kanban-extension.aiAgent` setting (same as `startWithAI`)
 - `permissionMode` defaults to `'default'` — no UI picker in the menu
 
 ## Open questions

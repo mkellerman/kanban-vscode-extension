@@ -655,7 +655,7 @@ describe('KanbanPanel laneAction handling', () => {
     expect(permissionMode).toBe('default')
   })
 
-  it('reads agent from kanban-markdown.aiAgent config', async () => {
+  it('reads agent from kanban-extension.aiAgent config', async () => {
     mockGetConfiguration.mockReturnValue(makeConfigMock('codex'))
     mockGetWorkspaceFolder.mockReturnValue({ uri: { fsPath: '/workspace' } })
 
@@ -774,7 +774,7 @@ In `src/extension/KanbanPanel.ts`, find the `case 'startWithAI':` block (around 
               .map((id: string) => this._repo.features.find(f => f.id === id))
               .filter((f): f is Feature => f !== undefined)
             if (laneFeatures.length === 0) return
-            const laneConfig = vscode.workspace.getConfiguration('kanban-markdown')
+            const laneConfig = vscode.workspace.getConfiguration('kanban-extension')
             const laneColumns = laneConfig.get<KanbanColumn[]>('columns', DEFAULT_COLUMNS)
             const laneColumn = laneColumns.find(c => c.id === message.columnId)
               ?? DEFAULT_COLUMNS.find(c => c.id === message.columnId)
