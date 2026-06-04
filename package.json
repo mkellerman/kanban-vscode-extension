@@ -4,7 +4,7 @@
   "description": "A kanban board for your codebase. Features stored as markdown.",
   "version": "1.99.0",
   "packageManager": "pnpm@9.15.9",
-  "publisher": "Marc R Kellerman",
+  "publisher": "mkellerman",
   "license": "MIT",
   "repository": {
     "type": "git",

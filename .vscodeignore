@@ -12,7 +12,14 @@ eslint.config.mjs
 .devtool/**
 .claude/**
 .codegraph/**
+.codegraphy/**
+.kanban/**
+.superpowers/**
+.github/**
+docs/**
+out/**
 tests/**
+*.html
 scripts/**
 tailwind.config.js
 postcss.config.mjs
