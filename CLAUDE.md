@@ -94,6 +94,12 @@ Body content here.
 
 Unknown frontmatter fields are round-tripped as `_extraFrontmatter` so custom schemas (e.g. `superpowers`) don't lose data.
 
+## Superpowers Folder
+
+- Save all docs for superpowers in `.kanban/` instead of the default `docs/superpowers/`.
+- Save all brainstorming specs to `.kanban/specs/` instead of the default `docs/superpowers/plans/`.
+- Save all implementation plans to `.kanban/plans/` instead of the default `docs/superpowers/plans/`.
+
 ### Localization
 
 Strings are externalized in `package.nls.json` (English) and `package.nls.{locale}.json` (ES, PT). `src/extension/l10n.ts` wraps `@vscode/l10n`. The webview receives its locale bundle from the extension via an initialization message.
