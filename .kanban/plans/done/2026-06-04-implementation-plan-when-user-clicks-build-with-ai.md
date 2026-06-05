@@ -1,13 +1,13 @@
 ---
 id: "2026-06-04-implementation-plan-when-user-clicks-build-with-ai"
-status: "review"
+status: "done"
 priority: "medium"
 assignee: null
 epic: null
 dueDate: null
 created: "2026-06-04T23:50:00.000Z"
-modified: "2026-06-04T23:50:00.000Z"
-completedAt: null
+modified: "2026-06-05T00:37:54.777Z"
+completedAt: "2026-06-05T00:37:54.777Z"
 labels: []
 order: "a0"
 ---
@@ -236,3 +236,24 @@ git commit -m "feat: close FeatureEditor after Build with AI is triggered"
 ## Dependencies
 
 None — self-contained webview change with no cross-file protocol changes.
+
+---
+
+## Verification (2026-06-05)
+
+All acceptance criteria confirmed met:
+
+| Acceptance criterion | Status | Evidence |
+|---|---|---|
+| Ctrl+B closes editor after launching AI | ✅ Met | `FeatureEditor.tsx:629-634`; test "Ctrl+B calls onStartWithAI then onClose" passes |
+| AIDropdown selection closes editor after launching AI | ✅ Met | `FeatureEditor.tsx:721-727`; test "AIDropdown selection calls onStartWithAI then onClose" passes |
+| Pending edits are flushed to disk before close | ✅ Met | `save()` called before `onClose()` in both handlers; `currentFrontmatterRef` ensures latest pending state is written |
+| No double-write from pending debounce | ✅ Met | `clearTimeout(debounceRef.current)` before `save()` in both handlers |
+
+Full test suite: 440 tests passing, 0 failures.
+
+## Retrospective
+
+**Stale closure in `save()`:** The original `save()` callback captured `currentFrontmatter` in its closure, meaning a synchronous call from Ctrl+B or the dropdown handler would save stale frontmatter if the user had edited a field (e.g., due date) but the debounce hadn't fired yet. Fixed by using `currentFrontmatterRef.current` so `save()` always reads the latest pending value regardless of when it fires. A new test ("Ctrl+B saves the latest frontmatter even when the debounce has not fired yet") covers this case explicitly.
+
+**Lesson:** When a callback must read React state synchronously from an event handler, use a ref kept in sync with setState — not the state value itself in the closure.

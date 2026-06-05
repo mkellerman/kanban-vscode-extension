@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { FeatureEditor } from '../../../src/webview/components/FeatureEditor'
 import { useStore } from '../../../src/webview/store'
@@ -8,8 +8,9 @@ import type { CardDisplaySettings, FeatureFrontmatter, AIAgent, AIPermissionMode
 // ---------------------------------------------------------------------------
 // Mock TipTap (doesn't work in jsdom)
 // ---------------------------------------------------------------------------
+const { mockUseEditor } = vi.hoisted(() => ({ mockUseEditor: vi.fn(() => null as unknown) }))
 vi.mock('@tiptap/react', () => ({
-  useEditor: () => null,
+  useEditor: (options: unknown) => mockUseEditor(options),
   EditorContent: () => null
 }))
 vi.mock('@tiptap/starter-kit', () => ({ default: {} }))
@@ -123,6 +124,51 @@ describe('FeatureEditor — workspace indicator', () => {
       />
     )
     expect(screen.queryByText(/⎇/)).not.toBeInTheDocument()
+  })
+})
+
+describe('FeatureEditor — save() uses latest pending frontmatter', () => {
+  const fakeEditor = {
+    storage: { markdown: { getMarkdown: () => '# Test' } },
+    commands: { setContent: vi.fn() },
+  }
+
+  afterEach(() => { mockUseEditor.mockReturnValue(null) })
+
+  it('Ctrl+B saves the latest frontmatter even when the debounce has not fired yet', () => {
+    vi.useFakeTimers()
+    try {
+      mockUseEditor.mockReturnValue(fakeEditor)
+      const onSave = vi.fn()
+      setSettings({ showBuildWithAI: true, showDueDate: true })
+      const { container } = render(
+        <FeatureEditor
+          featureId="feat-1"
+          content="# Test"
+          frontmatter={makeFrontmatter({ dueDate: null })}
+          onSave={onSave}
+          onClose={noOp}
+          onDelete={noOp}
+          onOpenFile={noOp}
+          onStartWithAI={noOp}
+        />
+      )
+      const dueDateInput = container.querySelector('input[type="date"]')!
+      // Simulate a frontmatter edit — schedules debounce but does not yet save
+      fireEvent.change(dueDateInput, { target: { value: '2026-06-10' } })
+      // Fire Ctrl+B before the 800ms debounce fires; this should flush + save immediately
+      fireEvent.keyDown(window, { key: 'b', ctrlKey: true })
+      // The save must carry the updated dueDate, not the pre-edit stale value
+      expect(onSave).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ dueDate: '2026-06-10' })
+      )
+      // Debounce was cancelled — no second save
+      vi.runAllTimers()
+      expect(onSave).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

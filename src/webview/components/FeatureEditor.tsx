@@ -571,8 +571,8 @@ export function FeatureEditor({
   const save = useCallback(() => {
     if (!editor) return
     const markdown = getMarkdown(editor)
-    onSave(markdown, currentFrontmatter)
-  }, [editor, currentFrontmatter, onSave])
+    onSave(markdown, currentFrontmatterRef.current)
+  }, [editor, onSave])
 
   // Clean up debounce on unmount
   useEffect(() => {
@@ -603,7 +603,8 @@ export function FeatureEditor({
     (updates: Partial<FeatureFrontmatter>) => {
       setCurrentFrontmatter((prev) => {
         const next = { ...prev, ...updates }
-        // Schedule a save with the updated frontmatter
+        // Keep ref in sync so save() reads the latest value before re-render
+        currentFrontmatterRef.current = next
         if (debounceRef.current) clearTimeout(debounceRef.current)
         debounceRef.current = setTimeout(() => {
           if (!editor) return
