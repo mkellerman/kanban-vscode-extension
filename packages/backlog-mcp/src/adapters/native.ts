@@ -2,7 +2,7 @@ import { readdir, readFile, writeFile, stat, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { stringify } from 'yaml'
 import type { WorkItem, NormStatus, Priority, WorkItemType } from '../contract'
-import type { FrameworkAdapter, AdapterContext, CreateItemInput } from './types'
+import type { FrameworkAdapter, AdapterContext, CreateItemInput, ItemPatch } from './types'
 import { splitFrontmatter, titleFromBody, acceptanceCriteria } from './markdown'
 
 const NS = 'native'
@@ -108,6 +108,23 @@ function buildBody(input: { title: string; body?: string; acceptanceCriteria?: s
   return result
 }
 
+function applyTitleToBody(body: string, title: string): string {
+  if (/^#\s+.+$/m.test(body)) return body.replace(/^#\s+.+$/m, `# ${title}`)
+  return `# ${title}\n${body}`
+}
+
+function replaceAcSection(body: string, acs: string[]): string {
+  const newSection =
+    `## Acceptance criteria\n${acs.map((ac) => `- [ ] ${ac}`).join('\n')}\n`
+  const parts = body.split(/^(?=## )/m)
+  const idx = parts.findIndex((p) => /^## acceptance criteria\b/i.test(p))
+  if (idx !== -1) {
+    parts[idx] = newSection
+    return parts.join('')
+  }
+  return body.trimEnd() + '\n\n' + newSection
+}
+
 export const nativeAdapter: FrameworkAdapter = {
   name: NS,
 
@@ -161,6 +178,26 @@ export const nativeAdapter: FrameworkAdapter = {
     }
     const body = buildBody(input)
     const path = join(folderPath, 'story.md')
+    await writeFile(path, `---\n${stringify(fm)}---\n${body}`, 'utf8')
+    return toWorkItem(folderId, await readFile(path, 'utf8'), path)
+  },
+
+  async updateItem(ctx: AdapterContext, itemId: string, patch: ItemPatch): Promise<WorkItem> {
+    const folderId = stripNs(itemId)
+    const { path } = await resolveStoryPath(ctx.root, folderId)
+    const text = await readFile(path, 'utf8')
+    let { fm, body } = splitFrontmatter(text)
+
+    if (patch.status !== undefined) fm.status = patch.status
+    if (patch.priority !== undefined) fm.priority = patch.priority
+    if (patch.parent !== undefined) fm.epic = patch.parent ? stripNs(patch.parent) : null
+    if (patch.dependsOn !== undefined) fm.dependsOn = patch.dependsOn.map((d) => stripNs(d))
+    if (patch.labels !== undefined) fm.labels = patch.labels
+    if (patch.estimate !== undefined) fm.estimate = patch.estimate
+    if (patch.title !== undefined) body = applyTitleToBody(body, patch.title)
+    if (patch.acceptanceCriteria !== undefined) body = replaceAcSection(body, patch.acceptanceCriteria)
+    fm.modified = new Date().toISOString()
+
     await writeFile(path, `---\n${stringify(fm)}---\n${body}`, 'utf8')
     return toWorkItem(folderId, await readFile(path, 'utf8'), path)
   },

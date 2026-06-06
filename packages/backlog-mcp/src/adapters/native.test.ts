@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { resolve, join } from 'node:path'
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, rm, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { nativeAdapter } from './native'
+import { splitFrontmatter } from './markdown'
 
 const root = resolve(__dirname, '__fixtures__/board')
 
@@ -156,6 +157,94 @@ describe('native adapter — createItem', () => {
       const body = await nativeAdapter.getBody({ root }, item.id)
       expect(body).toMatch(/- \[ \] passes tests/)
       expect(item.acceptanceCriteria).toEqual(['passes tests', 'ships to prod'])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('native adapter — updateItem', () => {
+  async function makeItem(root: string, id: string, inDone = false): Promise<void> {
+    const dir = join(
+      root,
+      '.kanban',
+      'features',
+      ...(inDone ? ['done'] : []),
+      id
+    )
+    await mkdir(dir, { recursive: true })
+    await writeFile(
+      join(dir, 'story.md'),
+      `---\nid: "${id}"\ntype: "story"\nstatus: "todo"\npriority: "low"\nlabels: []\ndependsOn: []\n---\n# Original title\n\n## Acceptance criteria\n- [ ] original AC\n`,
+      'utf8'
+    )
+  }
+
+  it('patches frontmatter fields and bumps modified', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      await mkdir(join(root, '.kanban', 'features'), { recursive: true })
+      await makeItem(root, 'upd-1')
+      const before = Date.now()
+      const updated = await nativeAdapter.updateItem!({ root }, 'native:upd-1', {
+        status: 'in-progress',
+        priority: 'high',
+        labels: ['beta'],
+      })
+      expect(updated.status).toBe('in-progress')
+      expect(updated.priority).toBe('high')
+      expect(updated.labels).toEqual(['beta'])
+      // type and title untouched
+      expect(updated.type).toBe('story')
+      expect(updated.title).toBe('Original title')
+      // verify modified timestamp is recent
+      const text = await readFile(join(root, '.kanban', 'features', 'upd-1', 'story.md'), 'utf8')
+      const { fm } = splitFrontmatter(text)
+      expect(new Date(fm.modified as string).getTime()).toBeGreaterThanOrEqual(before)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('updates the h1 title in body when patch.title is provided', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      await mkdir(join(root, '.kanban', 'features'), { recursive: true })
+      await makeItem(root, 'upd-title')
+      const updated = await nativeAdapter.updateItem!({ root }, 'native:upd-title', {
+        title: 'New Title',
+      })
+      expect(updated.title).toBe('New Title')
+      const body = await nativeAdapter.getBody({ root }, 'native:upd-title')
+      expect(body).toMatch(/^# New Title/m)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('replaces acceptance criteria section when patch.acceptanceCriteria is provided', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      await mkdir(join(root, '.kanban', 'features'), { recursive: true })
+      await makeItem(root, 'upd-ac')
+      const updated = await nativeAdapter.updateItem!({ root }, 'native:upd-ac', {
+        acceptanceCriteria: ['new AC one', 'new AC two'],
+      })
+      expect(updated.acceptanceCriteria).toEqual(['new AC one', 'new AC two'])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('resolves and writes correctly when item lives in done/', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      await mkdir(join(root, '.kanban', 'features', 'done'), { recursive: true })
+      await makeItem(root, 'upd-done', true)
+      const updated = await nativeAdapter.updateItem!({ root }, 'native:upd-done', {
+        priority: 'critical',
+      })
+      expect(updated.priority).toBe('critical')
     } finally {
       await rm(root, { recursive: true, force: true })
     }
