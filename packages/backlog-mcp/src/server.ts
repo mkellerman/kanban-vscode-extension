@@ -8,7 +8,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import * as lib from './index'
-import { ListWorkItemsInput, IdInput, ListSessionsInput, TOOL_DESCRIPTIONS } from './contract'
+import {
+  ListWorkItemsInput, IdInput, ListSessionsInput,
+  SetStatusInput, CreateItemInputShape, UpdateItemInputShape, SetBodyInput,
+  TOOL_DESCRIPTIONS
+} from './contract'
 
 const server = new McpServer({ name: 'backlog-mcp', version: '0.0.0' })
 
@@ -35,6 +39,40 @@ server.registerTool(
   'get_item_body',
   { description: TOOL_DESCRIPTIONS.get_item_body, inputSchema: IdInput },
   async ({ id }) => ({ content: [{ type: 'text' as const, text: await lib.getItemBody(id) }] })
+)
+server.registerTool(
+  'set_status',
+  { description: TOOL_DESCRIPTIONS.set_status, inputSchema: SetStatusInput },
+  async ({ id, status }) => {
+    await lib.setStatus(id, status)
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ ok: true }) }] }
+  }
+)
+server.registerTool(
+  'create_item',
+  { description: TOOL_DESCRIPTIONS.create_item, inputSchema: CreateItemInputShape },
+  async (args) => asText(await lib.createItem(args))
+)
+server.registerTool(
+  'update_item',
+  { description: TOOL_DESCRIPTIONS.update_item, inputSchema: UpdateItemInputShape },
+  async ({ id, patch }) => asText(await lib.updateItem(id, patch))
+)
+server.registerTool(
+  'set_body',
+  { description: TOOL_DESCRIPTIONS.set_body, inputSchema: SetBodyInput },
+  async ({ id, body }) => {
+    await lib.setBody(id, body)
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ ok: true }) }] }
+  }
+)
+server.registerTool(
+  'delete_item',
+  { description: TOOL_DESCRIPTIONS.delete_item, inputSchema: IdInput },
+  async ({ id }) => {
+    await lib.deleteItem(id)
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ ok: true }) }] }
+  }
 )
 server.registerTool(
   'dependency_graph',
