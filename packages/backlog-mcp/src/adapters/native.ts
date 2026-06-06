@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile, stat, mkdir } from 'node:fs/promises'
+import { readdir, readFile, writeFile, stat, mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { stringify } from 'yaml'
 import type { WorkItem, NormStatus, Priority, WorkItemType } from '../contract'
@@ -200,5 +200,12 @@ export const nativeAdapter: FrameworkAdapter = {
 
     await writeFile(path, `---\n${stringify(fm)}---\n${body}`, 'utf8')
     return toWorkItem(folderId, await readFile(path, 'utf8'), path)
+  },
+
+  async setBody(ctx: AdapterContext, itemId: string, newBody: string): Promise<void> {
+    const { path } = await resolveStoryPath(ctx.root, stripNs(itemId))
+    const text = await readFile(path, 'utf8')
+    const { fm } = splitFrontmatter(text)
+    await writeFile(path, `---\n${stringify(fm)}---\n${newBody}`, 'utf8')
   },
 }

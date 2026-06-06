@@ -250,3 +250,46 @@ describe('native adapter — updateItem', () => {
     }
   })
 })
+
+describe('native adapter — setBody', () => {
+  it('replaces the body and leaves frontmatter unchanged', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      const dir = join(root, '.kanban', 'features', 'body-1')
+      await mkdir(dir, { recursive: true })
+      await writeFile(
+        join(dir, 'story.md'),
+        '---\nid: "body-1"\nstatus: "todo"\npriority: "high"\n---\n# Old body\n',
+        'utf8'
+      )
+      await nativeAdapter.setBody!({ root }, 'native:body-1', '# New body\n\nsome content\n')
+      const body = await nativeAdapter.getBody({ root }, 'native:body-1')
+      expect(body).toBe('# New body\n\nsome content')
+      // frontmatter unchanged
+      const items = await nativeAdapter.listItems({ root })
+      const item = items.find((i) => i.id === 'native:body-1')!
+      expect(item.status).toBe('todo')
+      expect(item.priority).toBe('high')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('resolves and writes correctly when item lives in done/', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      const dir = join(root, '.kanban', 'features', 'done', 'body-done')
+      await mkdir(dir, { recursive: true })
+      await writeFile(
+        join(dir, 'story.md'),
+        '---\nid: "body-done"\nstatus: "done"\n---\n# Old\n',
+        'utf8'
+      )
+      await nativeAdapter.setBody!({ root }, 'native:body-done', '# Updated\n')
+      const body = await nativeAdapter.getBody({ root }, 'native:body-done')
+      expect(body).toBe('# Updated')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+})
