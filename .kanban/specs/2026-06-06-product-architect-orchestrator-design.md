@@ -1,8 +1,8 @@
-# Design: Product Architect (PA) Orchestrator — Revision 2 (PA-native)
+# Design: Product Architect (PA) Orchestrator — Revision 3 (PA-native + session layer)
 
 **Date:** 2026-06-06
-**Status:** spec v2 — pending user review
-**Supersedes:** v1 (same file; see git history). v2 drops the backward-compat constraints — we are free to redesign the board's schema, folder layout, and the extension itself.
+**Status:** spec v3 — pending user review
+**Supersedes:** v1, v2 (same file; see git history). v3 adds the unified two-card-type board (story *intent* + a live session *execution* layer), borrows claudine's MIT session-reading engine, and confirms building in our own extension (not a fork).
 
 ---
 
@@ -14,7 +14,7 @@ The **Product Architect (PA)** is a conversational orchestrator you talk to in C
 
 It brainstorms requirements with you, produces a spec, has a plan written, has role-specific agents review it, and drives the work — subagents in a party, BMAD-style, on the Superpowers toolset, with the **Kanban board as the live, PA-aware dashboard and the source of truth**. Every story carries an **auditable trail** linking it to the Claude Code session(s) that worked it.
 
-The PA is not a new workflow engine. It is the missing *breadth* layer over Superpowers' *depth* engine: portfolio awareness, a dependency graph, a role party, lifecycle conducting — and now a board that natively renders all of it.
+The PA is not a new workflow engine. It is the missing *breadth* layer over Superpowers' *depth* engine: portfolio awareness, a dependency graph, a role party, lifecycle conducting — and a board that natively renders all of it. The board **unifies two card types**: **story cards** (intent — the gated lifecycle) and a **live session layer** (execution — what the agent is doing right now, read from Claude's JSONL), linked, so planning and live agent activity share one surface with a full audit trail.
 
 ## 2. Decisions locked
 
@@ -32,8 +32,11 @@ The PA is not a new workflow engine. It is the missing *breadth* layer over Supe
 | 10 | Install scope | Conductor skill + role agents global (`~/.claude/`), project-agnostic, scaffolds a board where missing. The **engine ships in the extension** (installed across the user's projects). |
 | 11 | Story layout | **Per-story folder** `<id>/` bundling `story.md` + `spec.md` + `plan.md` + `audit.jsonl` + artifacts. |
 | 12 | Data model | **Clean first-class schema** — `dependsOn`, `sessions`, etc. are real fields the extension understands. No `_extraFrontmatter` workarounds, no comma-string tolerance. |
-| 13 | Engine location | Schema + board reader + dependency graph + scheduler + validate live **once in `src/shared/` (TS)**, used by the board UI and exposed to the skill via a thin CLI. One parser, typed, vitest-tested. |
-| 14 | Auditability | Each story records the Claude **session UUID(s)** that worked it; capture hooks designed now, the audit *reporting* build deferred to a later slice. |
+| 13 | Engine location | Schema + board reader + dependency graph + scheduler + validate, **plus the session-reading engine (borrowed from claudine, MIT)**, live **once in `src/shared/` (TS)**, used by the board UI and exposed to the skill via a thin CLI. One parser, typed, vitest-tested. |
+| 14 | Auditability & sessions | **Elevated to a core feature.** Each story links its Claude **session(s)**; a live session layer shows activity on cards; we capture `model` + token `usage` (which claudine omits). Full audit *reporting* phases later. |
+| 15 | Unified board | One board, two card types: **story cards** (intent, gated lifecycle) primary, each with a **live session layer**, + a **Sessions side-lane** for loose sessions (link / promote-to-story). |
+| 16 | Session linking | Auto by `story/<id>` branch/worktree + launch-time capture + manual link/promote. |
+| 17 | Build on | **Own extension** (React, story-first) + **borrow claudine's MIT session engine** (attributed), extended with model/token capture. Not a fork. |
 
 ## 3. Best-of-both analysis (unchanged foundation)
 
@@ -65,6 +68,9 @@ The 15-agent roster (~5 suffices) · autonomous no-gate execution (you want to w
 | QA | Adapt | `gem-browser-tester`, `breakdown-test` | `qa-expert` ✓ + `/visual-walkthrough` |
 | Code reviewer · parallel dev · docs | Reuse | `gem-reviewer` · `gem-implementer` · `gem-documentation-writer` | `code-reviewer` · `fullstack-developer` · `documentation-engineer` ✓ |
 | UX/Designer · DevOps (optional) | Author later | `gem-designer` · `gem-devops` | — |
+
+### 3.6 claudine — the borrowed session engine (MIT)
+`salam/claudine` (MIT) is a VS Code kanban of Claude/Codex *sessions*; we borrow its JSONL-reading technique for our session layer (§8.4), **not** its product (its card = a session; ours = a story). Reusable fields per JSONL line: `type`, `uuid`, `parentUuid`, `timestamp`, `isSidechain`, `gitBranch`, `message.role`, `content[]` (`text`/`tool_use`/`tool_result`), `toolUseResult.interrupted`, `worktreeSession` — **plus `message.model` + `message.usage`, which claudine ignores and we capture** for the audit layer. Borrowed gotchas: `content` may be string|object|array (normalize); cwd→dir encoding is lossy (map forward only); `isActive` is a pure 2-min window (gate on new content before reacting); status/needs-input heuristics are English-keyword-fragile.
 
 ## 4. Architecture — four layers
 
@@ -98,6 +104,7 @@ Load-bearing decisions:
 1. **Conductor is a skill** (your thread — it converses and gates). **Roles are subagents** (fresh context, uniform contract, never self-review).
 2. **One engine in `src/shared/` (TS)** is the single source of truth for schema + graph + scheduler, used by *both* the board UI and the skill's CLI — no duplicate parsers.
 3. **The per-story folder is the only ledger.** Spec/plan/audit live *inside* the story folder; nothing is smeared across sibling directories.
+4. **The board unifies intent + execution.** Story cards (the lifecycle) carry a live session layer read by the shared session engine; a Sessions side-lane holds loose sessions. Story columns stay human-gated; session activity is advisory.
 
 ## 5. The cast
 | Player | Type | Owns gate | Job |
@@ -141,7 +148,14 @@ done:     superpowers-done: seal story.md, merge/PR; curated learning extraction
 - **8.1 Normalize / validate** — validate `story.md` frontmatter against the schema; detect dependency cycles, missing `dependsOn` targets, zombie stories (>90d). (No legacy drift to reconcile — clean schema from the start.)
 - **8.2 Shared context cache** — `.kanban/context.json` (architecture snapshot, relevant files, prior decisions) injected into role prompts via `promptBuilder.ts` templating.
 - **8.3 Curated self-learning** — on `done`, extract a skill only if high-confidence + reusable + novel (dedup-checked).
-- **8.4 Session audit hooks (design now, build later)** — `story.md` carries `sessions: [<uuid>, …]`; the Conductor appends the current session UUID + transition to `<id>/audit.jsonl` at each lifecycle move. Session UUID = the transcript filename in `~/.claude/projects/<project>/<uuid>.jsonl` (each line carries `sessionId`). The **reporting** layer (per-story trace of tools/diffs/tokens, via the existing `session-report` skill, and an extension audit badge) is *deferred* — but the capture points and `sessions`/`audit.jsonl` schema are defined now so no retrofit is needed.
+### 8.4 Sessions — the live execution layer (story ⇄ session)
+The board unifies **intent** (story cards) and **execution** (Claude sessions), linked. Borrows claudine's JSONL technique (MIT, §3.6) and extends it.
+
+- **Session-reading engine** (in `src/shared/`, ported/adapted from claudine's `ConversationParser`, MIT-attributed): incremental **tail-parse** of `~/.claude/projects/<proj>/<uuid>.jsonl` — cache a byte-offset, read only appended bytes; LRU; shrink-detection — so huge transcripts stay cheap on every watcher fire. Extracts per session: last tool activity (`Read "x.ts"`), active/idle (2-min window), needs-input / error / interruption / rate-limit signals, sidechain (subagent) steps, git branch, worktree — **plus `model` + token `usage`, which claudine discards** (our audit gold).
+- **Linking (#16):** a session auto-links when its `gitBranch`/cwd matches the story's `story/<id>` branch/worktree; the PA also captures the session it launches for a story (covers pre-branch grooming/planning); loose sessions can be linked or **promoted to a story** manually. Session id = the JSONL filename (resolves §14 q3).
+- **Live layer on the story card:** session count, active dot + timer, last tool, a `needs-input` badge surfaced from the session, aggregate `model`/tokens; expandable to a per-session audit timeline. **Advisory only** — session activity never auto-moves the story's column (#4 stands); it surfaces attention (a `needs-input` session can list its story in a "needs attention" view).
+- **Sessions side-lane:** loose, auto-discovered sessions (no linked story) with one-click **link** or **promote-to-story** (turn ad-hoc work into a tracked, auditable story).
+- **Audit trail:** `<id>/audit.jsonl` appends `{ts, session, transition, model, tokens}` at each lifecycle move. Full **reporting** (per-story trace via the existing `session-report` skill + an extension audit view) phases later (§12).
 
 ## 9. Install & packaging
 - **Conductor skill + role agents → global `~/.claude/`** (project-agnostic; scaffolds `.kanban/` where missing).
@@ -183,17 +197,18 @@ Done stories: move the whole `<id>/` folder to `.kanban/features/done/<id>/`.
 - No 15-agent roster; no always-on DevOps/UX.
 - No autonomous no-gate execution.
 - No story points / velocity / burndown / sprint objects.
-- **Audit *reporting* UI and `session-report` integration are deferred** (hooks/schema only now — decision #14).
+- The session **live layer** is in scope (build slice 3); only the deeper audit **reporting** (per-story trace via `session-report` + audit view) is deferred to slice 6.
 - No new MCP servers or external services.
 
-## 12. Build order (now ~4–5 plans)
-1. **Engine + schema + per-story folders (extension)** — `src/shared/` schema + reader (folder-aware) + dependency graph (cycle-safe critical path) + scheduler + validate; `FeatureRepository` reads folders; flat→folder migration; vitest throughout. *Foundation.*
+## 12. Build order (~6 plans)
+1. **Core engine + schema + per-story folders (extension)** — `src/shared/` schema + folder-aware reader + dependency graph (cycle-safe critical path) + scheduler + validate; `FeatureRepository` reads folders; flat→folder migration; vitest. *Foundation.*
 2. **CLI + Conductor skill** — `dist/pa-cli.js` + the global skill: the 3 intents + scaffolding. *Delivers "what's next."*
-3. **Board UI** — Ready lane + dependency arrows + session badge (`src/webview/`).
-4. **Role party** — uniform contract + author Architect/Critic/Security + adapt PO/QA + gates.
-5. **Audit build + curated learning** — `audit.jsonl` reporting + `session-report` integration + skill extraction on done.
+3. **Session layer (elevated)** — port claudine's tail-parse session-reading engine into `src/shared/` (MIT-attributed, + model/token capture); story⇄session linking (branch/worktree + launch capture); the live layer on story cards; the Sessions side-lane + promote-to-story.
+4. **Board UI polish** — Ready lane + dependency arrows (the planning visuals).
+5. **Role party** — uniform contract + author Architect/Critic/Security + adapt PO/QA + gates.
+6. **Audit reporting + curated learning** — per-story trace via `session-report` + extension audit view; skill extraction on done.
 
-(1)+(2) are the independently valuable first deliverable (the portfolio brain + a board that reads folders). Audit *capture* hooks land in (1)/(4); audit *reporting* in (5).
+(1)+(2) = the portfolio brain. (3) = the session/execution layer (the part you're most excited about). (4)+(5) = planning visuals + the party. (6) = audit reporting + learning.
 
 ## 13. Testing strategy
 - **Engine (vitest, the bulk)** — pure functions over fixture boards: ready-set, ranking order, transitive closure, **cycle-safe critical path (must terminate on a cyclic fixture)**, validate. One parser → one set of parser tests.
@@ -205,5 +220,5 @@ Done stories: move the whole `<id>/` folder to `.kanban/features/done/<id>/`.
 ## 14. Open questions / risks
 1. **Flat→folder migration** must be lossless and reversible; existing `.kanban/specs|plans` move *into* the relevant story folders (or stay as historical docs if not tied to a live story). Plan the mapping carefully.
 2. **CLI availability to the global skill** — the skill calls `node dist/pa-cli.js`; confirm the path resolution from an arbitrary project (the extension is installed globally, but its `dist/` lives in the VSIX install dir — the skill must locate it, e.g. via a known path or a tiny shim).
-3. **Session UUID capture** — confirm the running session's UUID is reliably available to the Conductor (transcript filename / a Claude Code-exposed value) so `sessions`/`audit.jsonl` are populated correctly.
+3. **Session UUID capture — RESOLVED.** Session id = the JSONL transcript filename in `~/.claude/projects/<proj>/<uuid>.jsonl` (each line also carries `sessionId`); launch-capture + the branch/worktree watcher bind it to a story. **New risks from the borrowed engine:** normalize `message.content` polymorphism (string|object|array); cwd→dir encoding is lossy (map forward only); `isActive` is a pure time-window (gate on new content); status heuristics are English-keyword-fragile. **Linking edge cases:** pre-branch grooming sessions rely on launch-capture; work on `main`/a shared branch needs manual link; a worktree reused across stories must disambiguate.
 4. **`order` fractional-indexing** remains the sole prioritization primitive for continuous flow; confirm scheduler ranking composes sensibly with manual drag order.
