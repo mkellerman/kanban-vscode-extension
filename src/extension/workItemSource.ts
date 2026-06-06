@@ -4,7 +4,7 @@
  * framework the MCP knows. Extension-host only (imports the MCP library, which
  * touches node:fs); never import this from the webview.
  */
-import { listWorkItems, type WorkItem } from '@kanban/backlog-mcp'
+import { listWorkItems, setBoardRoot, type WorkItem } from '@kanban/backlog-mcp'
 import type { Feature, FeatureStatus, Priority } from '../shared/types'
 
 const COLUMN_STATUS = new Set<FeatureStatus>(['backlog', 'todo', 'in-progress', 'review', 'done'])
@@ -42,8 +42,9 @@ export function toFeature(wi: WorkItem): Feature {
   }
 }
 
-/** Load the current board as Features from the Backlog MCP. */
-export async function loadBoardFeatures(): Promise<Feature[]> {
+/** Load the current board as Features from the Backlog MCP (rooted at `root`, e.g. the workspace). */
+export async function loadBoardFeatures(root?: string): Promise<Feature[]> {
+  if (root) setBoardRoot(root)
   const items = await listWorkItems()
   return items.map(toFeature)
 }

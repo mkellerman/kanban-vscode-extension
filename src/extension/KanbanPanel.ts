@@ -544,7 +544,7 @@ export class KanbanPanel {
   /** Load the board from the Backlog MCP (when dataSource = backlog-mcp), then render. */
   private async _refreshMcpFeatures(): Promise<void> {
     try {
-      this._mcpFeatures = await loadBoardFeatures()
+      this._mcpFeatures = await loadBoardFeatures(this._repo.getEffectiveRoot() ?? undefined)
     } catch (err) {
       console.error('[kanban-extension] failed to load Backlog MCP features', err)
       this._mcpFeatures = []
