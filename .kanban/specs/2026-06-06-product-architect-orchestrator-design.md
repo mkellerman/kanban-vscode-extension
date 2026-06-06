@@ -20,7 +20,7 @@ The PA is not a new workflow engine. It is the missing *breadth* layer over Supe
 
 | # | Decision | Choice |
 |---|---|---|
-| 1 | Form factor | **PA-native**: a global Conductor skill + role subagents, *and* the VS Code extension evolved to render the PA model. Not layer-only — extension code is in scope. |
+| 1 | Form factor | **One of three products** (see `2026-06-06-architecture-overview.md`). The PA = a global Conductor skill + role subagents (this spec). The **Kanban Board** extension and the **Backlog MCP** are *separate* products it composes with — the board evolves to render the shared model, but the PA is **not** inside the extension. |
 | 2 | Party stack | Custom party, informed by a deep gem-team + Superpowers analysis (best of each). |
 | 3 | Party mode | Gated pipeline by default + on-demand round-table ("convene the party on X"). |
 | 4 | Autonomy dial | Checkpoint at every column transition — PA works within a stage, stops for explicit go/no-go at each transition. |
