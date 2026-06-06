@@ -96,6 +96,16 @@ interface FrameworkAdapter {
 
 **First adapters:** `native` (our `.kanban/<id>/story.md` per-story folders — read+write), `superpowers` (specs/plans + any `.kanban` features), `bmad` (PRD/epics/stories/tasks docs), `github-issues` (via `gh`), `markdown` (`- [ ]` task lists / a `TASKS.md`). Each is ~one file; the registry auto-detects which are present.
 
+### 5.1 The `native` on-disk format
+The `native` adapter (read+write) owns the canonical layout:
+```
+.kanban/features/<id>/
+  story.md      # frontmatter (below) + body: title, acceptance criteria, context, review-feedback
+  spec.md       # design   ·   plan.md   # implementation plan   ·   audit.jsonl   # {ts,session,transition}
+  artifacts/    # screenshots, walkthroughs, generated files
+```
+`story.md` frontmatter (first-class, typed, lossless): `id`, `status` (backlog|todo|in-progress|review|done), `priority`, `epic`, `order` (fractional index), `dependsOn: [ids]`, `sessions: [uuids]`, `reviews: {role: verdict}`, `handoff: {…}`, `created`/`modified`/`completedAt`/`assignee`/`labels`. Done stories: move the whole `<id>/` folder to `.kanban/features/done/<id>/`. **Flat→folder migration** (from today's flat `<id>.md`) is a one-time, lossless/reversible converter in this adapter.
+
 ## 6. MCP surface (read-only first)
 
 | Tool | Returns / does |

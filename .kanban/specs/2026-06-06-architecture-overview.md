@@ -7,7 +7,7 @@ This effort is **three separate products**, each with a single responsibility, c
 
 | # | Product | Job | Form factor | Consumes | Spec |
 |---|---|---|---|---|---|
-| 1 | **Kanban Board** | **Visualize** work + live sessions + dependencies | VS Code extension (this repo) | Backlog MCP (library) + sessions | this repo / CLAUDE.md (+ a board-evolution spec) |
+| 1 | **Kanban Board** | **Visualize** work + live sessions + dependencies | VS Code extension (this repo) | Backlog MCP (library) + sessions | `2026-06-06-kanban-board-design.md` |
 | 2 | **Product Architect (PA) Orchestrator** | **Orchestrate** — converse, plan, conduct, gate | Global skill + role subagents (`~/.claude/`) | Backlog MCP (over MCP) + sessions | `2026-06-06-product-architect-orchestrator-design.md` |
 | 3 | **Backlog MCP** | **Normalize** heterogeneous frameworks → `WorkItem`s + graph | MCP server **+** library | local framework artifacts | `2026-06-06-backlog-mcp-design.md` |
 

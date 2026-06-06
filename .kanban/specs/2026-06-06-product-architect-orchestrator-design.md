@@ -33,11 +33,11 @@ The PA is not a new workflow engine. It is the missing *breadth* layer over Supe
 | 11 | Story layout | **Per-story folder** `<id>/` bundling `story.md` + `spec.md` + `plan.md` + `audit.jsonl` + artifacts. |
 | 12 | Data model | **Clean first-class schema** — `dependsOn`, `sessions`, etc. are real fields the extension understands. No `_extraFrontmatter` workarounds, no comma-string tolerance. |
 | 13 | Engine location | Work-item normalization + dependency graph live in **`packages/backlog-mcp`** (MCP server + library — see #19/#20). The **session-reading engine** (claudine-borrowed, MIT) stays in the extension behind the `SessionProvider`. Both vitest-tested; the PA's opinionated ranking/lifecycle is Conductor-side. |
-| 14 | Auditability & sessions | **Elevated to a core feature.** Each story links its Claude **session(s)**; a live session layer shows activity on cards; we capture `model` + token `usage` (which claudine omits). Full audit *reporting* phases later. |
+| 14 | Auditability & sessions | The PA **records story↔session links** (captures the session id at launch) + appends an audit log at each transition. The **live session layer** (rendering, model/tokens, claudine-optional) is the **Kanban Board** product; deep audit *reporting* is deferred. |
 | 15 | Unified board | One board, two card types: **story cards** (intent, gated lifecycle) primary, each with a **live session layer**, + a **Sessions side-lane** for loose sessions (link / promote-to-story). |
 | 16 | Session linking | Auto by `story/<id>` branch/worktree + launch-time capture + manual link/promote. |
 | 17 | Build on | **Own extension** (React, story-first), not a fork. Own *baseline* session engine (technique borrowed from claudine, MIT-attributed; captures model+tokens). |
-| 18 | claudine integration | **Optional, progressive enhancement** behind a `SessionProvider` abstraction: fully works with no dependency; if `claudine.claudine` is installed, enrich via its Extension API and skip our own watcher. |
+| 18 | claudine integration | **Optional** session enrichment, owned by the **Kanban Board** product (its `SessionProvider`); no hard dependency on `claudine.claudine`. |
 | 19 | Framework-agnostic data | The PA engine consumes **normalized `WorkItem`s from a separate Backlog MCP** (read-only adapters for Superpowers/BMAD/GitHub/markdown/…); our per-story-folder is just the `native` adapter. See `2026-06-06-backlog-mcp-design.md`. |
 | 20 | Repo structure | **pnpm-workspace monorepo (for now)**: extension at repo root + a single `packages/backlog-mcp` (exposes an MCP server *and* a library). **No shared types package** — agents use the MCP (instructions only); the extension imports the package. Extractable to its own repo later. |
 
@@ -75,7 +75,9 @@ The 15-agent roster (~5 suffices) · autonomous no-gate execution (you want to w
 ### 3.6 claudine — borrowed technique + optional enrichment (MIT)
 `salam/claudine` (MIT) is a VS Code kanban of Claude/Codex *sessions*. We (a) **borrow its JSONL-reading technique** for our own *baseline* session reader (§8.4), and (b) treat an installed claudine as **optional enrichment** (consume its Extension API; no hard dependency). We borrow the technique, **not** its product (its card = a session; ours = a story). Reusable fields per JSONL line: `type`, `uuid`, `parentUuid`, `timestamp`, `isSidechain`, `gitBranch`, `message.role`, `content[]` (`text`/`tool_use`/`tool_result`), `toolUseResult.interrupted`, `worktreeSession` — **plus `message.model` + `message.usage`, which claudine ignores and we capture** for the audit layer. Borrowed gotchas: `content` may be string|object|array (normalize); cwd→dir encoding is lossy (map forward only); `isActive` is a pure 2-min window (gate on new content before reacting); status/needs-input heuristics are English-keyword-fragile.
 
-## 4. Architecture — four layers
+## 4. Architecture — the PA in context
+
+> The diagram below predates the 3-product split — see `2026-06-06-architecture-overview.md` for the authoritative map. Box mapping: **PA** = Conductor + Role Party + Spine; the **"ENGINE" box** is now the **Backlog MCP** (`packages/backlog-mcp`, not `src/shared`); the **extension/board-UI box** is the separate **Kanban Board** product.
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
@@ -103,11 +105,11 @@ The 15-agent roster (~5 suffices) · autonomous no-gate execution (you want to w
    └───────────────────────────────────────────────────────────────────────┘
 ```
 
-Load-bearing decisions:
+Load-bearing decisions (PA):
 1. **Conductor is a skill** (your thread — it converses and gates). **Roles are subagents** (fresh context, uniform contract, never self-review).
-2. **One engine in `src/shared/` (TS)** is the single source of truth for schema + graph + scheduler, used by *both* the board UI and the skill's CLI — no duplicate parsers.
-3. **The per-story folder is the only ledger.** Spec/plan/audit live *inside* the story folder; nothing is smeared across sibling directories.
-4. **The board unifies intent + execution.** Story cards (the lifecycle) carry a live session layer read by the shared session engine; a Sessions side-lane holds loose sessions. Story columns stay human-gated; session activity is advisory.
+2. **The PA consumes, doesn't normalize.** Work items + the dependency graph come from the **Backlog MCP** (over the protocol); the PA never parses framework files.
+3. **The PA owns *opinionated* orchestration only** — lifecycle gates + "what's next" ranking. Story columns stay human-gated; session activity (rendered by the Board) is advisory.
+4. **One job per product.** Visualize = Board, normalize = MCP, orchestrate = PA.
 
 ## 5. The cast
 | Player | Type | Owns gate | Job |
@@ -151,81 +153,55 @@ done:     superpowers-done: seal story.md, merge/PR; curated learning extraction
 - **8.1 Normalize / validate** — validate `story.md` frontmatter against the schema; detect dependency cycles, missing `dependsOn` targets, zombie stories (>90d). (No legacy drift to reconcile — clean schema from the start.)
 - **8.2 Shared context cache** — `.kanban/context.json` (architecture snapshot, relevant files, prior decisions) injected into role prompts via `promptBuilder.ts` templating.
 - **8.3 Curated self-learning** — on `done`, extract a skill only if high-confidence + reusable + novel (dedup-checked).
-### 8.4 Sessions — the live execution layer (story ⇄ session)
-The board unifies **intent** (story cards) and **execution** (Claude sessions), linked. Borrows claudine's JSONL technique (MIT, §3.6) and extends it.
+### 8.4 Story ⇄ session linking + audit capture (the PA's session role)
+The PA's job re: sessions is **linking and audit capture** — not rendering. The **live session layer** (reading transcripts, last-tool/needs-input, the `SessionProvider` + optional claudine) belongs to the **Kanban Board** (`2026-06-06-kanban-board-design.md`); the PA does not parse transcripts.
 
-- **Session-reading engine** (in `src/shared/`, ported/adapted from claudine's `ConversationParser`, MIT-attributed): incremental **tail-parse** of `~/.claude/projects/<proj>/<uuid>.jsonl` — cache a byte-offset, read only appended bytes; LRU; shrink-detection — so huge transcripts stay cheap on every watcher fire. Extracts per session: last tool activity (`Read "x.ts"`), active/idle (2-min window), needs-input / error / interruption / rate-limit signals, sidechain (subagent) steps, git branch, worktree — **plus `model` + token `usage`, which claudine discards** (our audit gold).
-- **Optional claudine enrichment (no hard dependency):** the layer sits behind a `SessionProvider` interface. The own engine above is the always-available baseline — and the *sole* source of `model`/token data (claudine doesn't expose it). If `claudine.claudine` is detected (`vscode.extensions.getExtension`), a `ClaudineSessionProvider` enriches via its Extension API (`getConversations`, `onConversationsChanged`, `onNeedsInput`) and we skip our own watcher to avoid double-parsing. Absent claudine, everything still works. The two then coexist over the same JSONL — claudine = session view, ours = story view.
-- **Linking (#16):** a session auto-links when its `gitBranch`/cwd matches the story's `story/<id>` branch/worktree; the PA also captures the session it launches for a story (covers pre-branch grooming/planning); loose sessions can be linked or **promoted to a story** manually. Session id = the JSONL filename (resolves §14 q3).
-- **Live layer on the story card:** session count, active dot + timer, last tool, a `needs-input` badge surfaced from the session, aggregate `model`/tokens; expandable to a per-session audit timeline. **Advisory only** — session activity never auto-moves the story's column (#4 stands); it surfaces attention (a `needs-input` session can list its story in a "needs attention" view).
-- **Sessions side-lane:** loose, auto-discovered sessions (no linked story) with one-click **link** or **promote-to-story** (turn ad-hoc work into a tracked, auditable story).
-- **Audit trail:** `<id>/audit.jsonl` appends `{ts, session, transition, model, tokens}` at each lifecycle move. Full **reporting** (per-story trace via the existing `session-report` skill + an extension audit view) phases later (§12).
+- **Linking (#16):** when the PA launches an agent for a story it **captures the new session id** (the JSONL filename) and records it on the work item (written via the MCP `native` adapter). Sessions also correlate by the `story/<id>` branch/worktree; loose sessions can be linked or **promoted to a story** manually.
+- **Audit capture:** at each lifecycle move the PA appends `{ts, session, transition}` to the story's audit log. The richer per-story **trace/report** (tools, diffs, model, tokens via `session-report`) is the Board's / deferred.
+- Recorded session ids are just data on the work item; the Board reads them + the transcripts to render the live layer.
 
 ### 8.5 Framework-agnostic work items (Backlog MCP)
 The PA engine doesn't read planning files directly — it consumes **normalized `WorkItem`s from a standalone Backlog MCP** (see `.kanban/specs/2026-06-06-backlog-mcp-design.md`). Adapters normalize Superpowers / BMAD / GitHub Issues / markdown / our `native` per-story-folder format; foreign frameworks are **read-only**, with PA state kept in an overlay keyed by normalized id. This makes the PA framework-agnostic and *smaller* (no format coupling), and — being MCP — gives the Conductor a standard connection (resolving §14 q2). The **Conductor uses the MCP over the protocol** — only *usage instructions* in its skill, no shared code/types (the tool schemas are the contract); the **board imports the same package as a library**. The MCP also serves objective **graph queries** (ready-set, deps, cycles) so neither consumer reimplements them; only the PA's *opinionated* ranking + lifecycle gates are PA-side.
 
 ## 9. Install & packaging
 - **Conductor skill + role agents → global `~/.claude/`** (project-agnostic; scaffolds `.kanban/` where missing).
-- **Engine + CLI + board UI → the extension** (`src/shared/`, `src/cli/`, `src/extension/`, `src/webview/`) — versioned in this repo, shipped in the `.vsix` the user already installs across projects. The skill calls the built CLI (`node dist/pa-cli.js <cmd>`), so there is no separate global script and no duplicate parser.
+- **Work-item normalization + graph → the Backlog MCP** (`packages/backlog-mcp`); **board UI → the Kanban Board** extension (its spec). The Conductor reaches planning data **over MCP** (no CLI-path hack); it needs only usage instructions, nothing compiled.
 - **Dogfood in this repo** (the canonical board + extension).
 
-### 9.1 Extension work (now in scope)
-- **`FeatureRepository`**: read **per-story folders** (`<id>/story.md`) instead of flat `<id>.md`; treat `spec.md`/`plan.md`/`audit.jsonl` as story-scoped artifacts. Migration: a one-time converter from flat `.md` → folder.
-- **Schema**: add `dependsOn`, `sessions`, `reviews`, `handoff` as first-class fields (parsed/serialized losslessly — no `_extraFrontmatter` path for these).
-- **Board UI** (`src/webview/`): a **Ready lane** (engine's ready-set), **dependency arrows** between cards, and a **session/audit badge** (count of linked sessions; full audit view deferred).
-- **CLI** (`src/cli/pa.ts` → `dist/pa-cli.js`): `whats-next`, `before <id>`, `health`, `dump`, `seed <title>` — thin wrappers over the shared engine.
+### 9.1 Where the non-PA work lives
+- **Board/UI** (FeatureRepository → MCP-library client, Ready lane, dependency arrows, session live-layer, badges) → the **Kanban Board** product (`2026-06-06-kanban-board-design.md`).
+- **On-disk format** (per-story folders, first-class schema, flat→folder migration) → the **Backlog MCP** `native` adapter (`2026-06-06-backlog-mcp-design.md`).
+- **The PA itself** ships as a global skill + role agents (§9).
 
-## 10. Data model — per-story folder + clean schema
-```
-.kanban/features/<id>/
-  story.md        # frontmatter below + body (title, acceptance criteria, context, review-feedback)
-  spec.md         # the design (was .kanban/specs/…)
-  plan.md         # the implementation plan (was .kanban/plans/…)
-  audit.jsonl     # append-only: {ts, session, transition, model}
-  artifacts/      # screenshots, walkthroughs, generated files
-```
-`story.md` frontmatter (all first-class, typed, lossless):
-```yaml
-id: "snooze-2026-06-06"
-status: "todo"            # backlog | todo | in-progress | review | done
-priority: "high"          # critical | high | medium | low
-epic: null
-order: "a0"               # fractional index (drag order)
-dependsOn: ["other-id"]   # dependency edges — first-class list
-sessions: ["d75cfc06-…"]  # Claude session UUIDs that worked this story
-reviews: { architect: pass, security: blocking }
-handoff: { do_not_reinvestigate: [...], target_files: [...], notes: "…" }
-created: "…" · modified: "…" · completedAt: null · assignee: null · labels: []
-```
-Done stories: move the whole `<id>/` folder to `.kanban/features/done/<id>/`.
+## 10. Data model (owned elsewhere)
+The PA consumes normalized `WorkItem`s and writes via the MCP `native` adapter; it does **not** own the on-disk format. The per-story-folder layout (`.kanban/features/<id>/` with `story.md` + `spec.md`/`plan.md`/`audit.jsonl`/`artifacts/`) and the first-class schema (`dependsOn`, `sessions`, `reviews`, `handoff`) live in the **Backlog MCP** spec (`native` adapter). The PA reads/writes them only through `WorkItem`s.
 
 ## 11. Non-goals (YAGNI)
 - No second state ledger — the story folder is the only source of truth; the dependency graph is computed, not persisted.
 - No 15-agent roster; no always-on DevOps/UX.
 - No autonomous no-gate execution.
 - No story points / velocity / burndown / sprint objects.
-- The session **live layer** is in scope (build slice 3); only the deeper audit **reporting** (per-story trace via `session-report` + audit view) is deferred to slice 6.
+- The session **live layer** is the **Kanban Board** product, not the PA; the PA only records links + appends audit entries. Deep audit **reporting** is deferred.
 - No new MCP servers or external services.
 
-## 12. Build order (~6 plans)
-1. **Core engine + schema + per-story folders (extension)** — `src/shared/` schema + folder-aware reader + dependency graph (cycle-safe critical path) + scheduler + validate; `FeatureRepository` reads folders; flat→folder migration; vitest. *Foundation.*
-2. **CLI + Conductor skill** — `dist/pa-cli.js` + the global skill: the 3 intents + scaffolding. *Delivers "what's next."*
-3. **Session layer (elevated)** — a `SessionProvider` abstraction: an own baseline tail-parse engine in `src/shared/` (technique from claudine, MIT-attributed, + model/token capture) **plus an optional `ClaudineSessionProvider`** (enrich via its API if installed; no hard dependency); story⇄session linking (branch/worktree + launch capture); the live layer on story cards; the Sessions side-lane + promote-to-story.
-4. **Board UI polish** — Ready lane + dependency arrows (the planning visuals).
-5. **Role party** — uniform contract + author Architect/Critic/Security + adapt PO/QA + gates.
-6. **Audit reporting + curated learning** — per-story trace via `session-report` + extension audit view; skill extraction on done.
+## 12. Build order (PA only — Board & MCP have their own)
+The PA depends on the Backlog MCP existing first.
+1. **Conductor skill** — connect to the Backlog MCP; the 3 intents (what's next / before X / add) over the MCP's items + graph; scaffolding.
+2. **Role party** — uniform contract + author Architect/Critic/Security + adapt PO/QA + the gated lifecycle (complexity scaling, round-table).
+3. **Linking + audit capture** — record story↔session ids at launch; append audit entries at transitions.
+4. **Curated learning** on done.
 
-(1)+(2) = the portfolio brain. (3) = the session/execution layer (the part you're most excited about). (4)+(5) = planning visuals + the party. (6) = audit reporting + learning.
+(Backlog MCP build order → its spec; Kanban Board build order → its spec.)
 
-## 13. Testing strategy
-- **Engine (vitest, the bulk)** — pure functions over fixture boards: ready-set, ranking order, transitive closure, **cycle-safe critical path (must terminate on a cyclic fixture)**, validate. One parser → one set of parser tests.
-- **FeatureRepository** — reads per-story folders; flat→folder migration is idempotent and lossless.
-- **CLI** — smoke tests per command against a temp board.
-- **Role agents** — behavioral dogfood; assert uniform contract; `blocking` bounces the card back.
-- **Board UI** — any behavioral/UI step requires **`/visual-walkthrough` evidence** before done (repo policy).
+## 13. Testing strategy (PA)
+- **Role agents** — behavioral dogfood; assert the uniform contract; a `blocking` verdict bounces the card back.
+- **Conductor intents** — against a fixture board served by the Backlog MCP: what's-next ranking, before-X path, add-seeding.
+- **Linking/audit capture** — session id recorded at launch; audit entries appended at transitions.
+- **Per repo policy** — any behavioral/UI step requires **`/visual-walkthrough` evidence** before done.
+(Engine/graph tests live in the Backlog MCP spec; board-rendering tests in the Kanban Board spec.)
 
 ## 14. Open questions / risks
-1. **Flat→folder migration** must be lossless and reversible; existing `.kanban/specs|plans` move *into* the relevant story folders (or stay as historical docs if not tied to a live story). Plan the mapping carefully.
+1. **Flat→folder migration** (lossless/reversible; existing `.kanban/specs|plans` move into story folders) is owned by the **Backlog MCP** `native` adapter — see its spec. Coordinate the cutover with the Board (which stops reading raw files).
 2. **Engine reach from the global skill — RESOLVED via MCP.** Planning data is served by the **Backlog MCP** (and sessions by the `SessionProvider`); the Conductor connects over MCP the standard way — no `dist/pa-cli.js` path-discovery hack. (A thin CLI may still exist for non-MCP callers, but it's no longer the primary reach.)
 3. **Session UUID capture — RESOLVED.** Session id = the JSONL transcript filename in `~/.claude/projects/<proj>/<uuid>.jsonl` (each line also carries `sessionId`); launch-capture + the branch/worktree watcher bind it to a story. **New risks from the borrowed engine:** normalize `message.content` polymorphism (string|object|array); cwd→dir encoding is lossy (map forward only); `isActive` is a pure time-window (gate on new content); status heuristics are English-keyword-fragile. **Linking edge cases:** pre-branch grooming sessions rely on launch-capture; work on `main`/a shared branch needs manual link; a worktree reused across stories must disambiguate.
 4. **`order` fractional-indexing** remains the sole prioritization primitive for continuous flow; confirm scheduler ranking composes sensibly with manual drag order.
