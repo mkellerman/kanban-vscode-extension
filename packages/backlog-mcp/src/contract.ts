@@ -96,12 +96,54 @@ export const ListSessionsInput = {
   workItemId: z.string().optional()
 }
 
+export const SetStatusInput = {
+  id: z.string(),
+  status: z.enum(NORM_STATUS),
+}
+
+export const CreateItemInputShape = {
+  type:               z.enum(WORK_ITEM_TYPE),
+  title:              z.string(),
+  status:             z.enum(NORM_STATUS).optional(),
+  priority:           z.enum(PRIORITY).nullish(),
+  parent:             z.string().nullish(),
+  dependsOn:          z.array(z.string()).optional(),
+  labels:             z.array(z.string()).optional(),
+  estimate:           z.string().nullish(),
+  acceptanceCriteria: z.array(z.string()).optional(),
+  body:               z.string().optional(),
+}
+
+export const UpdateItemInputShape = {
+  id:    z.string(),
+  patch: z.object({
+    title:              z.string().optional(),
+    status:             z.enum(NORM_STATUS).optional(),
+    priority:           z.enum(PRIORITY).nullish(),
+    parent:             z.string().nullish(),
+    dependsOn:          z.array(z.string()).optional(),
+    labels:             z.array(z.string()).optional(),
+    estimate:           z.string().nullish(),
+    acceptanceCriteria: z.array(z.string()).optional(),
+  }),
+}
+
+export const SetBodyInput = {
+  id:   z.string(),
+  body: z.string(),
+}
+
 /** Catalogue of tools the server exposes — names + descriptions are the contract. */
 export const TOOL_DESCRIPTIONS = {
   detect_frameworks: 'List the frameworks present in scope: [{ framework, root, itemCount }].',
   list_work_items: 'List normalized WorkItems, optionally filtered by type/status/framework/parent.',
   get_work_item: 'Get one normalized WorkItem by id (overlay merged).',
   get_item_body: 'Get the full markdown/text body for a work item by id.',
+  set_status: 'Set the status of a work item by id (native adapter only).',
+  create_item: 'Create a new work item in the native adapter. Returns the created WorkItem.',
+  update_item: 'Patch frontmatter fields (and title/AC in body) of an existing work item. Returns the updated WorkItem.',
+  set_body: 'Replace the markdown body of a work item (frontmatter unchanged).',
+  delete_item: 'Delete a work item and its entire folder (native adapter only).',
   dependency_graph: 'Objective graph over the items: ready-set, blocked (with waitingOn), cycles.',
   list_sessions: 'List normalized Claude/Codex Sessions, optionally filtered by project/workItemId.',
   get_session: 'Get one normalized Session by id (uuid).'
