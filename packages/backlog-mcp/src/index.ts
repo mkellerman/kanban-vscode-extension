@@ -8,6 +8,7 @@
 export * from './contract'
 
 import type { WorkItem, Session, DependencyGraph, FrameworkInfo, NormStatus } from './contract'
+import type { CreateItemInput, ItemPatch } from './adapters/types'
 import { readProjectSessions } from './sessions/reader'
 export { setSessionsDir } from './sessions/reader'
 import { Registry } from './adapters/registry'
@@ -71,6 +72,32 @@ export async function setStatus(id: string, status: string): Promise<void> {
   const adapter = getRegistry().adapterFor(id)
   if (!adapter?.setStatus) throw new Error(`read-only or unknown adapter for "${id}"`)
   await adapter.setStatus(getRegistry().context(), id, status)
+}
+
+/** Creates a new item in the native adapter (the only writable target). */
+export async function createItem(input: CreateItemInput): Promise<WorkItem> {
+  return nativeAdapter.createItem!(getRegistry().context(), input)
+}
+
+/** Patches frontmatter fields of an existing item (native only; foreign → throws). */
+export async function updateItem(id: string, patch: ItemPatch): Promise<WorkItem> {
+  const adapter = getRegistry().adapterFor(id)
+  if (!adapter?.updateItem) throw new Error(`read-only or unknown adapter for "${id}"`)
+  return adapter.updateItem(getRegistry().context(), id, patch)
+}
+
+/** Replaces the markdown body of an item (native only; foreign → throws). */
+export async function setBody(id: string, body: string): Promise<void> {
+  const adapter = getRegistry().adapterFor(id)
+  if (!adapter?.setBody) throw new Error(`read-only or unknown adapter for "${id}"`)
+  return adapter.setBody(getRegistry().context(), id, body)
+}
+
+/** Removes the item's entire folder (native only; foreign → throws). */
+export async function deleteItem(id: string): Promise<void> {
+  const adapter = getRegistry().adapterFor(id)
+  if (!adapter?.deleteItem) throw new Error(`read-only or unknown adapter for "${id}"`)
+  return adapter.deleteItem(getRegistry().context(), id)
 }
 
 // ---- Sessions (real JSONL via the reader; project-scoped to the board root) ----

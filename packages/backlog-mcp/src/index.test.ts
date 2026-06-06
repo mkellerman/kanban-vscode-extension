@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest'
 import { resolve, join } from 'node:path'
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -77,5 +77,73 @@ describe('sessions (read from disk, project-scoped)', () => {
       await rm(tmp, { recursive: true, force: true })
       setBoardRoot(board)
     }
+  })
+})
+
+describe('library write operations', () => {
+  let tmpRoot: string
+
+  beforeEach(async () => {
+    tmpRoot = await mkdtemp(join(tmpdir(), 'pa-lib-'))
+    await mkdir(join(tmpRoot, '.kanban', 'features'), { recursive: true })
+    setBoardRoot(tmpRoot)
+  })
+
+  afterEach(async () => {
+    setBoardRoot(board) // restore — `board` is defined at the top of this test file
+    await rm(tmpRoot, { recursive: true, force: true })
+  })
+
+  it('createItem creates via the native adapter and returns a WorkItem', async () => {
+    const { createItem } = await import('./index')
+    const item = await createItem({ type: 'story', title: 'Library Story' })
+    expect(item.id).toMatch(/^native:library-story-/)
+    expect(item.source.framework).toBe('native')
+    const items = await listWorkItems()
+    expect(items.some((i) => i.id === item.id)).toBe(true)
+  })
+
+  it('updateItem patches the item and returns the updated WorkItem', async () => {
+    const { createItem, updateItem } = await import('./index')
+    const created = await createItem({ type: 'task', title: 'Patch Me' })
+    const updated = await updateItem(created.id, { status: 'in-progress' })
+    expect(updated.status).toBe('in-progress')
+  })
+
+  it('setBody replaces the body', async () => {
+    const { createItem, setBody, getItemBody } = await import('./index')
+    const created = await createItem({ type: 'story', title: 'Body Story' })
+    await setBody(created.id, '# Body Story\n\nreplaced content\n')
+    const body = await getItemBody(created.id)
+    expect(body).toMatch(/replaced content/)
+  })
+
+  it('deleteItem removes the item', async () => {
+    const { createItem, deleteItem } = await import('./index')
+    const created = await createItem({ type: 'story', title: 'To Delete' })
+    await deleteItem(created.id)
+    const items = await listWorkItems()
+    expect(items.some((i) => i.id === created.id)).toBe(false)
+  })
+
+  it('updateItem throws "read-only" for a foreign adapter id', async () => {
+    const { updateItem } = await import('./index')
+    await expect(updateItem('kanban-markdown:foo', { status: 'done' })).rejects.toThrow(
+      'read-only or unknown adapter for "kanban-markdown:foo"'
+    )
+  })
+
+  it('setBody throws "read-only" for a foreign adapter id', async () => {
+    const { setBody } = await import('./index')
+    await expect(setBody('kanban-markdown:foo', '# x')).rejects.toThrow(
+      'read-only or unknown adapter for "kanban-markdown:foo"'
+    )
+  })
+
+  it('deleteItem throws "read-only" for a foreign adapter id', async () => {
+    const { deleteItem } = await import('./index')
+    await expect(deleteItem('kanban-markdown:foo')).rejects.toThrow(
+      'read-only or unknown adapter for "kanban-markdown:foo"'
+    )
   })
 })
