@@ -1,19 +1,32 @@
 /**
- * @kanban/backlog-mcp — library surface (stub).
+ * @kanban/backlog-mcp — library surface.
  *
- * The Kanban Board imports these functions in-process; the MCP server (server.ts)
- * wraps the same functions as tools. In this stub they read FIXTURES; the MCP track
- * replaces the data source with real framework + session adapters — the signatures
- * (the contract) stay put.
+ * Work items come from the adapter Registry (real boards); the Kanban Board imports
+ * these functions in-process and the MCP server (server.ts) wraps them as tools.
+ * Sessions remain fixture-backed until the sessions-domain slice.
  */
 export * from './contract'
 
-import type {
-  WorkItem, Session, DependencyGraph, FrameworkInfo, NormStatus
-} from './contract'
-import { FIXTURE_WORK_ITEMS, FIXTURE_SESSIONS } from './fixtures'
+import type { WorkItem, Session, DependencyGraph, FrameworkInfo, NormStatus } from './contract'
+import { FIXTURE_SESSIONS } from './fixtures'
+import { Registry } from './adapters/registry'
+import { nativeAdapter } from './adapters/native'
 
 const STARTABLE: NormStatus[] = ['backlog', 'todo']
+
+let boardRoot = process.env.PA_BOARD_ROOT ?? process.cwd()
+let registry: Registry | null = null
+
+/** Point the library at a project root (default: PA_BOARD_ROOT env or cwd). */
+export function setBoardRoot(root: string): void {
+  boardRoot = root
+  registry = null
+}
+
+function getRegistry(): Registry {
+  if (!registry) registry = new Registry([nativeAdapter], { root: boardRoot })
+  return registry
+}
 
 export interface WorkItemFilter {
   type?: string
@@ -22,8 +35,9 @@ export interface WorkItemFilter {
   parent?: string | null
 }
 
-export function listWorkItems(filter: WorkItemFilter = {}): WorkItem[] {
-  return FIXTURE_WORK_ITEMS.filter(
+export async function listWorkItems(filter: WorkItemFilter = {}): Promise<WorkItem[]> {
+  const items = await getRegistry().listItems()
+  return items.filter(
     (i) =>
       (!filter.type || i.type === filter.type) &&
       (!filter.status || i.status === filter.status) &&
@@ -32,22 +46,32 @@ export function listWorkItems(filter: WorkItemFilter = {}): WorkItem[] {
   )
 }
 
-export function getWorkItem(id: string): WorkItem | undefined {
-  return FIXTURE_WORK_ITEMS.find((i) => i.id === id)
+export async function getWorkItem(id: string): Promise<WorkItem | undefined> {
+  return (await getRegistry().listItems()).find((i) => i.id === id)
 }
 
-export function getItemBody(id: string): string {
-  const item = getWorkItem(id)
-  return item ? `# ${item.title}\n\n_(stub body for ${id})_` : ''
-}
-
-export function detectFrameworks(): FrameworkInfo[] {
-  const counts = new Map<string, number>()
-  for (const i of FIXTURE_WORK_ITEMS) {
-    counts.set(i.source.framework, (counts.get(i.source.framework) ?? 0) + 1)
+export async function getItemBody(id: string): Promise<string> {
+  const adapter = getRegistry().adapterFor(id)
+  if (!adapter) return ''
+  try {
+    return await adapter.getBody(getRegistry().context(), id)
+  } catch {
+    return ''
   }
-  return [...counts].map(([framework, itemCount]) => ({ framework, root: process.cwd(), itemCount }))
 }
+
+export async function detectFrameworks(): Promise<FrameworkInfo[]> {
+  return getRegistry().detectFrameworks()
+}
+
+/** Native adapter is read+write; foreign ids throw (read-only). */
+export async function setStatus(id: string, status: string): Promise<void> {
+  const adapter = getRegistry().adapterFor(id)
+  if (!adapter?.setStatus) throw new Error(`read-only or unknown adapter for "${id}"`)
+  await adapter.setStatus(getRegistry().context(), id, status)
+}
+
+// ---- Sessions (fixture-backed until the sessions-domain slice) ----
 
 export function listSessions(filter: { project?: string; workItemId?: string } = {}): Session[] {
   return FIXTURE_SESSIONS.filter(
@@ -61,8 +85,10 @@ export function getSession(id: string): Session | undefined {
   return FIXTURE_SESSIONS.find((s) => s.id === id)
 }
 
-/** Objective dependency graph over the items — cycle-safe (visited-guarded DFS). */
-export function dependencyGraph(items: WorkItem[] = FIXTURE_WORK_ITEMS): DependencyGraph {
+// ---- Dependency graph ----
+
+/** Pure, cycle-safe graph over the given items. */
+export function computeDependencyGraph(items: WorkItem[]): DependencyGraph {
   const byId = new Map(items.map((i) => [i.id, i]))
   const isDone = (id: string) => byId.get(id)?.status === 'done'
   const startable = (i: WorkItem) => STARTABLE.includes(i.status)
@@ -70,7 +96,6 @@ export function dependencyGraph(items: WorkItem[] = FIXTURE_WORK_ITEMS): Depende
   const readySet = items
     .filter((i) => startable(i) && i.dependsOn.every(isDone))
     .map((i) => i.id)
-
   const blocked = items
     .filter((i) => startable(i) && !i.dependsOn.every(isDone))
     .map((i) => ({ id: i.id, waitingOn: i.dependsOn.filter((d) => !isDone(d)) }))
@@ -98,4 +123,9 @@ function detectCycles(items: WorkItem[]): string[][] {
   }
   for (const i of items) if (color.get(i.id) === WHITE) visit(i.id)
   return cycles
+}
+
+/** Graph over the current board. */
+export async function dependencyGraph(): Promise<DependencyGraph> {
+  return computeDependencyGraph(await listWorkItems())
 }
