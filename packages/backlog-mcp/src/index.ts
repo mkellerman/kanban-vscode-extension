@@ -11,6 +11,7 @@ import type { WorkItem, Session, DependencyGraph, FrameworkInfo, NormStatus } fr
 import { FIXTURE_SESSIONS } from './fixtures'
 import { Registry } from './adapters/registry'
 import { nativeAdapter } from './adapters/native'
+import { kanbanMarkdownAdapter } from './adapters/kanban-markdown'
 
 const STARTABLE: NormStatus[] = ['backlog', 'todo']
 
@@ -24,7 +25,7 @@ export function setBoardRoot(root: string): void {
 }
 
 function getRegistry(): Registry {
-  if (!registry) registry = new Registry([nativeAdapter], { root: boardRoot })
+  if (!registry) registry = new Registry([nativeAdapter, kanbanMarkdownAdapter], { root: boardRoot })
   return registry
 }
 
