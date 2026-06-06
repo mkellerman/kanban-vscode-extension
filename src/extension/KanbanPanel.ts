@@ -1,6 +1,7 @@
 import * as vscode from 'vscode'
 import * as crypto from 'crypto'
 import * as path from 'path'
+import * as fs from 'fs'
 import { getTitleFromContent, generateFeatureFilename, DEFAULT_COLUMNS } from '../shared/types'
 import type { Feature, FeatureStatus, Priority, KanbanColumn, FeatureFrontmatter, CardDisplaySettings, FilenamePattern, BoardViewMode } from '../shared/types'
 import { serializeFeature } from '../shared/featureFrontmatter'
@@ -324,12 +325,15 @@ export class KanbanPanel {
   }
 
   private _getHtmlForWebview(webview: vscode.Webview): string {
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview', 'index.js')
-    )
-    const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview', 'style.css')
-    )
+    const extPath = this._extensionUri.fsPath
+    const bundlePath = path.join(extPath, 'dist', 'webview', 'index.js')
+    const stylePath  = path.join(extPath, 'dist', 'webview', 'style.css')
+
+    // Workaround for Electron 42 / Chrome 148 resource-URL pipeline corruption:
+    // loading large bundles via vscode-resource:// can deliver doubled content to
+    // the V8 parser. Inlining avoids the pipeline entirely.
+    const inlineBundle = fs.readFileSync(bundlePath, 'utf8')
+    const inlineStyle  = fs.readFileSync(stylePath,  'utf8')
 
     const nonce = this._getNonce()
 
@@ -338,13 +342,17 @@ export class KanbanPanel {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';">
-  <link href="${styleUri}" rel="stylesheet">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
+  <style nonce="${nonce}">${inlineStyle}</style>
   <title>Kanban Board</title>
 </head>
 <body>
   <div id="root"></div>
-  <script nonce="${nonce}" src="${scriptUri}"></script>
+  <script nonce="${nonce}">
+    window.__vsApi = acquireVsCodeApi();
+    globalThis.acquireVsCodeApi = function () { return window.__vsApi; };
+  </script>
+  <script nonce="${nonce}">${inlineBundle}</script>
 </body>
 </html>`
   }

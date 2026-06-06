@@ -27,6 +27,3 @@ eslint.config.mjs
 .gitignore
 .vsixignore
 CONTRIBUTING.md
-CLAUDE.md
-.prettierignore
-.mcp.json
