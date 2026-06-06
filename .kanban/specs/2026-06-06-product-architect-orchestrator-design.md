@@ -32,6 +32,7 @@ The PA is **not a new workflow engine**. It is the missing *breadth* layer on to
 | 8 | Self-learning | **Curated, gated skill extraction on `done`** (high-confidence + reusable + novel, dedup-checked) + durable decisions → `context.json` |
 | 9 | Standup | **Reactive** — briefs on request only; no SessionStart hook, no automatic token spend |
 | 10 | Install scope | **Global** (`~/.claude/`), project-agnostic; scaffolds `.kanban/` in projects that lack one; dogfooded in this repo |
+| 11 | PA state storage | **Frontmatter** (`blockedBy`/`reviews`/`handoff`), enabled by fixing the lossy `_extraFrontmatter` round-trip — the one in-scope extension change (§10/§14.1) |
 
 ## 3. Best-of-both analysis (the foundation)
 
@@ -79,7 +80,7 @@ Load-bearing patterns the PA preserves unchanged:
 
 - The **15-agent roster** → we need ~5.
 - **Autonomous no-gate wave execution** → you *want* to witness each card move (decision #4).
-- **Parallel YAML/JSON/PRD state sprawl** → **the feature `.md` (frontmatter + body) is the only ledger**; no second source of truth that can drift.
+- **Parallel YAML/JSON/PRD state sprawl** → **the feature `.md` frontmatter is the only ledger**; no second source of truth that can drift.
 - An LLM reviewer's verdict as the **final done-decision** for UI/behavioral work → your `/visual-walkthrough` policy + human go/no-go remain authoritative.
 
 ### 3.5 awesome-copilot sourcing map (what to author / adapt / reuse)
@@ -130,7 +131,7 @@ Three load-bearing decisions in this picture:
 
 1. **The Conductor is a *skill*, not a subagent** — it must converse with you and stop at gates, so it runs in *your* main thread. (Subagents can't talk to you. This is what makes "keep me in the loop" structural, not aspirational.)
 2. **The roles are *subagents*** — fresh curated context, no session pollution, uniform contract. Matches both gem-team and Superpowers' "never review your own work."
-3. **The board is the *only* ledger, one file per story** — native fields in frontmatter; PA state in the markdown body (round-trip-safe — see §10/§14.1). Specs and plans are *derived* docs; the card is truth. No parallel store to drift.
+3. **The board is the *only* ledger, one file per story** — all state in frontmatter (PA fields `blockedBy`/`reviews`/`handoff` are round-trip-safe after the §10 fix). Specs and plans are *derived* docs; the card is truth. No parallel store to drift.
 
 ## 5. The cast
 
@@ -166,7 +167,7 @@ learnings:
   decisions: []
 ```
 
-The latest verdicts persist into the story's `## Reviews` body section (not frontmatter — see §14.1) so they survive outside the chat; a future extension can render them as badges.
+The latest verdicts persist into the card's `reviews` frontmatter map (`reviews: {architect: pass, security: blocking}`) so they survive outside the chat; a future extension can render them as badges. (Frontmatter storage is made round-trip-safe by the §10/§14.1 fix.)
 
 ## 6. The conversational brain
 
@@ -209,7 +210,7 @@ PA:  Seeded backlog card snooze-story-until-date. Product Owner is drafting acce
 `board health` (normalize/validate — drift, zombies, cycles), `what's blocked and why`, `status of epic X`, `convene the party on X` (round-table).
 
 ### 6.5 Dependency graph
-Built by parsing each story's `## Dependencies` body section (lists blocking ids) across the board. Provides: ready-set, transitive closure, critical path, **cycle detection** (gem-planner's "no circular deps"). Body storage round-trips losslessly; frontmatter does not for arrays (§14.1). The graph is *computed on demand* (optionally cached in `.kanban/context.json`, regenerable), so there is no separate authoritative store to drift.
+Built by parsing each story's `blockedBy` frontmatter list (filenames/ids) across the board — exactly the field `instructions.md` already declares. Provides: ready-set, transitive closure, critical path, **cycle detection** (gem-planner's "no circular deps"). Frontmatter storage is made round-trip-safe by the §10/§14.1 fix (the parser also tolerates a legacy comma-string). The graph is *computed on demand* (optionally cached in `.kanban/context.json`, regenerable), so there is no separate authoritative store to drift.
 
 ## 7. The lifecycle (conducting, with your gates)
 
@@ -293,47 +294,43 @@ per-project (PA scaffolds if absent):
 ### 9.1 Extension seams (hybrid — layer first)
 Clean contracts so a future extension chat panel reuses this logic with no rework:
 - **Scheduler + dependency graph** = pure function of frontmatter → lift into `src/extension/` TS later to drive a "Ready" lane, dependency arrows, a "what's next" panel.
-- **Role verdicts** persist into the `## Reviews` body section → render as card badges later.
-- **Dependencies** live in the story body now (round-trip-safe) → promote to a first-class `blockedBy` field + dependency-arrow UI later, once the extension round-trips losslessly (§14.1).
+- **Role verdicts** persist into the `reviews` frontmatter map → render as card badges later.
+- **`blockedBy`** is a frontmatter list (round-trip-safe after the §10 fix) → add a first-class typed field + dependency-arrow UI later.
 - **Intents** = named/documented → expose as extension buttons/commands later.
 
-## 10. PA state storage — markdown body sections (not frontmatter)
+## 10. Frontmatter schema additions + the round-trip fix
 
-**Decision (2026-06-06):** the extension's frontmatter round-trip is lossy for arrays/maps (§14.1) and we chose **not** to add extension code now, so the PA's structured state lives in **dedicated sections of each story's markdown body** — which round-trips losslessly (`content` is preserved verbatim by `parseFeatureFile`/`serializeFeature`) and travels with the card (no separate store to drift). This is consistent with how the Superpowers spine already writes the body (acceptance criteria, `## Review Feedback Tasks`). Example sections:
+**Decision (2026-06-06):** PA structured state lives in **frontmatter** as proper YAML — aligning with `instructions.md`, which already declares `blockedBy` as a frontmatter list. This requires first fixing the lossy `_extraFrontmatter` round-trip (the one justified extension change; see §14.1). Fields:
 
-```md
-## Dependencies
-blockedBy:
-- other-story-id
-- another-story-id
-
-## Reviews
-- architect: pass        (2026-06-06)
-- security: blocking      (2026-06-06) — secrets in diff
-
-## Handoff
-do_not_reinvestigate: root cause confirmed in X
-target_files: src/foo.ts, src/bar.ts
-notes: write the failing test for the null case first
+```yaml
+blockedBy: ["other-story-id", "another-story-id"]   # dependency edges (ids) — already declared in instructions.md
+reviews:                                            # latest role verdicts
+  architect: pass            # pass | needs_revision | blocking
+  security: blocking
+handoff:                                            # baton across column transitions
+  do_not_reinvestigate: ["root cause confirmed in X"]
+  target_files: ["src/foo.ts", "src/bar.ts"]
+  notes: "write the failing test for the null case first"
 ```
 
-- Native frontmatter (`status`, `priority`, `epic`, `order`, `assignee`, `labels`, `worktree`) stays in frontmatter — extension-owned, round-trips fine.
-- The board-level **dependency graph** is *computed* by scanning every story's `## Dependencies` section; not separately persisted (optionally cached in `.kanban/context.json`, regenerable).
-- **Upgrade path:** if we later make `_extraFrontmatter` lossless or promote `blockedBy` to a first-class field, these migrate into frontmatter (the seam in §9.1).
-- **Alternative considered & rejected as default:** JSON sidecars (`.kanban/state/<id>.json` / a global `graph.json`) — a separate file can drift from the board and isn't visible in the card; body sections keep one file per story. Easy to switch if preferred.
+- **The enabling fix (foundation task):** `src/shared/featureFrontmatter.ts` must preserve arbitrary YAML in `_extraFrontmatter` instead of `String(val)`, and `serializeFeature` must write it back faithfully (`yaml`'s `doc.createNode(value)` handles arbitrary JS values). `Feature._extraFrontmatter` becomes `Record<string, unknown>`. This also fixes the latent bug affecting every custom schema (e.g. `superpowers`).
+- Native frontmatter (`status`, `priority`, `epic`, `order`, `assignee`, `labels`, `worktree`) is unchanged — already in `KNOWN_KEYS`.
+- `blockedBy`/`reviews`/`handoff` are **not** added to `KNOWN_KEYS` — they round-trip via the now-lossless `_extraFrontmatter`, keeping the fix schema-agnostic (benefits all custom fields). The PA's own reader parses them from frontmatter directly.
+- **Tolerant read:** the PA also accepts a legacy comma-string `blockedBy` (from any pre-fix corruption) and normalizes it to a list.
+- The board-level **dependency graph** is *computed* by scanning every story's `blockedBy`; not separately persisted (optionally cached in `.kanban/context.json`, regenerable).
 
 ## 11. Non-goals (YAGNI)
 
-- No second state ledger — the feature `.md` (frontmatter + body) is the only source of truth; the dependency graph is computed, not persisted.
+- No second state ledger — feature `.md` frontmatter is the only source of truth; the dependency graph is computed, not persisted.
 - No 15-agent roster; no always-on DevOps/UX.
 - No autonomous no-gate execution.
 - No story points / velocity / burndown / sprint objects.
-- No extension UI today (only the seams in §9.1).
+- No extension UI today (only the seams in §9.1). The **one** in-scope extension change is the `_extraFrontmatter` round-trip fix (§10) — no UI, no new features.
 - No new MCP servers or external services.
 
 ## 12. Build order (decomposes into ~3 implementation plans)
 
-1. **Body-section schema + normalize/validate** — define & parse the `## Dependencies`/`## Reviews`/`## Handoff` body sections, reconcile drift, extend `instructions.md`. (Foundation.)
+1. **Round-trip fix + frontmatter schema + normalize/validate** — make `_extraFrontmatter` lossless (`featureFrontmatter.ts` + `Feature` type + vitest), so `blockedBy`/`reviews`/`handoff` round-trip in frontmatter; reconcile drift; extend `instructions.md`. (Foundation.)
 2. **Conductor brain** — board read + dependency graph + scheduler + the 3 intents. *First plan; testable on day one, delivers "what's next" immediately.*
 3. **Role party** — uniform contract + author Architect/Critic/Security + adapt PO/QA.
 4. **Conducting** — wire roles into the lifecycle gates + complexity scaling + round-table.
@@ -344,7 +341,7 @@ notes: write the failing test for the null case first
 ## 13. Testing strategy
 
 - **Scheduler + dependency graph** — unit-testable pure logic against fixture boards: ready-set correctness, critical-path computation, cycle detection, ranking order. This is the most testable surface; build it as a small module with fixtures.
-- **Body-section parser** — round-trip test: write `## Dependencies`/`## Reviews`/`## Handoff`, parse back, assert structure preserved; simulate an extension parse→serialize cycle and confirm the body survives intact.
+- **Round-trip fix (extension, vitest)** — parse→serialize→parse a feature file with an array field (`blockedBy`) and a nested-map field (`reviews`/`handoff`); assert structural equality (currently fails: arrays become comma-strings, maps become `[object Object]`). The foundation test.
 - **Normalize/validate** — test against the known drift fixtures (`worktree`/`workspace`, `completed`/`done`, dir reconciliation).
 - **Role agents** — behavioral: dogfood on real stories in this repo; assert each returns a well-formed uniform contract; assert a `blocking` verdict bounces the card back and appends `## Review Feedback Tasks`.
 - **Lifecycle conducting** — drive one real story end-to-end in this repo; verify each `▣` gate stops and each `◆` gate scales by `priority`.
@@ -352,7 +349,7 @@ notes: write the failing test for the null case first
 
 ## 14. Open questions / assumptions to verify
 
-1. **[VERIFIED 2026-06-06 — assumption is FALSE for structured fields]** `_extraFrontmatter` round-trips unknown fields *lossily*: `src/shared/featureFrontmatter.ts:40` coerces every unknown value with `String(val)`. On the next extension re-serialize (any card mutation via the board UI), a YAML **array** `blockedBy: ["a","b"]` collapses to the string `"a,b"`, and a **map** (`reviews`, `handoff`) becomes `"[object Object]"` — total loss. Only scalar unknown fields survive. **Implication:** the structured fields in §10 are NOT safe with the current extension. Resolved by the *round-trip storage decision*: (a) make `_extraFrontmatter` lossless — small fix to `featureFrontmatter.ts` to preserve arbitrary YAML and serialize it faithfully (benefits all custom schemas, e.g. `superpowers`); (b) keep PA state in a sidecar/body, not frontmatter; or (c) flatten to round-trip-safe scalars. **[RESOLVED 2026-06-06 → chose (b): store PA state in markdown body sections (§10); no extension code now. Option (a), lossless `_extraFrontmatter`, is the documented upgrade path and a fix for the latent custom-schema data-loss bug — flagged separately.]**
+1. **[VERIFIED 2026-06-06 — assumption is FALSE for structured fields]** `_extraFrontmatter` round-trips unknown fields *lossily*: `src/shared/featureFrontmatter.ts:40` coerces every unknown value with `String(val)`. On the next extension re-serialize (any card mutation via the board UI), a YAML **array** `blockedBy: ["a","b"]` collapses to the string `"a,b"`, and a **map** (`reviews`, `handoff`) becomes `"[object Object]"` — total loss. Only scalar unknown fields survive. **Implication:** the structured fields in §10 are NOT safe with the current extension. Resolved by the *round-trip storage decision*: (a) make `_extraFrontmatter` lossless — small fix to `featureFrontmatter.ts` to preserve arbitrary YAML and serialize it faithfully (benefits all custom schemas, e.g. `superpowers`); (b) keep PA state in a sidecar/body, not frontmatter; or (c) flatten to round-trip-safe scalars. **[RESOLVED 2026-06-06 → chose (a): fix `_extraFrontmatter` to be lossless so PA state lives in frontmatter (§10), aligning with the `blockedBy` field `instructions.md` already declares. This is the one in-scope extension change and also fixes the latent custom-schema data-loss bug; the PA additionally tolerates a legacy comma-string `blockedBy`.]**
 2. **Promoting lifecycle skills to global** must not break their project-local assumptions (they read `.kanban/instructions.md` relative to the workspace — confirm that resolves correctly from a global install).
 3. **Reading large boards** via Glob+Read is fine initially; a small read-only board-dump helper script is a deferred performance nicety.
 4. **`order` fractional-indexing** is the sole prioritization primitive for "continuous flow" — confirm the scheduler's age/priority ranking composes sensibly with manually dragged `order`.
