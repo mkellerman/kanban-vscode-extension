@@ -1,0 +1,24 @@
+{
+  "name": "@kanban/product-architect",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Product Architect — opinionated orchestration (what's-next ranking) over the Backlog MCP.",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@kanban/backlog-mcp": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.3.0",
+    "vitest": "~4.0.18"
+  }
+}

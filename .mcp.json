@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "backlog": {
+      "command": "pnpm",
+      "args": ["-F", "@kanban/backlog-mcp", "exec", "tsx", "src/server.ts"],
+      "env": { "PA_BOARD_ROOT": "${workspaceFolder}" }
+    }
+  }
+}
