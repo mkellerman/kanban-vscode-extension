@@ -1,4 +1,5 @@
 {
+  "kanban-extension.dataSource": "backlog-mcp",
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
