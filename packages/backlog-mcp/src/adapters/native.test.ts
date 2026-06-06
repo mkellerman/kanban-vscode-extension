@@ -293,3 +293,77 @@ describe('native adapter — setBody', () => {
     }
   })
 })
+
+describe('native adapter — deleteItem', () => {
+  it('removes the item folder and it no longer appears in listItems', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      const dir = join(root, '.kanban', 'features', 'del-1')
+      await mkdir(dir, { recursive: true })
+      await writeFile(
+        join(dir, 'story.md'),
+        '---\nid: "del-1"\nstatus: "todo"\n---\n# Del 1\n',
+        'utf8'
+      )
+      expect((await nativeAdapter.listItems({ root })).some((i) => i.id === 'native:del-1')).toBe(true)
+      await nativeAdapter.deleteItem!({ root }, 'native:del-1')
+      expect((await nativeAdapter.listItems({ root })).some((i) => i.id === 'native:del-1')).toBe(false)
+      // getBody now throws
+      await expect(nativeAdapter.getBody({ root }, 'native:del-1')).rejects.toThrow('story not found')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('deletes correctly when item lives in done/', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      const dir = join(root, '.kanban', 'features', 'done', 'del-done')
+      await mkdir(dir, { recursive: true })
+      await writeFile(
+        join(dir, 'story.md'),
+        '---\nid: "del-done"\nstatus: "done"\n---\n# Del Done\n',
+        'utf8'
+      )
+      await nativeAdapter.deleteItem!({ root }, 'native:del-done')
+      await expect(nativeAdapter.getBody({ root }, 'native:del-done')).rejects.toThrow('story not found')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('native adapter — CRUD conformance round-trip', () => {
+  it('create → list → update → setBody → getBody → delete', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      await mkdir(join(root, '.kanban', 'features'), { recursive: true })
+
+      // create
+      const item = await nativeAdapter.createItem!({ root }, {
+        type: 'task',
+        title: 'Conformance Task',
+        status: 'backlog',
+      })
+      expect(item.id).toMatch(/^native:conformance-task-/)
+
+      // list finds it
+      expect((await nativeAdapter.listItems({ root })).some((i) => i.id === item.id)).toBe(true)
+
+      // update patches it
+      const updated = await nativeAdapter.updateItem!({ root }, item.id, { status: 'in-progress' })
+      expect(updated.status).toBe('in-progress')
+
+      // setBody + getBody
+      await nativeAdapter.setBody!({ root }, item.id, '# Conformance Task\n\nnew body content\n')
+      const body = await nativeAdapter.getBody({ root }, item.id)
+      expect(body).toMatch(/new body content/)
+
+      // delete removes it
+      await nativeAdapter.deleteItem!({ root }, item.id)
+      expect((await nativeAdapter.listItems({ root })).some((i) => i.id === item.id)).toBe(false)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+})

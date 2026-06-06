@@ -208,4 +208,9 @@ export const nativeAdapter: FrameworkAdapter = {
     const { fm } = splitFrontmatter(text)
     await writeFile(path, `---\n${stringify(fm)}---\n${newBody}`, 'utf8')
   },
+
+  async deleteItem(ctx: AdapterContext, itemId: string): Promise<void> {
+    const { folderPath } = await resolveStoryPath(ctx.root, stripNs(itemId))
+    await rm(folderPath, { recursive: true })
+  },
 }
