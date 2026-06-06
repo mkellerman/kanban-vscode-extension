@@ -1,5 +1,7 @@
 # Product Architect — Conductor Brain (Slice 1) Implementation Plan
 
+> ⚠️ **SUPERSEDED (2026-06-06)** by the v2 design (PA-native: per-story folders, a shared-TS engine, first-class schema, no `_extraFrontmatter` workaround). This plan reflects the earlier layer-first / round-trip-fix / zero-dep-`.mjs` approach. Kept only for its TDD task structure; a v2 plan replaces it once the v2 spec is approved.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship the read-only "Conductor brain" — answer *what's next*, *what's needed before X*, and seed *add xyz* — plus the foundation fix that lets PA state (`blockedBy`/`reviews`/`handoff`) round-trip in feature frontmatter.
