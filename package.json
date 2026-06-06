@@ -35,11 +35,18 @@
   ],
   "activationEvents": [
     "onWebviewPanel:kanban-extension.panel",
-    "onView:kanban-extension.boardView"
+    "onView:kanban-extension.boardView",
+    "onMcpServerDefinitionProvider:kanban.backlog"
   ],
   "main": "./dist/extension.js",
   "l10n": "./l10n",
   "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "kanban.backlog",
+        "label": "Kanban Backlog"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -327,12 +334,14 @@
   },
   "scripts": {
     "vscode:prepublish": "pnpm run build",
-    "build": "pnpm run build:extension && pnpm run build:webview",
+    "build": "pnpm run build:extension && pnpm run build:mcp-server && pnpm run build:webview",
     "build:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "build:mcp-server": "esbuild packages/backlog-mcp/src/server.ts --bundle --outfile=dist/mcp-server.js --format=cjs --platform=node",
     "build:webview": "vite build",
     "check-bundle-size": "pnpm run build:webview && tsx scripts/check-bundle-size.ts",
-    "watch": "concurrently \"pnpm run watch:extension\" \"pnpm run watch:webview\"",
+    "watch": "concurrently \"pnpm run watch:extension\" \"pnpm run watch:mcp-server\" \"pnpm run watch:webview\"",
     "watch:extension": "esbuild src/extension/index.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --watch",
+    "watch:mcp-server": "esbuild packages/backlog-mcp/src/server.ts --bundle --outfile=dist/mcp-server.js --format=cjs --platform=node --watch",
     "watch:webview": "vite build --watch",
     "dev": "pnpm run watch",
     "lint": "eslint src",

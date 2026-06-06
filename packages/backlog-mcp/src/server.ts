@@ -52,5 +52,7 @@ server.registerTool(
   async ({ id }) => asText((await lib.getSession(id)) ?? null)
 )
 
-await server.connect(new StdioServerTransport())
-console.error('[backlog-mcp] server running on stdio (board root:', process.env.PA_BOARD_ROOT ?? process.cwd(), ')')
+void (async () => {
+  await server.connect(new StdioServerTransport())
+  console.error('[backlog-mcp] server running on stdio (board root:', process.env.PA_BOARD_ROOT ?? process.cwd(), ')')
+})()
