@@ -25,7 +25,7 @@ function toWorkItem(folder: string, text: string, path: string): WorkItem {
     children: [],
     dependsOn: deps.map((d) => id(stripNs(d))),
     labels: Array.isArray(fm.labels) ? (fm.labels as unknown[]).map(String) : [],
-    estimate: null,
+    estimate: typeof fm.estimate === 'string' ? fm.estimate : null,
     acceptanceCriteria: acceptanceCriteria(body),
     bodyRef: `${id(folder)}#body`
   }
