@@ -179,6 +179,12 @@
           ],
           "description": "%config.defaultStatus.description%"
         },
+        "kanban-extension.dataSource": {
+          "type": "string",
+          "enum": ["files", "backlog-mcp"],
+          "default": "files",
+          "description": "Board data source: 'files' (markdown features) or 'backlog-mcp' (normalized work items from the Backlog MCP — experimental)."
+        },
         "kanban-extension.columns": {
           "type": "array",
           "default": [
