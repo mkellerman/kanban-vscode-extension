@@ -38,6 +38,7 @@ The PA is not a new workflow engine. It is the missing *breadth* layer over Supe
 | 16 | Session linking | Auto by `story/<id>` branch/worktree + launch-time capture + manual link/promote. |
 | 17 | Build on | **Own extension** (React, story-first), not a fork. Own *baseline* session engine (technique borrowed from claudine, MIT-attributed; captures model+tokens). |
 | 18 | claudine integration | **Optional, progressive enhancement** behind a `SessionProvider` abstraction: fully works with no dependency; if `claudine.claudine` is installed, enrich via its Extension API and skip our own watcher. |
+| 19 | Framework-agnostic data | The PA engine consumes **normalized `WorkItem`s from a separate Backlog MCP** (read-only adapters for Superpowers/BMAD/GitHub/markdown/…); our per-story-folder is just the `native` adapter. See `2026-06-06-backlog-mcp-design.md`. |
 
 ## 3. Best-of-both analysis (unchanged foundation)
 
@@ -159,6 +160,9 @@ The board unifies **intent** (story cards) and **execution** (Claude sessions), 
 - **Sessions side-lane:** loose, auto-discovered sessions (no linked story) with one-click **link** or **promote-to-story** (turn ad-hoc work into a tracked, auditable story).
 - **Audit trail:** `<id>/audit.jsonl` appends `{ts, session, transition, model, tokens}` at each lifecycle move. Full **reporting** (per-story trace via the existing `session-report` skill + an extension audit view) phases later (§12).
 
+### 8.5 Framework-agnostic work items (Backlog MCP)
+The PA engine doesn't read planning files directly — it consumes **normalized `WorkItem`s from a standalone Backlog MCP** (see `.kanban/specs/2026-06-06-backlog-mcp-design.md`). Adapters normalize Superpowers / BMAD / GitHub Issues / markdown / our `native` per-story-folder format; foreign frameworks are **read-only**, with PA state kept in an overlay keyed by normalized id. This makes the PA framework-agnostic and *smaller* (no format coupling), and — being MCP — gives the Conductor a standard connection (resolving §14 q2). Orchestration (dependency graph, scheduler, lifecycle) stays in the PA, computed from the normalized items.
+
 ## 9. Install & packaging
 - **Conductor skill + role agents → global `~/.claude/`** (project-agnostic; scaffolds `.kanban/` where missing).
 - **Engine + CLI + board UI → the extension** (`src/shared/`, `src/cli/`, `src/extension/`, `src/webview/`) — versioned in this repo, shipped in the `.vsix` the user already installs across projects. The skill calls the built CLI (`node dist/pa-cli.js <cmd>`), so there is no separate global script and no duplicate parser.
@@ -221,6 +225,6 @@ Done stories: move the whole `<id>/` folder to `.kanban/features/done/<id>/`.
 
 ## 14. Open questions / risks
 1. **Flat→folder migration** must be lossless and reversible; existing `.kanban/specs|plans` move *into* the relevant story folders (or stay as historical docs if not tied to a live story). Plan the mapping carefully.
-2. **CLI availability to the global skill** — the skill calls `node dist/pa-cli.js`; confirm the path resolution from an arbitrary project (the extension is installed globally, but its `dist/` lives in the VSIX install dir — the skill must locate it, e.g. via a known path or a tiny shim).
+2. **Engine reach from the global skill — RESOLVED via MCP.** Planning data is served by the **Backlog MCP** (and sessions by the `SessionProvider`); the Conductor connects over MCP the standard way — no `dist/pa-cli.js` path-discovery hack. (A thin CLI may still exist for non-MCP callers, but it's no longer the primary reach.)
 3. **Session UUID capture — RESOLVED.** Session id = the JSONL transcript filename in `~/.claude/projects/<proj>/<uuid>.jsonl` (each line also carries `sessionId`); launch-capture + the branch/worktree watcher bind it to a story. **New risks from the borrowed engine:** normalize `message.content` polymorphism (string|object|array); cwd→dir encoding is lossy (map forward only); `isActive` is a pure time-window (gate on new content); status heuristics are English-keyword-fragile. **Linking edge cases:** pre-branch grooming sessions rely on launch-capture; work on `main`/a shared branch needs manual link; a worktree reused across stories must disambiguate.
 4. **`order` fractional-indexing** remains the sole prioritization primitive for continuous flow; confirm scheduler ranking composes sensibly with manual drag order.
