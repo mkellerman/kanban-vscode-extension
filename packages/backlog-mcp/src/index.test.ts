@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { resolve } from 'node:path'
+import { resolve, join } from 'node:path'
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { setSessionsDir, encodeProjectDir } from './sessions/reader'
 import { WorkItemSchema, SessionSchema } from './contract'
 import { FIXTURE_WORK_ITEMS, FIXTURE_SESSIONS } from './fixtures'
 import {
@@ -53,9 +56,26 @@ describe('pure dependency graph (cycle-safe)', () => {
   })
 })
 
-describe('sessions (fixture-backed for now)', () => {
-  it('lists and links sessions to work items', () => {
-    expect(getSession('d75cfc06-19f0-4bd6-889c-9aff5f24be72')?.workItemId).toBe('native:ready-lane-ui')
-    expect(listSessions({ workItemId: 'gh:#42' })).toHaveLength(1)
+describe('sessions (read from disk, project-scoped)', () => {
+  it('reads project sessions from the configured sessions dir', async () => {
+    const proj = '/tmp/pa-demo-project'
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-projects-'))
+    try {
+      const dir = join(tmp, encodeProjectDir(proj))
+      await mkdir(dir, { recursive: true })
+      await writeFile(
+        join(dir, 'sess-1.jsonl'),
+        `{"type":"assistant","timestamp":"2026-06-06T12:00:00.000Z","gitBranch":"story/x","cwd":"${proj}","message":{"role":"assistant","model":"m","usage":{"input_tokens":10,"output_tokens":5},"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"a.ts"}}]}}\n`
+      )
+      setSessionsDir(tmp)
+      setBoardRoot(proj)
+      const sessions = await listSessions()
+      expect(sessions.map((s) => s.id)).toEqual(['sess-1'])
+      expect(sessions[0].lastActivity).toBe('Edit "a.ts"')
+      expect((await getSession('sess-1'))?.tokens).toBe(15)
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+      setBoardRoot(board)
+    }
   })
 })

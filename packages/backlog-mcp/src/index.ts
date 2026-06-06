@@ -8,7 +8,8 @@
 export * from './contract'
 
 import type { WorkItem, Session, DependencyGraph, FrameworkInfo, NormStatus } from './contract'
-import { FIXTURE_SESSIONS } from './fixtures'
+import { readProjectSessions } from './sessions/reader'
+export { setSessionsDir } from './sessions/reader'
 import { Registry } from './adapters/registry'
 import { nativeAdapter } from './adapters/native'
 import { kanbanMarkdownAdapter } from './adapters/kanban-markdown'
@@ -72,18 +73,19 @@ export async function setStatus(id: string, status: string): Promise<void> {
   await adapter.setStatus(getRegistry().context(), id, status)
 }
 
-// ---- Sessions (fixture-backed until the sessions-domain slice) ----
+// ---- Sessions (real JSONL via the reader; project-scoped to the board root) ----
 
-export function listSessions(filter: { project?: string; workItemId?: string } = {}): Session[] {
-  return FIXTURE_SESSIONS.filter(
+export async function listSessions(filter: { project?: string; workItemId?: string } = {}): Promise<Session[]> {
+  const sessions = await readProjectSessions(boardRoot)
+  return sessions.filter(
     (s) =>
       (!filter.project || s.project === filter.project) &&
       (filter.workItemId === undefined || s.workItemId === filter.workItemId)
   )
 }
 
-export function getSession(id: string): Session | undefined {
-  return FIXTURE_SESSIONS.find((s) => s.id === id)
+export async function getSession(id: string): Promise<Session | undefined> {
+  return (await readProjectSessions(boardRoot)).find((s) => s.id === id)
 }
 
 // ---- Dependency graph ----

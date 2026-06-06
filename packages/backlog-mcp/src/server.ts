@@ -44,12 +44,12 @@ server.registerTool(
 server.registerTool(
   'list_sessions',
   { description: TOOL_DESCRIPTIONS.list_sessions, inputSchema: ListSessionsInput },
-  async (args) => asText(lib.listSessions(args))
+  async (args) => asText(await lib.listSessions(args))
 )
 server.registerTool(
   'get_session',
   { description: TOOL_DESCRIPTIONS.get_session, inputSchema: IdInput },
-  async ({ id }) => asText(lib.getSession(id) ?? null)
+  async ({ id }) => asText((await lib.getSession(id)) ?? null)
 )
 
 await server.connect(new StdioServerTransport())
