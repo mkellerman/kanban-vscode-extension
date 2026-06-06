@@ -1,8 +1,8 @@
-import { readdir, readFile, writeFile, stat } from 'node:fs/promises'
+import { readdir, readFile, writeFile, stat, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { stringify } from 'yaml'
-import type { WorkItem, NormStatus, Priority } from '../contract'
-import type { FrameworkAdapter, AdapterContext } from './types'
+import type { WorkItem, NormStatus, Priority, WorkItemType } from '../contract'
+import type { FrameworkAdapter, AdapterContext, CreateItemInput } from './types'
 import { splitFrontmatter, titleFromBody, acceptanceCriteria } from './markdown'
 
 const NS = 'native'
@@ -17,7 +17,7 @@ function toWorkItem(folder: string, text: string, path: string): WorkItem {
   return {
     id: id(folder),
     source: { framework: NS, path },
-    type: 'story',
+    type: (fm.type as WorkItemType) ?? 'story',
     title: titleFromBody(body, folder),
     status: (fm.status as NormStatus) ?? 'backlog',
     priority: (fm.priority as Priority) ?? null,
@@ -74,6 +74,40 @@ async function resolveStoryPath(
   throw new Error(`story not found: ${folderId}`)
 }
 
+function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+async function generateFolderId(root: string, title: string): Promise<string> {
+  const date = new Date().toISOString().slice(0, 10)
+  const base = `${slugify(title)}-${date}`
+  const dir = featuresDir(root)
+  let candidate = base
+  let i = 2
+  for (;;) {
+    try {
+      await stat(join(dir, candidate))
+      candidate = `${base}-${i++}`
+    } catch {
+      return candidate
+    }
+  }
+}
+
+function buildBody(input: { title: string; body?: string; acceptanceCriteria?: string[] }): string {
+  if (input.body !== undefined) return input.body
+  let result = `# ${input.title}\n`
+  if (input.acceptanceCriteria?.length) {
+    result += `\n## Acceptance criteria\n${input.acceptanceCriteria.map((ac) => `- [ ] ${ac}`).join('\n')}\n`
+  }
+  return result
+}
+
 export const nativeAdapter: FrameworkAdapter = {
   name: NS,
 
@@ -104,5 +138,30 @@ export const nativeAdapter: FrameworkAdapter = {
     fm.status = status
     fm.modified = new Date().toISOString()
     await writeFile(path, `---\n${stringify(fm)}---\n${body}`, 'utf8')
-  }
+  },
+
+  async createItem(ctx: AdapterContext, input: CreateItemInput): Promise<WorkItem> {
+    const folderId = await generateFolderId(ctx.root, input.title)
+    const folderPath = join(featuresDir(ctx.root), folderId)
+    await mkdir(folderPath, { recursive: true })
+    const now = new Date().toISOString()
+    const fm: Record<string, unknown> = {
+      id: folderId,
+      type: input.type,
+      status: input.status ?? 'backlog',
+      priority: input.priority ?? null,
+      epic: input.parent ? stripNs(input.parent) : null,
+      order: null,
+      dependsOn: (input.dependsOn ?? []).map((d) => stripNs(d)),
+      labels: input.labels ?? [],
+      estimate: input.estimate ?? null,
+      sessions: [],
+      created: now,
+      modified: now,
+    }
+    const body = buildBody(input)
+    const path = join(folderPath, 'story.md')
+    await writeFile(path, `---\n${stringify(fm)}---\n${body}`, 'utf8')
+    return toWorkItem(folderId, await readFile(path, 'utf8'), path)
+  },
 }

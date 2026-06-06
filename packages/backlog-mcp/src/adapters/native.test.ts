@@ -91,3 +91,73 @@ describe('native adapter — done/ path resolution', () => {
     }
   })
 })
+
+describe('native adapter — createItem', () => {
+  it('creates a story folder + story.md and returns a WorkItem', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      await mkdir(join(root, '.kanban', 'features'), { recursive: true })
+      const item = await nativeAdapter.createItem!({ root }, {
+        type: 'story',
+        title: 'My New Story',
+        status: 'todo',
+        priority: 'high',
+        labels: ['alpha'],
+      })
+      expect(item.id).toMatch(/^native:my-new-story-\d{4}-\d{2}-\d{2}$/)
+      expect(item.type).toBe('story')
+      expect(item.title).toBe('My New Story')
+      expect(item.status).toBe('todo')
+      expect(item.priority).toBe('high')
+      expect(item.labels).toEqual(['alpha'])
+
+      // listItems picks it up
+      const items = await nativeAdapter.listItems({ root })
+      expect(items.some((i) => i.id === item.id)).toBe(true)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('defaults status to backlog when not provided', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      await mkdir(join(root, '.kanban', 'features'), { recursive: true })
+      const item = await nativeAdapter.createItem!({ root }, { type: 'epic', title: 'My Epic' })
+      expect(item.status).toBe('backlog')
+      expect(item.type).toBe('epic')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('appends a numeric suffix when the slug already exists', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      await mkdir(join(root, '.kanban', 'features'), { recursive: true })
+      const a = await nativeAdapter.createItem!({ root }, { type: 'task', title: 'Clash' })
+      const b = await nativeAdapter.createItem!({ root }, { type: 'task', title: 'Clash' })
+      expect(a.id).not.toBe(b.id)
+      expect(b.id).toMatch(/-2$/)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('includes acceptance criteria in the body when provided', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      await mkdir(join(root, '.kanban', 'features'), { recursive: true })
+      const item = await nativeAdapter.createItem!({ root }, {
+        type: 'story',
+        title: 'AC Story',
+        acceptanceCriteria: ['passes tests', 'ships to prod'],
+      })
+      const body = await nativeAdapter.getBody({ root }, item.id)
+      expect(body).toMatch(/- \[ \] passes tests/)
+      expect(item.acceptanceCriteria).toEqual(['passes tests', 'ships to prod'])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+})
