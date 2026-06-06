@@ -1,4 +1,4 @@
-# Design: Backlog MCP — a framework-agnostic work-item normalizer
+# Design: Backlog MCP — a framework-agnostic work + session normalizer
 
 **Date:** 2026-06-06
 **Status:** spec v1 — pending user review
@@ -11,9 +11,9 @@
 
 Every planning framework stores work differently — Superpowers (`.kanban/` + specs/plans), BMAD (PRD → epics → stories → tasks), GitHub Issues, Jira/Linear exports, plain-markdown checklists. An agent built for one is blind to the others, and re-teaching it each format is endless.
 
-**Backlog MCP** is a local **MCP server** that reads heterogeneous planning artifacts from whatever framework(s) a workspace uses and serves them as **one normalized model of work items** over MCP. Any MCP-capable agent — the Product Architect, Claude Code, Cursor, anything — becomes **framework-agnostic for free**. Adding a framework = adding an adapter; consumers change nothing.
+**Backlog MCP** is a local **MCP server** that reads heterogeneous local artifacts — planning (Superpowers/BMAD/GitHub/markdown/native) **and** Claude/Codex **sessions** (JSONL) — and serves them as **two normalized models** (`WorkItem`s + `Session`s) over MCP. Any MCP-capable agent — the Product Architect, the Kanban Board, Claude Code, Cursor — becomes **framework-agnostic for free**. Adding a framework or session source = adding an adapter; consumers change nothing.
 
-> The principle the PA is built on: **depend on capabilities, not formats.** Backlog MCP is the planning-side capability. (The session-side analogue is the PA's `SessionProvider` / claudine layer — same pattern, see §9.)
+> The principle the PA is built on: **depend on capabilities, not formats.** Backlog MCP provides **both** capabilities — planning (`WorkItem`s) and execution (`Session`s) — so the Board and PA never read raw artifacts themselves.
 
 ## 2. Decisions locked
 
@@ -24,6 +24,8 @@ Every planning framework stores work differently — Superpowers (`.kanban/` + s
 | 3 | Packaging | **Single monorepo package for now** — `packages/backlog-mcp` (pnpm workspace; extension stays at root), exposing **both an MCP server** (for agents) **and a library** (the extension imports it). Co-developed with the PA, **extractable to its own repo later**. `npx`-distributable as a server. **No separate `contracts` package.** |
 | 4 | Write authority | The **native adapter is read+write** (it's our own format); **foreign adapters are read-only**; foreign PA-state goes to the overlay. |
 | 5 | Scope | Normalize + serve, **plus objective derived queries** (dependency graph: ready-set, deps closure, critical path, cycles) — computed once so neither consumer reimplements them. **Opinionated orchestration stays in the PA** ("what's next" ranking weights, lifecycle gates, conducting). |
+| 6 | Two domains | Normalizes **work items AND sessions**. Sessions: read Claude/Codex JSONL (tail-parse, claudine technique, MIT) → normalized `Session`s (status, last activity, model, tokens); **claudine-optional enrichment lives here**, not in the Board. (Resolves the old one-vs-two question → one server, two domains.) |
+| 7 | Deployment scope | **Project scope** (repo `.mcp.json`) → this repo only. **User scope** (global) → all projects. Same server, mode set by config. Sessions cross-project = free (all under `~/.claude/projects/*`); planning cross-project needs a **project-root registry** (the session-dir encoding is lossy). |
 
 ### Repo layout (monorepo, for now)
 Lives in the kanban-extension repo as a single pnpm-workspace package; the extension stays at the repo root.
@@ -106,6 +108,12 @@ The `native` adapter (read+write) owns the canonical layout:
 ```
 `story.md` frontmatter (first-class, typed, lossless): `id`, `status` (backlog|todo|in-progress|review|done), `priority`, `epic`, `order` (fractional index), `dependsOn: [ids]`, `sessions: [uuids]`, `reviews: {role: verdict}`, `handoff: {…}`, `created`/`modified`/`completedAt`/`assignee`/`labels`. Done stories: move the whole `<id>/` folder to `.kanban/features/done/<id>/`. **Flat→folder migration** (from today's flat `<id>.md`) is a one-time, lossless/reversible converter in this adapter.
 
+### 5.2 Sessions domain (the execution side)
+The MCP also normalizes **Claude/Codex sessions** so the Board (render live activity) and the PA (link + audit) consume them the same way as work items — neither reads JSONL itself.
+- **Reader:** incremental **tail-parse** of `~/.claude/projects/<proj>/<uuid>.jsonl` (byte-offset cache, read only appended bytes; LRU; shrink-detection) — claudine's technique (MIT), so huge transcripts stay cheap. Extracts: last tool activity, active/idle, needs-input/error/interruption/rate-limit, sidechain steps, git branch, worktree — **plus `model` + token `usage`** (which claudine omits).
+- **claudine-optional:** if `claudine.claudine` is installed, a session adapter enriches via its Extension API and we skip our own watcher; absent it, the own reader covers everything. No hard dependency.
+- **Normalized `Session`:** `{ id (uuid), project, status, lastActivity, gitBranch, worktree, model, tokens, workItemId? }`. Linked to a `WorkItem` by recorded session id (the PA writes it at launch) and/or `story/<id>` branch/worktree.
+
 ## 6. MCP surface (read-only first)
 
 | Tool | Returns / does |
@@ -116,6 +124,7 @@ The `native` adapter (read+write) owns the canonical layout:
 | `get_item_body(id)` | full markdown/text for an item |
 | `refresh()` | invalidate caches / force re-scan |
 | `dependency_graph()` / `ready_set()` | objective graph over the items: ready-set (all deps satisfied), transitive closure, critical path, cycle detection |
+| `list_sessions({ project?, workItemId? })` / `get_session(id)` | normalized `Session`s (live status/activity/model/tokens); filter by project or linked work item |
 | `set_status(id, status)` | **native adapter only** for now; foreign → error "read-only" until per-adapter write-back ships |
 
 `dependency_graph()` / `ready_set()` **are** here — they're objective queries *over* the normalized items, computed once so neither the board nor the Conductor reimplements them. What stays **out**: the PA's *opinionated* decisions — "what's next" ranking weights and lifecycle gates live in the PA. Backlog MCP answers "what exists and how it depends," not "what you should do about it."
@@ -126,6 +135,12 @@ The `native` adapter (read+write) owns the canonical layout:
 - Optional file watching emits an MCP notification (or the consumer polls `refresh()`); cheap because adapters re-parse only changed files.
 - Adapters must be **defensive** (skip malformed items, never throw on one bad file) and **fast** (lazy bodies via `bodyRef`).
 
+### 7.1 Deployment scope — project vs user
+Same server; the mode is set by where it's registered:
+- **Project scope** (repo `.mcp.json`, root = the repo): serve only this repo's framework artifacts + its sessions (filter `~/.claude/projects/` to this repo's encoded cwd).
+- **User scope** (global MCP config, no single root): serve **all** projects. *Sessions:* enumerate every `~/.claude/projects/*` dir — clean and cross-project. *Planning:* aggregate across a **project-root registry** the server maintains (seeded by repos it's run in, or a configured list), because the `~/.claude/projects` dir encoding is lossy and can't be reverse-mapped to repo paths reliably.
+- The mode is an explicit flag/env the launcher sets; the same adapters run either way (one project-root vs many).
+
 ## 8. The overlay (consumer state without mutation)
 
 Foreign frameworks are read-only, but a consumer (the PA) needs to attach its own state (sessions, reviews, handoff, and a `pa_status` when its lifecycle differs from the source's). That state lives in an **overlay store keyed by normalized id** (e.g. `.kanban/overlay/<id>.json`), merged into `WorkItem.overlay` at read time. The **native** adapter needs no overlay — its items hold their own state in `story.md`. **Status authority** (§14 q1): for foreign items the source's `status` is authoritative for its fields; the overlay's `pa_status` is a separate, clearly-labeled lifecycle marker.
@@ -133,7 +148,7 @@ Foreign frameworks are read-only, but a consumer (the PA) needs to attach its ow
 ## 9. Relationship to the PA & the session normalizer
 
 - **PA:** its engine (dependency graph, scheduler, "what's next", conducting) consumes `WorkItem[]` from Backlog MCP. The PA's per-story-folder is just the `native` adapter. This makes the PA framework-agnostic and *smaller*, and — because it's MCP — the Conductor skill connects the standard way (resolving the PA spec's §14.2 CLI-reach problem).
-- **Session normalizer (symmetry):** the PA's `SessionProvider` (own JSONL reader + optional claudine) is the *execution-side* version of this exact pattern. **Open choice (§14):** one MCP server with two domains (work items + sessions) or two servers. Either way, the PA consumes normalized capabilities, not formats.
+- **Sessions (§5.2):** the MCP normalizes sessions too — the Board renders them, the PA links + audits them. This is now **inside** the MCP, not a separate `SessionProvider` in the Board/PA (resolving the old one-vs-two question: one server, two domains). claudine-optional lives here.
 
 ## 10. Non-goals
 
@@ -148,8 +163,9 @@ Foreign frameworks are read-only, but a consumer (the PA) needs to attach its ow
 2. **Superpowers + markdown adapters** — prove multi-framework on real repos.
 3. **BMAD adapter** — the headline second framework.
 4. **GitHub Issues adapter** (via `gh`).
-5. **Native write (`set_status`) + watching/notifications.**
-6. **(Later) per-adapter write-back** for foreign frameworks.
+5. **Sessions domain** — JSONL tail-parse reader + normalized `Session` + `list_sessions`/`get_session` + claudine-optional + scope-aware enumeration (project vs user).
+6. **Native write (`set_status`) + watching/notifications.**
+7. **(Later) per-adapter write-back** for foreign frameworks.
 
 (1) alone makes the PA framework-agnostic over our own format via a clean MCP boundary; (2)+(3) deliver the actual cross-framework payoff.
 
@@ -164,6 +180,7 @@ Foreign frameworks are read-only, but a consumer (the PA) needs to attach its ow
 
 1. **Status authority** between a foreign source and the PA overlay (§8) — confirm `source.status` vs `overlay.pa_status` precedence and how the board displays both.
 2. **Stable cross-framework ids** — namespacing scheme must survive re-scans and item renames (BMAD story files can be renamed; GitHub numbers are stable; markdown checklist items have no natural id — hash of text + position?).
-3. **One server vs two** (work items + sessions) — decide alongside the PA's session layer (§9).
+3. **One server vs two — RESOLVED:** one server, two domains (work items + sessions; §5.2/§6).
 4. **Dependency expression varies** — BMAD/GitHub express deps differently (or not at all); the adapter must infer `dependsOn` where the framework lacks it (e.g. GitHub "blocked by #N" text, BMAD story ordering).
-5. **Distribution** — `npx` standalone vs bundled-in-the-extension vs both; how the PA discovers/launches it.
+5. **User-scope planning discovery** — sessions enumerate cleanly from `~/.claude/projects/*`, but planning artifacts need each repo's root, and the dir encoding is lossy → user scope needs a project-root **registry** (auto-seeded vs user-configured — TBD).
+6. **Distribution** — `npx` standalone vs bundled-in-the-extension vs both; how consumers discover/launch it (and pass the scope mode).
