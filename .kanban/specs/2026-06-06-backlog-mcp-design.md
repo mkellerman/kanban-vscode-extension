@@ -19,23 +19,23 @@ Every planning framework stores work differently — Superpowers (`.kanban/` + s
 
 | # | Decision | Choice |
 |---|---|---|
-| 1 | Consumer coupling | Consumers (incl. the PA) talk **only** to the normalized model; **our `.kanban/` format is just one adapter** ("native"), not special-cased. |
+| 1 | Consumer coupling | Consumers talk **only** to the normalized model. **Agents (the PA Conductor) use the MCP server** — they need usage instructions, nothing compiled/shared. **The extension imports the same package as a library.** Our `.kanban/` format is just one adapter (`native`), not special-cased. |
 | 2 | Direction | **Read-only first** for foreign frameworks — never mutate someone else's BMAD/Jira/GitHub files. Consumer-specific state lives in an **overlay** keyed by normalized id. (Per-adapter write-back is a later opt-in.) |
-| 3 | Packaging | **Monorepo package for now** — `packages/backlog-mcp` in this repo (pnpm workspace; shared types in `packages/contracts`; extension stays at root), co-developed with the PA and **extractable to its own repo later** (the package boundary keeps it standalone). A Node/TS **MCP server**, `npx`-distributable; the PA extension can launch or connect to it. |
+| 3 | Packaging | **Single monorepo package for now** — `packages/backlog-mcp` (pnpm workspace; extension stays at root), exposing **both an MCP server** (for agents) **and a library** (the extension imports it). Co-developed with the PA, **extractable to its own repo later**. `npx`-distributable as a server. **No separate `contracts` package.** |
 | 4 | Write authority | The **native adapter is read+write** (it's our own format); **foreign adapters are read-only**; foreign PA-state goes to the overlay. |
-| 5 | Scope | Normalize + serve. **Orchestration stays in the consumer** (the PA owns the dependency graph / scheduler / lifecycle); Backlog MCP just answers "what work exists, normalized." |
+| 5 | Scope | Normalize + serve, **plus objective derived queries** (dependency graph: ready-set, deps closure, critical path, cycles) — computed once so neither consumer reimplements them. **Opinionated orchestration stays in the PA** ("what's next" ranking weights, lifecycle gates, conducting). |
 
 ### Repo layout (monorepo, for now)
-Lives in the kanban-extension repo as a pnpm-workspace package; the extension stays at the repo root.
+Lives in the kanban-extension repo as a single pnpm-workspace package; the extension stays at the repo root.
 ```
-/                     # repo root = the VS Code extension (PA engine: graph/scheduler/validate)
+/                     # repo root = the VS Code extension
   pnpm-workspace.yaml # packages: ['packages/*']
-  src/…               # extension code; note the extension's own internal src/shared/ is unrelated
   packages/
-    contracts/        # @repo/contracts — WorkItem + NormStatus + normalized session types (pure, no deps)
-    backlog-mcp/      # @repo/backlog-mcp — the MCP server + adapters (depends on @repo/contracts)
+    backlog-mcp/      # @repo/backlog-mcp — normalizer + adapters + graph, exposed two ways:
+                      #   • MCP server entrypoint  → agents (the PA Conductor) use this over the protocol
+                      #   • library export         → the extension imports it in-process
 ```
-Named `contracts` (not `shared`) to avoid colliding with the extension's existing `src/shared/`. Extraction later = lift out `packages/backlog-mcp` + `packages/contracts`.
+**Nothing extra is shared.** Agents get the contract from the MCP **tool schemas** at runtime (just need usage instructions); the extension imports the same package as a library. No separate types package (an earlier `contracts` idea — dropped). Extraction later = lift out `packages/backlog-mcp`.
 
 ## 3. Architecture
 
@@ -105,9 +105,10 @@ interface FrameworkAdapter {
 | `get_work_item(id)` | one `WorkItem` (with `overlay` merged) |
 | `get_item_body(id)` | full markdown/text for an item |
 | `refresh()` | invalidate caches / force re-scan |
+| `dependency_graph()` / `ready_set()` | objective graph over the items: ready-set (all deps satisfied), transitive closure, critical path, cycle detection |
 | `set_status(id, status)` | **native adapter only** for now; foreign → error "read-only" until per-adapter write-back ships |
 
-Orchestration tools (`dependency_graph`, `whats_next`) are deliberately **NOT** here — they belong to the consumer (the PA computes them from `list_work_items`). Backlog MCP answers "what exists," not "what to do."
+`dependency_graph()` / `ready_set()` **are** here — they're objective queries *over* the normalized items, computed once so neither the board nor the Conductor reimplements them. What stays **out**: the PA's *opinionated* decisions — "what's next" ranking weights and lifecycle gates live in the PA. Backlog MCP answers "what exists and how it depends," not "what you should do about it."
 
 ## 7. 'Live' semantics, caching & watching
 
