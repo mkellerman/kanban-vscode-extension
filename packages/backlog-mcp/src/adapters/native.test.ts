@@ -44,3 +44,50 @@ describe('native adapter', () => {
     }
   })
 })
+
+describe('native adapter — done/ path resolution', () => {
+  async function makeDoneItem(root: string, itemId: string): Promise<void> {
+    const dir = join(root, '.kanban', 'features', 'done', itemId)
+    await mkdir(dir, { recursive: true })
+    await writeFile(
+      join(dir, 'story.md'),
+      `---\nid: "${itemId}"\nstatus: "done"\npriority: "low"\n---\n# Item ${itemId}\n`,
+      'utf8'
+    )
+  }
+
+  it('setStatus writes correctly when item lives in done/', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      await makeDoneItem(root, 'done-item')
+      await nativeAdapter.setStatus!({ root }, 'native:done-item', 'in-progress')
+      const items = await nativeAdapter.listItems({ root })
+      expect(items.find((i) => i.id === 'native:done-item')?.status).toBe('in-progress')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('getBody reads correctly when item lives in done/', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      await makeDoneItem(root, 'done-body')
+      const body = await nativeAdapter.getBody({ root }, 'native:done-body')
+      expect(body).toMatch(/# Item done-body/)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('getBody throws for a story that does not exist', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'pa-native-'))
+    try {
+      await mkdir(join(root, '.kanban', 'features'), { recursive: true })
+      await expect(nativeAdapter.getBody({ root }, 'native:missing')).rejects.toThrow(
+        'story not found: missing'
+      )
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+})

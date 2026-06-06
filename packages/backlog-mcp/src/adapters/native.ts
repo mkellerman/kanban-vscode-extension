@@ -54,8 +54,24 @@ async function listStoryFolders(dir: string): Promise<{ folder: string; path: st
   return out
 }
 
-function storyPath(root: string, itemId: string): string {
-  return join(featuresDir(root), stripNs(itemId), 'story.md')
+async function resolveStoryPath(
+  root: string,
+  folderId: string
+): Promise<{ path: string; folderPath: string; inDone: boolean }> {
+  const base = featuresDir(root)
+  const activeFolderPath = join(base, folderId)
+  const doneFolderPath = join(base, 'done', folderId)
+  const activePath = join(activeFolderPath, 'story.md')
+  const donePath = join(doneFolderPath, 'story.md')
+  try {
+    await stat(activePath)
+    return { path: activePath, folderPath: activeFolderPath, inDone: false }
+  } catch {}
+  try {
+    await stat(donePath)
+    return { path: donePath, folderPath: doneFolderPath, inDone: true }
+  } catch {}
+  throw new Error(`story not found: ${folderId}`)
 }
 
 export const nativeAdapter: FrameworkAdapter = {
@@ -76,12 +92,13 @@ export const nativeAdapter: FrameworkAdapter = {
   },
 
   async getBody(ctx: AdapterContext, itemId: string) {
-    const text = await readFile(storyPath(ctx.root, itemId), 'utf8')
+    const { path } = await resolveStoryPath(ctx.root, stripNs(itemId))
+    const text = await readFile(path, 'utf8')
     return splitFrontmatter(text).body.trim()
   },
 
   async setStatus(ctx: AdapterContext, itemId: string, status: string) {
-    const path = storyPath(ctx.root, itemId)
+    const { path } = await resolveStoryPath(ctx.root, stripNs(itemId))
     const text = await readFile(path, 'utf8')
     const { fm, body } = splitFrontmatter(text)
     fm.status = status
