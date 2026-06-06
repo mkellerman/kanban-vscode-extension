@@ -36,7 +36,8 @@ The PA is not a new workflow engine. It is the missing *breadth* layer over Supe
 | 14 | Auditability & sessions | **Elevated to a core feature.** Each story links its Claude **session(s)**; a live session layer shows activity on cards; we capture `model` + token `usage` (which claudine omits). Full audit *reporting* phases later. |
 | 15 | Unified board | One board, two card types: **story cards** (intent, gated lifecycle) primary, each with a **live session layer**, + a **Sessions side-lane** for loose sessions (link / promote-to-story). |
 | 16 | Session linking | Auto by `story/<id>` branch/worktree + launch-time capture + manual link/promote. |
-| 17 | Build on | **Own extension** (React, story-first) + **borrow claudine's MIT session engine** (attributed), extended with model/token capture. Not a fork. |
+| 17 | Build on | **Own extension** (React, story-first), not a fork. Own *baseline* session engine (technique borrowed from claudine, MIT-attributed; captures model+tokens). |
+| 18 | claudine integration | **Optional, progressive enhancement** behind a `SessionProvider` abstraction: fully works with no dependency; if `claudine.claudine` is installed, enrich via its Extension API and skip our own watcher. |
 
 ## 3. Best-of-both analysis (unchanged foundation)
 
@@ -69,8 +70,8 @@ The 15-agent roster (~5 suffices) · autonomous no-gate execution (you want to w
 | Code reviewer · parallel dev · docs | Reuse | `gem-reviewer` · `gem-implementer` · `gem-documentation-writer` | `code-reviewer` · `fullstack-developer` · `documentation-engineer` ✓ |
 | UX/Designer · DevOps (optional) | Author later | `gem-designer` · `gem-devops` | — |
 
-### 3.6 claudine — the borrowed session engine (MIT)
-`salam/claudine` (MIT) is a VS Code kanban of Claude/Codex *sessions*; we borrow its JSONL-reading technique for our session layer (§8.4), **not** its product (its card = a session; ours = a story). Reusable fields per JSONL line: `type`, `uuid`, `parentUuid`, `timestamp`, `isSidechain`, `gitBranch`, `message.role`, `content[]` (`text`/`tool_use`/`tool_result`), `toolUseResult.interrupted`, `worktreeSession` — **plus `message.model` + `message.usage`, which claudine ignores and we capture** for the audit layer. Borrowed gotchas: `content` may be string|object|array (normalize); cwd→dir encoding is lossy (map forward only); `isActive` is a pure 2-min window (gate on new content before reacting); status/needs-input heuristics are English-keyword-fragile.
+### 3.6 claudine — borrowed technique + optional enrichment (MIT)
+`salam/claudine` (MIT) is a VS Code kanban of Claude/Codex *sessions*. We (a) **borrow its JSONL-reading technique** for our own *baseline* session reader (§8.4), and (b) treat an installed claudine as **optional enrichment** (consume its Extension API; no hard dependency). We borrow the technique, **not** its product (its card = a session; ours = a story). Reusable fields per JSONL line: `type`, `uuid`, `parentUuid`, `timestamp`, `isSidechain`, `gitBranch`, `message.role`, `content[]` (`text`/`tool_use`/`tool_result`), `toolUseResult.interrupted`, `worktreeSession` — **plus `message.model` + `message.usage`, which claudine ignores and we capture** for the audit layer. Borrowed gotchas: `content` may be string|object|array (normalize); cwd→dir encoding is lossy (map forward only); `isActive` is a pure 2-min window (gate on new content before reacting); status/needs-input heuristics are English-keyword-fragile.
 
 ## 4. Architecture — four layers
 
@@ -152,6 +153,7 @@ done:     superpowers-done: seal story.md, merge/PR; curated learning extraction
 The board unifies **intent** (story cards) and **execution** (Claude sessions), linked. Borrows claudine's JSONL technique (MIT, §3.6) and extends it.
 
 - **Session-reading engine** (in `src/shared/`, ported/adapted from claudine's `ConversationParser`, MIT-attributed): incremental **tail-parse** of `~/.claude/projects/<proj>/<uuid>.jsonl` — cache a byte-offset, read only appended bytes; LRU; shrink-detection — so huge transcripts stay cheap on every watcher fire. Extracts per session: last tool activity (`Read "x.ts"`), active/idle (2-min window), needs-input / error / interruption / rate-limit signals, sidechain (subagent) steps, git branch, worktree — **plus `model` + token `usage`, which claudine discards** (our audit gold).
+- **Optional claudine enrichment (no hard dependency):** the layer sits behind a `SessionProvider` interface. The own engine above is the always-available baseline — and the *sole* source of `model`/token data (claudine doesn't expose it). If `claudine.claudine` is detected (`vscode.extensions.getExtension`), a `ClaudineSessionProvider` enriches via its Extension API (`getConversations`, `onConversationsChanged`, `onNeedsInput`) and we skip our own watcher to avoid double-parsing. Absent claudine, everything still works. The two then coexist over the same JSONL — claudine = session view, ours = story view.
 - **Linking (#16):** a session auto-links when its `gitBranch`/cwd matches the story's `story/<id>` branch/worktree; the PA also captures the session it launches for a story (covers pre-branch grooming/planning); loose sessions can be linked or **promoted to a story** manually. Session id = the JSONL filename (resolves §14 q3).
 - **Live layer on the story card:** session count, active dot + timer, last tool, a `needs-input` badge surfaced from the session, aggregate `model`/tokens; expandable to a per-session audit timeline. **Advisory only** — session activity never auto-moves the story's column (#4 stands); it surfaces attention (a `needs-input` session can list its story in a "needs attention" view).
 - **Sessions side-lane:** loose, auto-discovered sessions (no linked story) with one-click **link** or **promote-to-story** (turn ad-hoc work into a tracked, auditable story).
@@ -203,7 +205,7 @@ Done stories: move the whole `<id>/` folder to `.kanban/features/done/<id>/`.
 ## 12. Build order (~6 plans)
 1. **Core engine + schema + per-story folders (extension)** — `src/shared/` schema + folder-aware reader + dependency graph (cycle-safe critical path) + scheduler + validate; `FeatureRepository` reads folders; flat→folder migration; vitest. *Foundation.*
 2. **CLI + Conductor skill** — `dist/pa-cli.js` + the global skill: the 3 intents + scaffolding. *Delivers "what's next."*
-3. **Session layer (elevated)** — port claudine's tail-parse session-reading engine into `src/shared/` (MIT-attributed, + model/token capture); story⇄session linking (branch/worktree + launch capture); the live layer on story cards; the Sessions side-lane + promote-to-story.
+3. **Session layer (elevated)** — a `SessionProvider` abstraction: an own baseline tail-parse engine in `src/shared/` (technique from claudine, MIT-attributed, + model/token capture) **plus an optional `ClaudineSessionProvider`** (enrich via its API if installed; no hard dependency); story⇄session linking (branch/worktree + launch capture); the live layer on story cards; the Sessions side-lane + promote-to-story.
 4. **Board UI polish** — Ready lane + dependency arrows (the planning visuals).
 5. **Role party** — uniform contract + author Architect/Critic/Security + adapt PO/QA + gates.
 6. **Audit reporting + curated learning** — per-story trace via `session-report` + extension audit view; skill extraction on done.
