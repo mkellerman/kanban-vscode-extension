@@ -39,6 +39,7 @@ The PA is not a new workflow engine. It is the missing *breadth* layer over Supe
 | 17 | Build on | **Own extension** (React, story-first), not a fork. Own *baseline* session engine (technique borrowed from claudine, MIT-attributed; captures model+tokens). |
 | 18 | claudine integration | **Optional, progressive enhancement** behind a `SessionProvider` abstraction: fully works with no dependency; if `claudine.claudine` is installed, enrich via its Extension API and skip our own watcher. |
 | 19 | Framework-agnostic data | The PA engine consumes **normalized `WorkItem`s from a separate Backlog MCP** (read-only adapters for Superpowers/BMAD/GitHub/markdown/…); our per-story-folder is just the `native` adapter. See `2026-06-06-backlog-mcp-design.md`. |
+| 20 | Repo structure | **pnpm-workspace monorepo (for now)**: extension at repo root; `packages/contracts` (WorkItem + session types) + `packages/backlog-mcp`. Named `contracts` to avoid clashing with the extension's `src/shared`. Backlog MCP extractable to its own repo later. |
 
 ## 3. Best-of-both analysis (unchanged foundation)
 

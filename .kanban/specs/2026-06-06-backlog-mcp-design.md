@@ -21,9 +21,21 @@ Every planning framework stores work differently — Superpowers (`.kanban/` + s
 |---|---|---|
 | 1 | Consumer coupling | Consumers (incl. the PA) talk **only** to the normalized model; **our `.kanban/` format is just one adapter** ("native"), not special-cased. |
 | 2 | Direction | **Read-only first** for foreign frameworks — never mutate someone else's BMAD/Jira/GitHub files. Consumer-specific state lives in an **overlay** keyed by normalized id. (Per-adapter write-back is a later opt-in.) |
-| 3 | Packaging | A **standalone product** (own spec, own repo/package), a Node/TS **MCP server**, `npx`-distributable; the PA extension can launch or connect to it. |
+| 3 | Packaging | **Monorepo package for now** — `packages/backlog-mcp` in this repo (pnpm workspace; shared types in `packages/contracts`; extension stays at root), co-developed with the PA and **extractable to its own repo later** (the package boundary keeps it standalone). A Node/TS **MCP server**, `npx`-distributable; the PA extension can launch or connect to it. |
 | 4 | Write authority | The **native adapter is read+write** (it's our own format); **foreign adapters are read-only**; foreign PA-state goes to the overlay. |
 | 5 | Scope | Normalize + serve. **Orchestration stays in the consumer** (the PA owns the dependency graph / scheduler / lifecycle); Backlog MCP just answers "what work exists, normalized." |
+
+### Repo layout (monorepo, for now)
+Lives in the kanban-extension repo as a pnpm-workspace package; the extension stays at the repo root.
+```
+/                     # repo root = the VS Code extension (PA engine: graph/scheduler/validate)
+  pnpm-workspace.yaml # packages: ['packages/*']
+  src/…               # extension code; note the extension's own internal src/shared/ is unrelated
+  packages/
+    contracts/        # @repo/contracts — WorkItem + NormStatus + normalized session types (pure, no deps)
+    backlog-mcp/      # @repo/backlog-mcp — the MCP server + adapters (depends on @repo/contracts)
+```
+Named `contracts` (not `shared`) to avoid colliding with the extension's existing `src/shared/`. Extraction later = lift out `packages/backlog-mcp` + `packages/contracts`.
 
 ## 3. Architecture
 
