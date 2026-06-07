@@ -10,6 +10,7 @@ import {
   deleteItem,
   type WorkItem,
 } from '@kanban/backlog-mcp'
+import { featureMatchesEpicLane } from '../shared/epicLane'
 import type { Feature, FeatureStatus, FilenamePattern, Priority, SchemaType } from '../shared/types'
 import { getTitleFromContent } from '../shared/types'
 import type { CreateFeatureData, IFeatureRepository } from './FeatureRepository'
@@ -154,17 +155,53 @@ export class McpFeatureRepository implements IFeatureRepository {
     await deleteItem(featureId)
     await this.load()
   }
-  async moveAllFeatures(_src: string, _tgt: string, _epicLane?: string | null): Promise<void> {
-    throw new Error('not implemented')
+  async moveAllFeatures(
+    sourceColumnId: string,
+    targetColumnId: string,
+    epicLane?: string | null,
+  ): Promise<void> {
+    const ids = this._features
+      .filter(f => f.status === sourceColumnId)
+      .filter(f => epicLane === undefined || featureMatchesEpicLane(f, epicLane))
+      .map(f => f.id)
+    for (const id of ids) {
+      await updateItem(id, { status: targetColumnId as Feature['status'] })
+    }
+    await this.load()
   }
-  async archiveFeatures(_sourceColumnId: string): Promise<{ failedCount: number }> {
-    throw new Error('not implemented')
+
+  async archiveFeatures(sourceColumnId: string): Promise<{ failedCount: number }> {
+    const ids = this._features.filter(f => f.status === sourceColumnId).map(f => f.id)
+    let failed = 0
+    for (const id of ids) {
+      try {
+        await updateItem(id, { status: 'done' })
+      } catch {
+        failed++
+      }
+    }
+    await this.load()
+    return { failedCount: failed }
   }
-  async renameLabel(_oldName: string, _newName: string): Promise<number> {
-    throw new Error('not implemented')
+
+  async renameLabel(oldName: string, newName: string): Promise<number> {
+    let count = 0
+    for (const f of this._features) {
+      if (!f.labels.includes(oldName)) continue
+      const next = f.labels.map(l => (l === oldName ? newName : l))
+      await updateItem(f.id, { labels: next })
+      count++
+    }
+    await this.load()
+    return count
   }
-  async deleteLabel(_labelName: string): Promise<void> {
-    throw new Error('not implemented')
+
+  async deleteLabel(labelName: string): Promise<void> {
+    for (const f of this._features) {
+      if (!f.labels.includes(labelName)) continue
+      await updateItem(f.id, { labels: f.labels.filter(l => l !== labelName) })
+    }
+    await this.load()
   }
   async migrateFilenames(_pattern: FilenamePattern): Promise<{ renamed: number; skipped: number }> {
     return { renamed: 0, skipped: 0 }

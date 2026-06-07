@@ -159,3 +159,61 @@ describe('McpFeatureRepository — writes', () => {
     expect(repo.features.find(f => f.id === 'native:gone')).toBeUndefined()
   })
 })
+
+describe('McpFeatureRepository — bulk', () => {
+  let tmp: string
+  let repo: McpFeatureRepository
+
+  beforeEach(async () => {
+    tmp = await mkdtemp(join(tmpdir(), 'mcp-repo-b-'))
+  })
+
+  afterEach(async () => {
+    repo?.dispose()
+    await rm(tmp, { recursive: true, force: true })
+  })
+
+  it('moveAllFeatures moves every item in the source column', async () => {
+    await makeStory(tmp, 'a', '---\nid: "a"\nstatus: "todo"\npriority: "low"\n---\n# A\n')
+    await makeStory(tmp, 'b', '---\nid: "b"\nstatus: "todo"\npriority: "low"\n---\n# B\n')
+    await makeStory(tmp, 'c', '---\nid: "c"\nstatus: "review"\npriority: "low"\n---\n# C\n')
+    repo = new McpFeatureRepository(tmp)
+    await repo.load()
+    await repo.moveAllFeatures('todo', 'in-progress')
+    await repo.load()
+    expect(repo.features.find(f => f.id === 'native:a')!.status).toBe('in-progress')
+    expect(repo.features.find(f => f.id === 'native:b')!.status).toBe('in-progress')
+    expect(repo.features.find(f => f.id === 'native:c')!.status).toBe('review')
+  })
+
+  it('archiveFeatures sets status=done on every item in the source column', async () => {
+    await makeStory(tmp, 'x', '---\nid: "x"\nstatus: "review"\npriority: "low"\n---\n# X\n')
+    repo = new McpFeatureRepository(tmp)
+    await repo.load()
+    const { failedCount } = await repo.archiveFeatures('review')
+    expect(failedCount).toBe(0)
+    await repo.load()
+    expect(repo.features.find(f => f.id === 'native:x')!.status).toBe('done')
+  })
+
+  it('renameLabel rewrites labels arrays', async () => {
+    await makeStory(tmp, 'lbl',
+      '---\nid: "lbl"\nstatus: "todo"\npriority: "low"\nlabels:\n  - "old"\n  - "keep"\n---\n# L\n')
+    repo = new McpFeatureRepository(tmp)
+    await repo.load()
+    const renamed = await repo.renameLabel('old', 'new')
+    expect(renamed).toBe(1)
+    await repo.load()
+    expect(repo.features.find(f => f.id === 'native:lbl')!.labels).toEqual(['new', 'keep'])
+  })
+
+  it('deleteLabel removes the label from items', async () => {
+    await makeStory(tmp, 'dl',
+      '---\nid: "dl"\nstatus: "todo"\npriority: "low"\nlabels:\n  - "drop"\n  - "keep"\n---\n# D\n')
+    repo = new McpFeatureRepository(tmp)
+    await repo.load()
+    await repo.deleteLabel('drop')
+    await repo.load()
+    expect(repo.features.find(f => f.id === 'native:dl')!.labels).toEqual(['keep'])
+  })
+})
