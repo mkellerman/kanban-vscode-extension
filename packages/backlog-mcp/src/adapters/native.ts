@@ -1,5 +1,5 @@
 import { readdir, readFile, writeFile, stat, mkdir, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import { stringify } from 'yaml'
 import type { WorkItem, NormStatus, Priority, WorkItemType } from '../contract'
 import type { FrameworkAdapter, AdapterContext, CreateItemInput, ItemPatch } from './types'
@@ -9,16 +9,18 @@ const NS = 'native'
 const id = (folder: string) => `${NS}:${folder}`
 const stripNs = (x: string) => (x.startsWith(`${NS}:`) ? x.slice(NS.length + 1) : x)
 
-const featuresDir = (root: string) => join(root, '.kanban', 'features')
+const kanbanDir   = (root: string) => join(root, '.kanban')
+const featuresDir = (root: string) => join(kanbanDir(root), 'features')
+const WALK_IGNORE = new Set(['node_modules', '.git'])
 
-function toWorkItem(folder: string, text: string, path: string): WorkItem {
+function toWorkItem(rawId: string, text: string, path: string): WorkItem {
   const { fm, body } = splitFrontmatter(text)
   const deps = Array.isArray(fm.dependsOn) ? (fm.dependsOn as unknown[]).map(String) : []
   return {
-    id: id(folder),
+    id: id(rawId),
     source: { framework: NS, path },
     type: (fm.type as WorkItemType) ?? 'story',
-    title: titleFromBody(body, folder),
+    title: titleFromBody(body, rawId),
     status: (fm.status as NormStatus) ?? 'backlog',
     priority: (fm.priority as Priority) ?? null,
     parent: fm.epic ? id(String(fm.epic)) : null,
@@ -27,7 +29,7 @@ function toWorkItem(folder: string, text: string, path: string): WorkItem {
     labels: Array.isArray(fm.labels) ? (fm.labels as unknown[]).map(String) : [],
     estimate: typeof fm.estimate === 'string' ? fm.estimate : null,
     acceptanceCriteria: acceptanceCriteria(body),
-    bodyRef: `${id(folder)}#body`,
+    bodyRef: `${id(rawId)}#body`,
     order:       typeof fm.order       === 'string' ? fm.order       : null,
     assignee:    typeof fm.assignee    === 'string' ? fm.assignee    : null,
     dueDate:     typeof fm.dueDate     === 'string' ? fm.dueDate     : null,
@@ -35,6 +37,54 @@ function toWorkItem(folder: string, text: string, path: string): WorkItem {
     modified:    typeof fm.modified    === 'string' ? fm.modified    : null,
     completedAt: typeof fm.completedAt === 'string' ? fm.completedAt : null,
   }
+}
+
+async function walkMdFiles(dir: string): Promise<string[]> {
+  const out: string[] = []
+  async function walk(d: string) {
+    let entries
+    try {
+      entries = await readdir(d, { withFileTypes: true })
+    } catch { return }
+    for (const e of entries) {
+      if (WALK_IGNORE.has(e.name)) continue
+      const p = join(d, e.name)
+      if (e.isDirectory()) await walk(p)
+      else if (e.isFile() && e.name.endsWith('.md')) out.push(p)
+    }
+  }
+  await walk(dir)
+  return out
+}
+
+async function listFolderFormatItems(root: string): Promise<WorkItem[]> {
+  const folders = await listStoryFolders(featuresDir(root))
+  return Promise.all(
+    folders.map(async (f) => toWorkItem(f.folder, await readFile(f.path, 'utf8'), f.path))
+  )
+}
+
+async function listRecursiveExtras(root: string, exclude: Set<string>): Promise<WorkItem[]> {
+  const base = kanbanDir(root)
+  const files = await walkMdFiles(base)
+  const items: WorkItem[] = []
+  for (const path of files) {
+    if (exclude.has(path)) continue
+    const text = await readFile(path, 'utf8')
+    const { fm } = splitFrontmatter(text)
+    if (typeof fm.status !== 'string') continue
+    const rel = relative(base, path).split(sep).join('/').replace(/\.md$/, '')
+    const rawId = typeof fm.id === 'string' && fm.id.length > 0 ? fm.id : rel
+    items.push(toWorkItem(rawId, text, path))
+  }
+  return items
+}
+
+async function listAllItems(root: string): Promise<WorkItem[]> {
+  const folderItems = await listFolderFormatItems(root)
+  const folderPaths = new Set(folderItems.map((i) => i.source.path))
+  const extras = await listRecursiveExtras(root, folderPaths)
+  return [...folderItems, ...extras]
 }
 
 async function listStoryFolders(dir: string): Promise<{ folder: string; path: string }[]> {
@@ -136,22 +186,32 @@ export const nativeAdapter: FrameworkAdapter = {
 
   async detect(ctx: AdapterContext) {
     try {
-      await stat(featuresDir(ctx.root))
-      return true
-    } catch {
-      return false
+      if (!(await stat(kanbanDir(ctx.root))).isDirectory()) return false
+    } catch { return false }
+    try {
+      if ((await stat(featuresDir(ctx.root))).isDirectory()) return true
+    } catch { /* no features/ dir — fall through */ }
+    for (const path of await walkMdFiles(kanbanDir(ctx.root))) {
+      const { fm } = splitFrontmatter(await readFile(path, 'utf8'))
+      if (typeof fm.status === 'string') return true
     }
+    return false
   },
 
   async listItems(ctx: AdapterContext) {
-    const folders = await listStoryFolders(featuresDir(ctx.root))
-    return Promise.all(folders.map(async (f) => toWorkItem(f.folder, await readFile(f.path, 'utf8'), f.path)))
+    return listAllItems(ctx.root)
   },
 
   async getBody(ctx: AdapterContext, itemId: string) {
-    const { path } = await resolveStoryPath(ctx.root, stripNs(itemId))
-    const text = await readFile(path, 'utf8')
-    return splitFrontmatter(text).body.trim()
+    try {
+      const { path } = await resolveStoryPath(ctx.root, stripNs(itemId))
+      return splitFrontmatter(await readFile(path, 'utf8')).body.trim()
+    } catch (e) {
+      const extras = await listRecursiveExtras(ctx.root, new Set())
+      const item = extras.find((i) => i.id === itemId)
+      if (!item) throw e
+      return splitFrontmatter(await readFile(item.source.path, 'utf8')).body.trim()
+    }
   },
 
   async setStatus(ctx: AdapterContext, itemId: string, status: string) {

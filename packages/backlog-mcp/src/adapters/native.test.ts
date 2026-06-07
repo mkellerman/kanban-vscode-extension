@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolve, join } from 'node:path'
+import { resolve, join, dirname } from 'node:path'
 import { mkdtemp, mkdir, writeFile, rm, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { nativeAdapter } from './native'
@@ -365,6 +365,86 @@ describe('native adapter — CRUD conformance round-trip', () => {
     } finally {
       await rm(root, { recursive: true, force: true })
     }
+  })
+})
+
+describe('native adapter — flexible recursive discovery', () => {
+  async function makeFile(root: string, rel: string, text: string): Promise<void> {
+    const full = join(root, rel)
+    await mkdir(dirname(full), { recursive: true })
+    await writeFile(full, text, 'utf8')
+  }
+
+  it('detects a .kanban folder even without features/', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-flex-'))
+    try {
+      await makeFile(tmp, '.kanban/plans/foo.md', '---\nid: "foo"\nstatus: "todo"\n---\n# Foo\n')
+      expect(await nativeAdapter.detect({ root: tmp })).toBe(true)
+    } finally { await rm(tmp, { recursive: true, force: true }) }
+  })
+
+  it('returns false when .kanban/ has no .md with status frontmatter', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-flex-'))
+    try {
+      await makeFile(tmp, '.kanban/CLAUDE.md', '# Just docs, no frontmatter\n')
+      await makeFile(tmp, '.kanban/notes.md', '---\ntitle: "Note"\n---\n# A note\n')
+      expect(await nativeAdapter.detect({ root: tmp })).toBe(false)
+    } finally { await rm(tmp, { recursive: true, force: true }) }
+  })
+
+  it('lists items from any .md under .kanban/ with status in frontmatter', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-flex-'))
+    try {
+      await makeFile(tmp, '.kanban/plans/p1.md',
+        '---\nid: "PLAN-1"\nstatus: "todo"\npriority: "low"\ntype: "plan"\n---\n# Plan 1\n')
+      await makeFile(tmp, '.kanban/specs/s1.md',
+        '---\nid: "SPEC-1"\nstatus: "in-progress"\n---\n# Spec 1\n')
+      await makeFile(tmp, '.kanban/milestones/m1.md',
+        '---\nid: "M1"\nstatus: "done"\ntype: "milestone"\n---\n# Milestone 1\n')
+      await makeFile(tmp, '.kanban/CLAUDE.md', '# Docs no frontmatter\n')
+
+      const items = await nativeAdapter.listItems({ root: tmp })
+      const plan = items.find((i) => i.id === 'native:PLAN-1')
+      const spec = items.find((i) => i.id === 'native:SPEC-1')
+      const ms   = items.find((i) => i.id === 'native:M1')
+      expect(plan?.status).toBe('todo')
+      expect(plan?.type).toBe('plan')
+      expect(spec?.status).toBe('in-progress')
+      expect(ms?.type).toBe('milestone')
+      expect(items.some((i) => i.source.path.endsWith('CLAUDE.md'))).toBe(false)
+    } finally { await rm(tmp, { recursive: true, force: true }) }
+  })
+
+  it('derives id from relative path when frontmatter has no id', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-flex-'))
+    try {
+      await makeFile(tmp, '.kanban/plans/no-id.md', '---\nstatus: "backlog"\n---\n# No ID\n')
+      const items = await nativeAdapter.listItems({ root: tmp })
+      expect(items.some((i) => i.id === 'native:plans/no-id')).toBe(true)
+    } finally { await rm(tmp, { recursive: true, force: true }) }
+  })
+
+  it('does not duplicate folder-format items via recursive scan', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-flex-'))
+    try {
+      const dir = join(tmp, '.kanban', 'features', 'x')
+      await mkdir(dir, { recursive: true })
+      await writeFile(join(dir, 'story.md'),
+        '---\nid: "x"\nstatus: "todo"\n---\n# X\n', 'utf8')
+      const items = await nativeAdapter.listItems({ root: tmp })
+      expect(items.filter((i) => i.id === 'native:x')).toHaveLength(1)
+    } finally { await rm(tmp, { recursive: true, force: true }) }
+  })
+
+  it('getBody works on a recursively-discovered file', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-flex-'))
+    try {
+      await makeFile(tmp, '.kanban/specs/spec-a.md',
+        '---\nid: "SPEC-A"\nstatus: "todo"\n---\n# Spec A\n\nbody here\n')
+      const body = await nativeAdapter.getBody({ root: tmp }, 'native:SPEC-A')
+      expect(body).toMatch(/# Spec A/)
+      expect(body).toMatch(/body here/)
+    } finally { await rm(tmp, { recursive: true, force: true }) }
   })
 })
 
