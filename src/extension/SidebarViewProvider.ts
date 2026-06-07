@@ -5,31 +5,12 @@ import type { KanbanColumn, Feature } from '../shared/types'
 import type { IFeatureRepository } from './FeatureRepository'
 import { KanbanPanel } from './KanbanPanel'
 import { t } from './l10n'
-import { loadBoardFeatures } from './workItemSource'
 
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'kanban-extension.boardView'
 
   private _view?: vscode.WebviewView
   private _disposables: vscode.Disposable[] = []
-  private _mcpFeatures: Feature[] = []
-
-  private _dataSource(): string {
-    return vscode.workspace.getConfiguration('kanban-extension').get<string>('dataSource', 'files')
-  }
-
-  private async _refreshMcpFeatures(): Promise<void> {
-    try {
-      this._mcpFeatures = await loadBoardFeatures(this._repo.getEffectiveRoot() ?? undefined)
-    } catch {
-      this._mcpFeatures = []
-    }
-    this._postUpdate(this._mcpFeatures)
-  }
-
-  private _effectiveFeatures(): readonly Feature[] {
-    return this._dataSource() === 'backlog-mcp' ? this._mcpFeatures : this._repo.features as Feature[]
-  }
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -37,19 +18,15 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     private readonly _repo: IFeatureRepository
   ) {
     this._repo.onDidChange(_features => {
-      if (this._dataSource() !== 'backlog-mcp') {
-        this._postUpdate(this._effectiveFeatures())
-      }
+      this._postUpdate(this._repo.features)
     }, null, this._disposables)
 
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('kanban-extension')) {
         if (e.affectsConfiguration('kanban-extension.featuresDirectory')) {
           this._repo.load()
-        } else if (e.affectsConfiguration('kanban-extension.dataSource') && this._dataSource() === 'backlog-mcp') {
-          void this._refreshMcpFeatures()
         } else {
-          this._postUpdate(this._effectiveFeatures())
+          this._postUpdate(this._repo.features)
         }
       }
     }, null, this._disposables)
@@ -69,11 +46,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage(async message => {
       switch (message.type) {
         case 'ready':
-          if (this._dataSource() === 'backlog-mcp') {
-            void this._refreshMcpFeatures()
-          } else {
-            this._postUpdate(this._effectiveFeatures())
-          }
+          this._postUpdate(this._repo.features)
           break
         case 'openBoard':
           vscode.commands.executeCommand('kanban-extension.open')
