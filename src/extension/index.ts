@@ -8,6 +8,7 @@ import type { Feature, FeatureStatus, Priority } from '../shared/types'
 import { ensureStatusSubfolders, getFeatureFilePath } from './featureFileUtils'
 import { t, loadBundle } from './l10n'
 import { FeatureRepositoryManager } from './FeatureRepositoryManager'
+import { McpFeatureRepository } from './McpFeatureRepository'
 import type { IFeatureRepository } from './FeatureRepository'
 import type { GroomedDirectory, SchemaType } from '../shared/types'
 import { AgentLauncher } from './AgentLauncher'
@@ -118,9 +119,27 @@ export function activate(context: vscode.ExtensionContext) {
         { path: config.get<string>('featuresDirectory') || '.kanban/features', schema: 'feature' as SchemaType },
         { path: 'docs/superpowers/plans', schema: 'superpowers' as SchemaType }
       ]
-  const repo = new FeatureRepositoryManager(context, effectiveDirs)
+  const initialDataSource = config.get<string>('dataSource', 'files')
+  const repo: IFeatureRepository = initialDataSource === 'backlog-mcp'
+    ? new McpFeatureRepository(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null)
+    : new FeatureRepositoryManager(context, effectiveDirs)
+  context.subscriptions.push(repo)
+
   const launcher = new AgentLauncher(context.extensionUri)
   context.subscriptions.push(launcher)
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(async e => {
+      if (!e.affectsConfiguration('kanban-extension.dataSource')) return
+      const action = await vscode.window.showInformationMessage(
+        'Kanban: data source changed. Reload window to apply.',
+        'Reload Window'
+      )
+      if (action === 'Reload Window') {
+        void vscode.commands.executeCommand('workbench.action.reloadWindow')
+      }
+    })
+  )
 
   const sidebarProvider = new SidebarViewProvider(context.extensionUri, context, repo)
   context.subscriptions.push(
