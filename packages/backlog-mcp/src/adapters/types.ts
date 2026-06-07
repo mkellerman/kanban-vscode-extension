@@ -17,6 +17,10 @@ export interface CreateItemInput {
   estimate?: string | null
   acceptanceCriteria?: string[]
   body?: string                // full markdown body; defaults to "# {title}\n"
+  // NEW
+  order?: string | null
+  assignee?: string | null
+  dueDate?: string | null
 }
 
 export interface ItemPatch {
@@ -28,6 +32,10 @@ export interface ItemPatch {
   labels?: string[]
   estimate?: string | null
   acceptanceCriteria?: string[]
+  // NEW
+  order?: string | null
+  assignee?: string | null
+  dueDate?: string | null
 }
 
 /**

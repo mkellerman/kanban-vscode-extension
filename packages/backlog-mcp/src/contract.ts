@@ -38,7 +38,14 @@ export const WorkItemSchema = z.object({
   /** fetch full text via get_item_body(id) — keeps list payloads small */
   bodyRef: z.string(),
   /** consumer state merged in (PA: sessions/reviews/handoff/pa_status) */
-  overlay: z.record(z.unknown()).optional()
+  overlay: z.record(z.unknown()).optional(),
+  // Native frontmatter fields — foreign adapters may omit.
+  order:       z.string().nullish(),
+  assignee:    z.string().nullish(),
+  dueDate:     z.string().nullish(),
+  created:     z.string().nullish(),
+  modified:    z.string().nullish(),
+  completedAt: z.string().nullish(),
 })
 export type WorkItem = z.infer<typeof WorkItemSchema>
 
@@ -112,6 +119,9 @@ export const CreateItemInputShape = {
   estimate:           z.string().nullish(),
   acceptanceCriteria: z.array(z.string()).optional(),
   body:               z.string().optional(),
+  order:              z.string().nullish(),
+  assignee:           z.string().nullish(),
+  dueDate:            z.string().nullish(),
 }
 
 export const UpdateItemInputShape = {
@@ -125,6 +135,9 @@ export const UpdateItemInputShape = {
     labels:             z.array(z.string()).optional(),
     estimate:           z.string().nullish(),
     acceptanceCriteria: z.array(z.string()).optional(),
+    order:              z.string().nullish(),
+    assignee:           z.string().nullish(),
+    dueDate:            z.string().nullish(),
   }),
 }
 
