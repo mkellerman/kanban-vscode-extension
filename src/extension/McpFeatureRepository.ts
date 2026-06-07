@@ -4,9 +4,14 @@ import {
   listWorkItems,
   getItemBody,
   setBoardRoot,
+  createItem,
+  updateItem,
+  setBody,
+  deleteItem,
   type WorkItem,
 } from '@kanban/backlog-mcp'
 import type { Feature, FeatureStatus, FilenamePattern, Priority, SchemaType } from '../shared/types'
+import { getTitleFromContent } from '../shared/types'
 import type { CreateFeatureData, IFeatureRepository } from './FeatureRepository'
 
 const COLUMN_STATUS = new Set<FeatureStatus>(['backlog', 'todo', 'in-progress', 'review', 'done'])
@@ -103,18 +108,51 @@ export class McpFeatureRepository implements IFeatureRepository {
     return await getItemBody(featureId)
   }
 
-  // Write methods land in Task 5 / Task 6.
-  async createFeature(_data: CreateFeatureData): Promise<Feature> {
-    throw new Error('not implemented')
+  async createFeature(data: CreateFeatureData): Promise<Feature> {
+    const title = getTitleFromContent(data.content)
+    const wi = await createItem({
+      type: 'story',
+      title: title || 'Untitled',
+      status: data.status,
+      priority: data.priority,
+      parent: data.epic,
+      labels: data.labels,
+      assignee: data.assignee,
+      dueDate: data.dueDate,
+      body: data.content,
+    })
+    await this.load()
+    const feat = this._features.find(f => f.id === wi.id)
+    if (!feat) throw new Error(`createFeature: lost track of created item ${wi.id}`)
+    return feat
   }
-  async updateFeature(_featureId: string, _updates: Partial<Feature>): Promise<void> {
-    throw new Error('not implemented')
+
+  async updateFeature(featureId: string, updates: Partial<Feature>): Promise<void> {
+    await updateItem(featureId, {
+      status:   updates.status,
+      priority: updates.priority,
+      parent:   updates.epic,
+      labels:   updates.labels,
+      assignee: updates.assignee,
+      dueDate:  updates.dueDate,
+    })
+    if (typeof updates.content === 'string') {
+      await setBody(featureId, updates.content)
+    }
+    await this.load()
   }
-  async moveFeature(_featureId: string, _newStatus: string, _newOrder: number): Promise<void> {
-    throw new Error('not implemented')
+
+  async moveFeature(featureId: string, newStatus: string, newOrder: number): Promise<void> {
+    await updateItem(featureId, {
+      status: newStatus as Feature['status'],
+      order: String(newOrder),
+    })
+    await this.load()
   }
-  async deleteFeature(_featureId: string): Promise<void> {
-    throw new Error('not implemented')
+
+  async deleteFeature(featureId: string): Promise<void> {
+    await deleteItem(featureId)
+    await this.load()
   }
   async moveAllFeatures(_src: string, _tgt: string, _epicLane?: string | null): Promise<void> {
     throw new Error('not implemented')

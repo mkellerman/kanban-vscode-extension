@@ -85,3 +85,77 @@ describe('McpFeatureRepository', () => {
     expect(handler).toHaveBeenCalled()
   })
 })
+
+describe('McpFeatureRepository — writes', () => {
+  let tmp: string
+  let repo: McpFeatureRepository
+
+  beforeEach(async () => {
+    tmp = await mkdtemp(join(tmpdir(), 'mcp-repo-w-'))
+  })
+
+  afterEach(async () => {
+    repo?.dispose()
+    await rm(tmp, { recursive: true, force: true })
+  })
+
+  it('createFeature writes a new story.md and emits change', async () => {
+    repo = new McpFeatureRepository(tmp)
+    await repo.load()
+    const handler = vi.fn()
+    repo.onDidChange(handler)
+    const created = await repo.createFeature({
+      status: 'todo',
+      priority: 'high',
+      content: '# Brand new story\n\nWith a body.\n',
+      assignee: 'alice',
+      epic: null,
+      dueDate: '2026-12-01',
+      labels: ['frontend'],
+    })
+    expect(created.id).toMatch(/^native:/)
+    expect(created.status).toBe('todo')
+    expect(handler).toHaveBeenCalled()
+    expect(repo.features.find(f => f.id === created.id)).toBeDefined()
+  })
+
+  it('updateFeature patches frontmatter and (when content set) the body', async () => {
+    await makeStory(tmp, 'up',
+      '---\nid: "up"\nstatus: "todo"\npriority: "low"\n---\n# Up\n\nold body\n')
+    repo = new McpFeatureRepository(tmp)
+    await repo.load()
+    await repo.updateFeature('native:up', {
+      priority: 'high',
+      assignee: 'bob',
+      content: '# Up\n\nnew body\n',
+    })
+    await repo.load()
+    const feat = repo.features.find(f => f.id === 'native:up')!
+    expect(feat.priority).toBe('high')
+    expect(feat.assignee).toBe('bob')
+    const body = await repo.getBody('native:up')
+    expect(body).toMatch(/new body/)
+  })
+
+  it('moveFeature persists status and order in a single update', async () => {
+    await makeStory(tmp, 'mv',
+      '---\nid: "mv"\nstatus: "todo"\npriority: "low"\norder: "a0"\n---\n# Mv\n')
+    repo = new McpFeatureRepository(tmp)
+    await repo.load()
+    await repo.moveFeature('native:mv', 'in-progress', 'b1' as unknown as number)
+    await repo.load()
+    const feat = repo.features.find(f => f.id === 'native:mv')!
+    expect(feat.status).toBe('in-progress')
+    expect(feat.order).toBe('b1')
+  })
+
+  it('deleteFeature removes the folder', async () => {
+    await makeStory(tmp, 'gone',
+      '---\nid: "gone"\nstatus: "todo"\npriority: "low"\n---\n# Gone\n')
+    repo = new McpFeatureRepository(tmp)
+    await repo.load()
+    await repo.deleteFeature('native:gone')
+    await repo.load()
+    expect(repo.features.find(f => f.id === 'native:gone')).toBeUndefined()
+  })
+})
