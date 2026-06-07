@@ -40,6 +40,8 @@ export interface IFeatureRepository extends vscode.Disposable {
   renameLabel(oldName: string, newName: string): Promise<number>
   deleteLabel(labelName: string): Promise<void>
   migrateFilenames(pattern: FilenamePattern): Promise<{ renamed: number; skipped: number }>
+  /** Optional async body fetch (used by data sources that don't keep body in-memory). */
+  getBody?(featureId: string): Promise<string>
 }
 
 export interface CreateFeatureData {
