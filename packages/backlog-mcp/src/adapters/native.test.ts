@@ -367,3 +367,104 @@ describe('native adapter — CRUD conformance round-trip', () => {
     }
   })
 })
+
+describe('native adapter — new typed frontmatter fields', () => {
+  it('listItems surfaces order/assignee/dueDate/created/modified/completedAt', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-fields-'))
+    try {
+      const dir = join(tmp, '.kanban', 'features', 'fielded')
+      await mkdir(dir, { recursive: true })
+      await writeFile(
+        join(dir, 'story.md'),
+        '---\n' +
+        'id: "fielded"\n' +
+        'status: "in-progress"\n' +
+        'priority: "high"\n' +
+        'order: "b1"\n' +
+        'assignee: "alice"\n' +
+        'dueDate: "2026-07-01"\n' +
+        'created: "2026-06-01T00:00:00.000Z"\n' +
+        'modified: "2026-06-02T00:00:00.000Z"\n' +
+        'completedAt: null\n' +
+        '---\n# Fielded\n',
+        'utf8'
+      )
+      const items = await nativeAdapter.listItems({ root: tmp })
+      const item = items.find((i) => i.id === 'native:fielded')!
+      expect(item.order).toBe('b1')
+      expect(item.assignee).toBe('alice')
+      expect(item.dueDate).toBe('2026-07-01')
+      expect(item.created).toBe('2026-06-01T00:00:00.000Z')
+      expect(item.modified).toBe('2026-06-02T00:00:00.000Z')
+      expect(item.completedAt ?? null).toBeNull()
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('updateItem persists order/assignee/dueDate and refreshes modified', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-update-'))
+    try {
+      const dir = join(tmp, '.kanban', 'features', 'u')
+      await mkdir(dir, { recursive: true })
+      await writeFile(
+        join(dir, 'story.md'),
+        '---\nid: "u"\nstatus: "todo"\npriority: "low"\n---\n# U\n',
+        'utf8'
+      )
+      await nativeAdapter.updateItem!({ root: tmp }, 'native:u', {
+        order: 'c2',
+        assignee: 'bob',
+        dueDate: '2026-08-01',
+      })
+      const items = await nativeAdapter.listItems({ root: tmp })
+      const item = items.find((i) => i.id === 'native:u')!
+      expect(item.order).toBe('c2')
+      expect(item.assignee).toBe('bob')
+      expect(item.dueDate).toBe('2026-08-01')
+      expect(item.modified).toBeTruthy()
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('updateItem sets completedAt when transitioning to done', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-done-'))
+    try {
+      const dir = join(tmp, '.kanban', 'features', 'd')
+      await mkdir(dir, { recursive: true })
+      await writeFile(
+        join(dir, 'story.md'),
+        '---\nid: "d"\nstatus: "in-progress"\npriority: "low"\n---\n# D\n',
+        'utf8'
+      )
+      await nativeAdapter.updateItem!({ root: tmp }, 'native:d', { status: 'done' })
+      const item = (await nativeAdapter.listItems({ root: tmp })).find((i) => i.id === 'native:d')!
+      expect(item.status).toBe('done')
+      expect(item.completedAt).toBeTruthy()
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('createItem accepts order/assignee/dueDate and writes created/modified', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-create-'))
+    try {
+      await mkdir(join(tmp, '.kanban', 'features'), { recursive: true })
+      const wi = await nativeAdapter.createItem!({ root: tmp }, {
+        type: 'story',
+        title: 'New thing',
+        order: 'a1',
+        assignee: 'carol',
+        dueDate: '2026-09-01',
+      })
+      expect(wi.order).toBe('a1')
+      expect(wi.assignee).toBe('carol')
+      expect(wi.dueDate).toBe('2026-09-01')
+      expect(wi.created).toBeTruthy()
+      expect(wi.modified).toBeTruthy()
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+})

@@ -27,7 +27,13 @@ function toWorkItem(folder: string, text: string, path: string): WorkItem {
     labels: Array.isArray(fm.labels) ? (fm.labels as unknown[]).map(String) : [],
     estimate: typeof fm.estimate === 'string' ? fm.estimate : null,
     acceptanceCriteria: acceptanceCriteria(body),
-    bodyRef: `${id(folder)}#body`
+    bodyRef: `${id(folder)}#body`,
+    order:       typeof fm.order       === 'string' ? fm.order       : null,
+    assignee:    typeof fm.assignee    === 'string' ? fm.assignee    : null,
+    dueDate:     typeof fm.dueDate     === 'string' ? fm.dueDate     : null,
+    created:     typeof fm.created     === 'string' ? fm.created     : null,
+    modified:    typeof fm.modified    === 'string' ? fm.modified    : null,
+    completedAt: typeof fm.completedAt === 'string' ? fm.completedAt : null,
   }
 }
 
@@ -162,19 +168,23 @@ export const nativeAdapter: FrameworkAdapter = {
     const folderPath = join(featuresDir(ctx.root), folderId)
     await mkdir(folderPath, { recursive: true })
     const now = new Date().toISOString()
+    const status = input.status ?? 'backlog'
     const fm: Record<string, unknown> = {
       id: folderId,
       type: input.type,
-      status: input.status ?? 'backlog',
+      status,
       priority: input.priority ?? null,
       epic: input.parent ? stripNs(input.parent) : null,
-      order: null,
+      order: input.order ?? null,
+      assignee: input.assignee ?? null,
+      dueDate: input.dueDate ?? null,
       dependsOn: (input.dependsOn ?? []).map((d) => stripNs(d)),
       labels: input.labels ?? [],
       estimate: input.estimate ?? null,
       sessions: [],
       created: now,
       modified: now,
+      completedAt: status === 'done' ? now : null,
     }
     const body = buildBody(input)
     const path = join(folderPath, 'story.md')
@@ -188,15 +198,23 @@ export const nativeAdapter: FrameworkAdapter = {
     const text = await readFile(path, 'utf8')
     let { fm, body } = splitFrontmatter(text)
 
-    if (patch.status !== undefined) fm.status = patch.status
+    const prevStatus = fm.status
+    if (patch.status   !== undefined) fm.status   = patch.status
     if (patch.priority !== undefined) fm.priority = patch.priority
-    if (patch.parent !== undefined) fm.epic = patch.parent ? stripNs(patch.parent) : null
+    if (patch.parent   !== undefined) fm.epic     = patch.parent ? stripNs(patch.parent) : null
     if (patch.dependsOn !== undefined) fm.dependsOn = patch.dependsOn.map((d) => stripNs(d))
-    if (patch.labels !== undefined) fm.labels = patch.labels
+    if (patch.labels   !== undefined) fm.labels   = patch.labels
     if (patch.estimate !== undefined) fm.estimate = patch.estimate
-    if (patch.title !== undefined) body = applyTitleToBody(body, patch.title)
+    if (patch.order    !== undefined) fm.order    = patch.order
+    if (patch.assignee !== undefined) fm.assignee = patch.assignee
+    if (patch.dueDate  !== undefined) fm.dueDate  = patch.dueDate
+    if (patch.title    !== undefined) body = applyTitleToBody(body, patch.title)
     if (patch.acceptanceCriteria !== undefined) body = replaceAcSection(body, patch.acceptanceCriteria)
-    fm.modified = new Date().toISOString()
+
+    const now = new Date().toISOString()
+    fm.modified = now
+    if (patch.status === 'done' && prevStatus !== 'done') fm.completedAt = now
+    if (patch.status !== undefined && patch.status !== 'done') fm.completedAt = null
 
     await writeFile(path, `---\n${stringify(fm)}---\n${body}`, 'utf8')
     return toWorkItem(folderId, await readFile(path, 'utf8'), path)
