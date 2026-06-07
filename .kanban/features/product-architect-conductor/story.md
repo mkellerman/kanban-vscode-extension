@@ -1,13 +1,14 @@
 ---
-id: "product-architect-conductor"
-status: "todo"
-priority: "high"
+id: product-architect-conductor
+status: todo
+priority: high
 epic: null
-order: "a3"
-dependsOn: ["backlog-mcp-native-adapter"]
+order: a3
+dependsOn:
+  - backlog-mcp-native-adapter
 sessions: []
-created: "2026-06-06T13:00:00.000Z"
-modified: "2026-06-06T13:00:00.000Z"
+created: 2026-06-06T13:00:00.000Z
+modified: 2026-06-07T03:08:27.271Z
 completedAt: null
 ---
 # Product Architect: Conductor (3 intents)

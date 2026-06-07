@@ -17,7 +17,19 @@ import { kanbanMarkdownAdapter } from './adapters/kanban-markdown'
 
 const STARTABLE: NormStatus[] = ['backlog', 'todo']
 
-let boardRoot = process.env.PA_BOARD_ROOT ?? process.cwd()
+/**
+ * Resolve the board root from the environment.
+ *
+ * Precedence: explicit `PA_BOARD_ROOT`, then `CLAUDE_PROJECT_DIR` (Claude Code
+ * sets this in the spawned server's env = the project root), then `process.cwd()`.
+ * Empty strings are treated as unset so an unexpanded `${workspaceFolder}` that
+ * collapses to "" still falls through instead of silently rooting at "".
+ */
+export function resolveBoardRoot(env: NodeJS.ProcessEnv = process.env): string {
+  return env.PA_BOARD_ROOT || env.CLAUDE_PROJECT_DIR || process.cwd()
+}
+
+let boardRoot = resolveBoardRoot()
 let registry: Registry | null = null
 
 /** Point the library at a project root (default: PA_BOARD_ROOT env or cwd). */

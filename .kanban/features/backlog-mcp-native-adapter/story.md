@@ -1,14 +1,15 @@
 ---
-id: "backlog-mcp-native-adapter"
-status: "done"
-priority: "high"
+id: backlog-mcp-native-adapter
+status: done
+priority: high
 epic: null
-order: "a1"
-dependsOn: ["backlog-mcp-scaffold"]
+order: a1
+dependsOn:
+  - backlog-mcp-scaffold
 sessions: []
-created: "2026-06-06T12:15:00.000Z"
-modified: "2026-06-06T12:40:00.000Z"
-completedAt: "2026-06-06T12:40:00.000Z"
+created: 2026-06-06T12:15:00.000Z
+modified: 2026-06-07T03:08:33.792Z
+completedAt: 2026-06-06T12:40:00.000Z
 ---
 # Backlog MCP: real native adapter
 

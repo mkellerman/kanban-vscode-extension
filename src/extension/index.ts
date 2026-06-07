@@ -164,29 +164,28 @@ export function activate(context: vscode.ExtensionContext) {
   )
 
   // Register the bundled backlog MCP server so it's available automatically.
-  // vscode.lm.registerMcpServerDefinitionProvider and vscode.McpStdioServerDefinition
-  // were introduced in VS Code 1.99; @types/vscode only covers engines.vscode (^1.85.0),
-  // so these symbols are absent from the type declarations. Optional chaining makes this
-  // a no-op on older VS Code versions; @ts-ignore suppresses the unknown-property errors.
+  // The MCP provider API (vscode.lm.registerMcpServerDefinitionProvider,
+  // vscode.McpStdioServerDefinition) is stable as of VS Code 1.101 — matching
+  // engines.vscode, so VS Code honors the mcpServerDefinitionProviders contribution.
+  // Optional chaining keeps this a safe no-op if the API is ever unavailable.
   const didChangeMcpEmitter = new vscode.EventEmitter<void>()
-  // @ts-ignore — vscode.lm.registerMcpServerDefinitionProvider is not in @types/vscode <1.99
   const mcpDisposable = vscode.lm?.registerMcpServerDefinitionProvider?.('kanban.backlog', {
     onDidChangeMcpServerDefinitions: didChangeMcpEmitter.event,
     provideMcpServerDefinitions: async () => {
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
       if (!workspaceRoot) return []
       return [
-        // @ts-ignore — vscode.McpStdioServerDefinition is not in @types/vscode <1.99
-        new vscode.McpStdioServerDefinition({
-          label: 'Kanban Backlog',
-          command: process.execPath,
-          args: [context.asAbsolutePath('dist/mcp-server.js')],
-          env: { PA_BOARD_ROOT: workspaceRoot },
-          version: '1.0.0',
-        }),
+        // McpStdioServerDefinition takes POSITIONAL args (label, command, args, env, version) —
+        // not an options object. See the VS Code mcp-extension-sample.
+        new vscode.McpStdioServerDefinition(
+          'Kanban Backlog',
+          process.execPath,
+          [context.asAbsolutePath('dist/mcp-server.js')],
+          { PA_BOARD_ROOT: workspaceRoot },
+          '1.0.0',
+        ),
       ]
     },
-    // @ts-ignore — vscode.McpServerDefinition is not in @types/vscode <1.99
     resolveMcpServerDefinition: async (server) => server,
   })
   if (mcpDisposable) {

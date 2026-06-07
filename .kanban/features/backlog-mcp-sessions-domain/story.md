@@ -1,13 +1,14 @@
 ---
-id: "backlog-mcp-sessions-domain"
-status: "todo"
-priority: "medium"
+id: backlog-mcp-sessions-domain
+status: todo
+priority: medium
 epic: null
-order: "a4"
-dependsOn: ["backlog-mcp-native-adapter"]
+order: a4
+dependsOn:
+  - backlog-mcp-native-adapter
 sessions: []
-created: "2026-06-06T13:05:00.000Z"
-modified: "2026-06-06T13:05:00.000Z"
+created: 2026-06-06T13:05:00.000Z
+modified: 2026-06-07T03:08:27.267Z
 completedAt: null
 ---
 # Backlog MCP: sessions domain

@@ -7,7 +7,8 @@ import { WorkItemSchema, SessionSchema } from './contract'
 import { FIXTURE_WORK_ITEMS, FIXTURE_SESSIONS } from './fixtures'
 import {
   setBoardRoot, listWorkItems, getWorkItem, dependencyGraph,
-  computeDependencyGraph, listSessions, getSession, detectFrameworks
+  computeDependencyGraph, listSessions, getSession, detectFrameworks,
+  resolveBoardRoot
 } from './index'
 
 const board = resolve(__dirname, 'adapters/__fixtures__/board')
@@ -43,6 +44,21 @@ describe('library over a real board (native adapter)', () => {
 
   it('detects the native framework', async () => {
     expect((await detectFrameworks()).map((f) => f.framework)).toContain('native')
+  })
+})
+
+describe('resolveBoardRoot (env precedence)', () => {
+  it('prefers PA_BOARD_ROOT when set', () => {
+    expect(resolveBoardRoot({ PA_BOARD_ROOT: '/a', CLAUDE_PROJECT_DIR: '/b' })).toBe('/a')
+  })
+  it('falls back to CLAUDE_PROJECT_DIR (Claude Code sets it in the server env)', () => {
+    expect(resolveBoardRoot({ CLAUDE_PROJECT_DIR: '/b' })).toBe('/b')
+  })
+  it('treats an empty PA_BOARD_ROOT as unset (e.g. unexpanded ${workspaceFolder})', () => {
+    expect(resolveBoardRoot({ PA_BOARD_ROOT: '', CLAUDE_PROJECT_DIR: '/b' })).toBe('/b')
+  })
+  it('falls back to process.cwd() when neither is set', () => {
+    expect(resolveBoardRoot({})).toBe(process.cwd())
   })
 })
 
