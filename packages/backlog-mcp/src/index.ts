@@ -30,6 +30,7 @@ export function resolveBoardRoot(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 let boardRoot = resolveBoardRoot()
+let kanbanDir: string | undefined
 let registry: Registry | null = null
 
 /** Point the library at a project root (default: PA_BOARD_ROOT env or cwd). */
@@ -38,8 +39,15 @@ export function setBoardRoot(root: string): void {
   registry = null
 }
 
+/** Override the board folder relative to `root` (default: `.kanban/features`).
+ *  Pass `undefined` to fall back to the default. */
+export function setKanbanDir(dir: string | undefined): void {
+  kanbanDir = dir || undefined
+  registry = null
+}
+
 function getRegistry(): Registry {
-  if (!registry) registry = new Registry([nativeAdapter, kanbanMarkdownAdapter], { root: boardRoot })
+  if (!registry) registry = new Registry([nativeAdapter, kanbanMarkdownAdapter], { root: boardRoot, kanbanDir })
   return registry
 }
 

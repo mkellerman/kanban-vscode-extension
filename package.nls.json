@@ -5,7 +5,7 @@
   "command.addFeature.title": "Add Feature",
   "command.category": "Kanban Markdown",
   "config.title": "Kanban Markdown",
-  "config.featuresDirectory.description": "Directory path (relative to workspace root) where feature markdown files are stored.",
+  "config.featuresDirectory.description": "Directory path (relative to workspace root) where feature markdown files are stored. In backlog-mcp mode this is also the root the MCP recursively scans for *.md work items (default `.kanban/features`; set to e.g. `.kanban` to include plans/specs/milestones siblings).",
   "config.groomedDirectories.description": "List of directories (relative to workspace root) to load as kanban cards, each with a schema type. When empty, defaults to .kanban/features (feature schema) and docs/superpowers (superpowers schema).",
   "config.filenamePattern.description": "Pattern used to generate filenames for new feature cards. Changing this setting will offer to rename all existing feature files to match.",
   "config.filenamePattern.nameDate": "Name then date — e.g. my-feature-2026-02-23",

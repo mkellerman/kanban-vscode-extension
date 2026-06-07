@@ -9,8 +9,8 @@ const NS = 'native'
 const id = (folder: string) => `${NS}:${folder}`
 const stripNs = (x: string) => (x.startsWith(`${NS}:`) ? x.slice(NS.length + 1) : x)
 
-const kanbanDir   = (root: string) => join(root, '.kanban')
-const featuresDir = (root: string) => join(kanbanDir(root), 'features')
+const DEFAULT_KANBAN_DIR = '.kanban/features'
+const kanbanDir = (ctx: AdapterContext) => join(ctx.root, ctx.kanbanDir ?? DEFAULT_KANBAN_DIR)
 const WALK_IGNORE = new Set(['node_modules', '.git'])
 
 function toWorkItem(rawId: string, text: string, path: string): WorkItem {
@@ -57,15 +57,15 @@ async function walkMdFiles(dir: string): Promise<string[]> {
   return out
 }
 
-async function listFolderFormatItems(root: string): Promise<WorkItem[]> {
-  const folders = await listStoryFolders(featuresDir(root))
+async function listFolderFormatItems(ctx: AdapterContext): Promise<WorkItem[]> {
+  const folders = await listStoryFolders(kanbanDir(ctx))
   return Promise.all(
     folders.map(async (f) => toWorkItem(f.folder, await readFile(f.path, 'utf8'), f.path))
   )
 }
 
-async function listRecursiveExtras(root: string, exclude: Set<string>): Promise<WorkItem[]> {
-  const base = kanbanDir(root)
+async function listRecursiveExtras(ctx: AdapterContext, exclude: Set<string>): Promise<WorkItem[]> {
+  const base = kanbanDir(ctx)
   const files = await walkMdFiles(base)
   const items: WorkItem[] = []
   for (const path of files) {
@@ -80,10 +80,10 @@ async function listRecursiveExtras(root: string, exclude: Set<string>): Promise<
   return items
 }
 
-async function listAllItems(root: string): Promise<WorkItem[]> {
-  const folderItems = await listFolderFormatItems(root)
+async function listAllItems(ctx: AdapterContext): Promise<WorkItem[]> {
+  const folderItems = await listFolderFormatItems(ctx)
   const folderPaths = new Set(folderItems.map((i) => i.source.path))
-  const extras = await listRecursiveExtras(root, folderPaths)
+  const extras = await listRecursiveExtras(ctx, folderPaths)
   return [...folderItems, ...extras]
 }
 
@@ -111,10 +111,10 @@ async function listStoryFolders(dir: string): Promise<{ folder: string; path: st
 }
 
 async function resolveStoryPath(
-  root: string,
+  ctx: AdapterContext,
   folderId: string
 ): Promise<{ path: string; folderPath: string; inDone: boolean }> {
-  const base = featuresDir(root)
+  const base = kanbanDir(ctx)
   const activeFolderPath = join(base, folderId)
   const doneFolderPath = join(base, 'done', folderId)
   const activePath = join(activeFolderPath, 'story.md')
@@ -139,10 +139,10 @@ function slugify(title: string): string {
     .replace(/^-|-$/g, '')
 }
 
-async function generateFolderId(root: string, title: string): Promise<string> {
+async function generateFolderId(ctx: AdapterContext, title: string): Promise<string> {
   const date = new Date().toISOString().slice(0, 10)
   const base = `${slugify(title)}-${date}`
-  const dir = featuresDir(root)
+  const dir = kanbanDir(ctx)
   let candidate = base
   let i = 2
   for (;;) {
@@ -186,28 +186,20 @@ export const nativeAdapter: FrameworkAdapter = {
 
   async detect(ctx: AdapterContext) {
     try {
-      if (!(await stat(kanbanDir(ctx.root))).isDirectory()) return false
+      return (await stat(kanbanDir(ctx))).isDirectory()
     } catch { return false }
-    try {
-      if ((await stat(featuresDir(ctx.root))).isDirectory()) return true
-    } catch { /* no features/ dir — fall through */ }
-    for (const path of await walkMdFiles(kanbanDir(ctx.root))) {
-      const { fm } = splitFrontmatter(await readFile(path, 'utf8'))
-      if (typeof fm.status === 'string') return true
-    }
-    return false
   },
 
   async listItems(ctx: AdapterContext) {
-    return listAllItems(ctx.root)
+    return listAllItems(ctx)
   },
 
   async getBody(ctx: AdapterContext, itemId: string) {
     try {
-      const { path } = await resolveStoryPath(ctx.root, stripNs(itemId))
+      const { path } = await resolveStoryPath(ctx, stripNs(itemId))
       return splitFrontmatter(await readFile(path, 'utf8')).body.trim()
     } catch (e) {
-      const extras = await listRecursiveExtras(ctx.root, new Set())
+      const extras = await listRecursiveExtras(ctx, new Set())
       const item = extras.find((i) => i.id === itemId)
       if (!item) throw e
       return splitFrontmatter(await readFile(item.source.path, 'utf8')).body.trim()
@@ -215,7 +207,7 @@ export const nativeAdapter: FrameworkAdapter = {
   },
 
   async setStatus(ctx: AdapterContext, itemId: string, status: string) {
-    const { path } = await resolveStoryPath(ctx.root, stripNs(itemId))
+    const { path } = await resolveStoryPath(ctx, stripNs(itemId))
     const text = await readFile(path, 'utf8')
     const { fm, body } = splitFrontmatter(text)
     fm.status = status
@@ -224,8 +216,8 @@ export const nativeAdapter: FrameworkAdapter = {
   },
 
   async createItem(ctx: AdapterContext, input: CreateItemInput): Promise<WorkItem> {
-    const folderId = await generateFolderId(ctx.root, input.title)
-    const folderPath = join(featuresDir(ctx.root), folderId)
+    const folderId = await generateFolderId(ctx, input.title)
+    const folderPath = join(kanbanDir(ctx), folderId)
     await mkdir(folderPath, { recursive: true })
     const now = new Date().toISOString()
     const status = input.status ?? 'backlog'
@@ -254,7 +246,7 @@ export const nativeAdapter: FrameworkAdapter = {
 
   async updateItem(ctx: AdapterContext, itemId: string, patch: ItemPatch): Promise<WorkItem> {
     const folderId = stripNs(itemId)
-    const { path } = await resolveStoryPath(ctx.root, folderId)
+    const { path } = await resolveStoryPath(ctx, folderId)
     const text = await readFile(path, 'utf8')
     let { fm, body } = splitFrontmatter(text)
 
@@ -281,14 +273,14 @@ export const nativeAdapter: FrameworkAdapter = {
   },
 
   async setBody(ctx: AdapterContext, itemId: string, newBody: string): Promise<void> {
-    const { path } = await resolveStoryPath(ctx.root, stripNs(itemId))
+    const { path } = await resolveStoryPath(ctx, stripNs(itemId))
     const text = await readFile(path, 'utf8')
     const { fm } = splitFrontmatter(text)
     await writeFile(path, `---\n${stringify(fm)}---\n${newBody}`, 'utf8')
   },
 
   async deleteItem(ctx: AdapterContext, itemId: string): Promise<void> {
-    const { folderPath } = await resolveStoryPath(ctx.root, stripNs(itemId))
+    const { folderPath } = await resolveStoryPath(ctx, stripNs(itemId))
     await rm(folderPath, { recursive: true })
   },
 }

@@ -121,7 +121,10 @@ export function activate(context: vscode.ExtensionContext) {
       ]
   const initialDataSource = config.get<string>('dataSource', 'files')
   const repo: IFeatureRepository = initialDataSource === 'backlog-mcp'
-    ? new McpFeatureRepository(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null)
+    ? new McpFeatureRepository(
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null,
+        config.get<string>('featuresDirectory') || '.kanban/features'
+      )
     : new FeatureRepositoryManager(context, effectiveDirs)
   context.subscriptions.push(repo)
 
@@ -130,7 +133,11 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(async e => {
-      if (!e.affectsConfiguration('kanban-extension.dataSource')) return
+      const dataSourceChanged = e.affectsConfiguration('kanban-extension.dataSource')
+      const featuresDirChanged =
+        e.affectsConfiguration('kanban-extension.featuresDirectory') &&
+        vscode.workspace.getConfiguration('kanban-extension').get<string>('dataSource', 'files') === 'backlog-mcp'
+      if (!dataSourceChanged && !featuresDirChanged) return
       const action = await vscode.window.showInformationMessage(
         'Kanban: data source changed. Reload window to apply.',
         'Reload Window'

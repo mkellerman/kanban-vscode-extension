@@ -4,6 +4,7 @@ import {
   listWorkItems,
   getItemBody,
   setBoardRoot,
+  setKanbanDir,
   createItem,
   updateItem,
   setBody,
@@ -48,20 +49,25 @@ function toFeature(wi: WorkItem): Feature {
   }
 }
 
+const DEFAULT_KANBAN_DIR = '.kanban/features'
+
 export class McpFeatureRepository implements IFeatureRepository {
   private _features: Feature[] = []
   private readonly _emitter = new vscode.EventEmitter<readonly Feature[]>()
   private _watcher: vscode.FileSystemWatcher | undefined
   private _root: string | null
+  private _kanbanDir: string
   private _debounceTimer: ReturnType<typeof setTimeout> | undefined
 
   readonly onDidChange = this._emitter.event
   readonly schema: SchemaType = 'feature'
 
-  constructor(root: string | null) {
+  constructor(root: string | null, kanbanDir: string = DEFAULT_KANBAN_DIR) {
     this._root = root
+    this._kanbanDir = kanbanDir || DEFAULT_KANBAN_DIR
     if (root) {
       setBoardRoot(root)
+      setKanbanDir(this._kanbanDir)
       this._installWatcher(root)
     }
   }
@@ -71,7 +77,7 @@ export class McpFeatureRepository implements IFeatureRepository {
   getEffectiveRoot(): string | null { return this._root }
 
   getFeaturesDir(): string | null {
-    return this._root ? path.join(this._root, '.kanban', 'features') : null
+    return this._root ? path.join(this._root, this._kanbanDir) : null
   }
 
   async setRoot(newRoot: string | null): Promise<void> {
@@ -79,6 +85,7 @@ export class McpFeatureRepository implements IFeatureRepository {
     this._disposeWatcher()
     if (newRoot) {
       setBoardRoot(newRoot)
+      setKanbanDir(this._kanbanDir)
       this._installWatcher(newRoot)
     }
     await this.load()
@@ -89,6 +96,7 @@ export class McpFeatureRepository implements IFeatureRepository {
     this._disposeWatcher()
     if (newRoot) {
       setBoardRoot(newRoot)
+      setKanbanDir(this._kanbanDir)
       this._installWatcher(newRoot)
     }
   }
@@ -100,6 +108,7 @@ export class McpFeatureRepository implements IFeatureRepository {
       return
     }
     setBoardRoot(this._root)
+    setKanbanDir(this._kanbanDir)
     const items = await listWorkItems()
     this._features = items.map(toFeature)
     this._emitter.fire(this._features)
@@ -213,7 +222,7 @@ export class McpFeatureRepository implements IFeatureRepository {
   }
 
   private _installWatcher(root: string): void {
-    const pattern = new vscode.RelativePattern(root, '.kanban/features/**/story.md')
+    const pattern = new vscode.RelativePattern(root, `${this._kanbanDir}/**/*.md`)
     const watcher = vscode.workspace.createFileSystemWatcher(pattern)
     const trigger = () => this._scheduleReload()
     watcher.onDidCreate(trigger)

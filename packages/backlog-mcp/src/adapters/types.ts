@@ -4,6 +4,10 @@ import type { WorkItem, WorkItemType, NormStatus, Priority } from '../contract'
 export interface AdapterContext {
   /** absolute path of the project root to read */
   root: string
+  /** path of the board folder relative to `root`. Default `.kanban/features`.
+   *  The native adapter scans this folder for folder-format stories
+   *  (`<kanbanDir>/<id>/story.md`) and recursive *.md with `status` frontmatter. */
+  kanbanDir?: string
 }
 
 export interface CreateItemInput {

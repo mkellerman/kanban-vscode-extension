@@ -375,24 +375,27 @@ describe('native adapter — flexible recursive discovery', () => {
     await writeFile(full, text, 'utf8')
   }
 
-  it('detects a .kanban folder even without features/', async () => {
+  /** ctx.kanbanDir = '.kanban' lets the adapter scan the whole board root instead
+   *  of just `.kanban/features` (the default that matches files-mode behavior). */
+  const flexCtx = (root: string) => ({ root, kanbanDir: '.kanban' })
+
+  it('detects a .kanban folder even without features/ when kanbanDir points there', async () => {
     const tmp = await mkdtemp(join(tmpdir(), 'pa-native-flex-'))
     try {
       await makeFile(tmp, '.kanban/plans/foo.md', '---\nid: "foo"\nstatus: "todo"\n---\n# Foo\n')
-      expect(await nativeAdapter.detect({ root: tmp })).toBe(true)
+      expect(await nativeAdapter.detect(flexCtx(tmp))).toBe(true)
     } finally { await rm(tmp, { recursive: true, force: true }) }
   })
 
-  it('returns false when .kanban/ has no .md with status frontmatter', async () => {
+  it('does not detect when the configured kanbanDir is missing', async () => {
     const tmp = await mkdtemp(join(tmpdir(), 'pa-native-flex-'))
     try {
-      await makeFile(tmp, '.kanban/CLAUDE.md', '# Just docs, no frontmatter\n')
-      await makeFile(tmp, '.kanban/notes.md', '---\ntitle: "Note"\n---\n# A note\n')
-      expect(await nativeAdapter.detect({ root: tmp })).toBe(false)
+      // nothing on disk under .kanban — detect should fail
+      expect(await nativeAdapter.detect(flexCtx(tmp))).toBe(false)
     } finally { await rm(tmp, { recursive: true, force: true }) }
   })
 
-  it('lists items from any .md under .kanban/ with status in frontmatter', async () => {
+  it('lists items from any .md under kanbanDir with status in frontmatter', async () => {
     const tmp = await mkdtemp(join(tmpdir(), 'pa-native-flex-'))
     try {
       await makeFile(tmp, '.kanban/plans/p1.md',
@@ -403,7 +406,7 @@ describe('native adapter — flexible recursive discovery', () => {
         '---\nid: "M1"\nstatus: "done"\ntype: "milestone"\n---\n# Milestone 1\n')
       await makeFile(tmp, '.kanban/CLAUDE.md', '# Docs no frontmatter\n')
 
-      const items = await nativeAdapter.listItems({ root: tmp })
+      const items = await nativeAdapter.listItems(flexCtx(tmp))
       const plan = items.find((i) => i.id === 'native:PLAN-1')
       const spec = items.find((i) => i.id === 'native:SPEC-1')
       const ms   = items.find((i) => i.id === 'native:M1')
@@ -415,11 +418,11 @@ describe('native adapter — flexible recursive discovery', () => {
     } finally { await rm(tmp, { recursive: true, force: true }) }
   })
 
-  it('derives id from relative path when frontmatter has no id', async () => {
+  it('derives id from path relative to kanbanDir when frontmatter has no id', async () => {
     const tmp = await mkdtemp(join(tmpdir(), 'pa-native-flex-'))
     try {
       await makeFile(tmp, '.kanban/plans/no-id.md', '---\nstatus: "backlog"\n---\n# No ID\n')
-      const items = await nativeAdapter.listItems({ root: tmp })
+      const items = await nativeAdapter.listItems(flexCtx(tmp))
       expect(items.some((i) => i.id === 'native:plans/no-id')).toBe(true)
     } finally { await rm(tmp, { recursive: true, force: true }) }
   })
@@ -431,19 +434,39 @@ describe('native adapter — flexible recursive discovery', () => {
       await mkdir(dir, { recursive: true })
       await writeFile(join(dir, 'story.md'),
         '---\nid: "x"\nstatus: "todo"\n---\n# X\n', 'utf8')
+      // default kanbanDir = '.kanban/features' (files-mode parity)
       const items = await nativeAdapter.listItems({ root: tmp })
       expect(items.filter((i) => i.id === 'native:x')).toHaveLength(1)
     } finally { await rm(tmp, { recursive: true, force: true }) }
   })
 
-  it('getBody works on a recursively-discovered file', async () => {
+  it('getBody works on a recursively-discovered file when kanbanDir is widened', async () => {
     const tmp = await mkdtemp(join(tmpdir(), 'pa-native-flex-'))
     try {
       await makeFile(tmp, '.kanban/specs/spec-a.md',
         '---\nid: "SPEC-A"\nstatus: "todo"\n---\n# Spec A\n\nbody here\n')
-      const body = await nativeAdapter.getBody({ root: tmp }, 'native:SPEC-A')
+      const body = await nativeAdapter.getBody(flexCtx(tmp), 'native:SPEC-A')
       expect(body).toMatch(/# Spec A/)
       expect(body).toMatch(/body here/)
+    } finally { await rm(tmp, { recursive: true, force: true }) }
+  })
+
+  it('default kanbanDir = .kanban/features keeps plans/specs siblings out of scope', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-flex-'))
+    try {
+      // a folder-format story under the default kanbanDir
+      const dir = join(tmp, '.kanban', 'features', 'inside')
+      await mkdir(dir, { recursive: true })
+      await writeFile(join(dir, 'story.md'),
+        '---\nid: "inside"\nstatus: "todo"\n---\n# Inside\n', 'utf8')
+      // a plan with status frontmatter living OUTSIDE the default scan root
+      await makeFile(tmp, '.kanban/plans/outside.md',
+        '---\nid: "OUTSIDE"\nstatus: "todo"\n---\n# Outside\n')
+
+      const items = await nativeAdapter.listItems({ root: tmp })
+      expect(items.some((i) => i.id === 'native:inside')).toBe(true)
+      // not picked up because it lives outside the default `.kanban/features` scan root
+      expect(items.some((i) => i.id === 'native:OUTSIDE')).toBe(false)
     } finally { await rm(tmp, { recursive: true, force: true }) }
   })
 })
