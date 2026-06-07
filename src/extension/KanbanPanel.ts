@@ -110,6 +110,9 @@ export class KanbanPanel {
         switch (message.type) {
           case 'ready':
             await this._repo.load()
+            if (this._dataSource() === 'backlog-mcp') {
+              void this._refreshMcpFeatures()
+            }
             if (this._launcher.activeFeatureIds.length > 0) {
               this._panel.webview.postMessage({
                 type: 'agentStatus',
