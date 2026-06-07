@@ -8,7 +8,6 @@ import { serializeFeature } from '../shared/featureFrontmatter'
 import { t, getBundle, getEffectiveLocale, reloadBundle, getAllDefaultColumnNames, getDefaultColumnNamesForLocale } from './l10n'
 import type { IFeatureRepository, CreateFeatureData } from './FeatureRepository'
 import type { AgentLauncher } from './AgentLauncher'
-import { loadBoardFeatures } from './workItemSource'
 
 export class KanbanPanel {
   public static readonly viewType = 'kanban-extension.panel'
@@ -24,7 +23,6 @@ export class KanbanPanel {
   private _lastSentEditorContent: string = ''
   private _savingFeatureContent = false
   private _onDisposeCallbacks: (() => void)[] = []
-  private _mcpFeatures: Feature[] = []
 
   public static createOrShow(
     extensionUri: vscode.Uri,
@@ -110,9 +108,6 @@ export class KanbanPanel {
         switch (message.type) {
           case 'ready':
             await this._repo.load()
-            if (this._dataSource() === 'backlog-mcp') {
-              void this._refreshMcpFeatures()
-            }
             if (this._launcher.activeFeatureIds.length > 0) {
               this._panel.webview.postMessage({
                 type: 'agentStatus',
@@ -278,11 +273,7 @@ export class KanbanPanel {
         if (e.affectsConfiguration('kanban-extension.featuresDirectory')) {
           this._repo.load()
         } else {
-          if (e.affectsConfiguration('kanban-extension.dataSource') && this._dataSource() === 'backlog-mcp') {
-            void this._refreshMcpFeatures()
-          } else {
-            this._sendFeaturesToWebview()
-          }
+          this._sendFeaturesToWebview()
           if (e.affectsConfiguration('kanban-extension.filenamePattern')) {
             this._promptFilenamePatternMigration()
           }
@@ -295,10 +286,6 @@ export class KanbanPanel {
       }
     }, null, this._disposables)
 
-    // Initial load when the board is sourced from the Backlog MCP
-    if (this._dataSource() === 'backlog-mcp') {
-      void this._refreshMcpFeatures()
-    }
   }
 
   public onDispose(callback: () => void): void {
@@ -440,6 +427,10 @@ export class KanbanPanel {
 
     this._currentEditingFeatureId = featureId
 
+    const content = this._repo.getBody
+      ? await this._repo.getBody(featureId)
+      : feature.content
+
     const frontmatter: FeatureFrontmatter = {
       id: feature.id,
       status: feature.status,
@@ -455,12 +446,12 @@ export class KanbanPanel {
       workspace: feature.workspace
     }
 
-    this._lastSentEditorContent = serializeFeature(feature)
+    this._lastSentEditorContent = serializeFeature({ ...feature, content })
 
     this._panel.webview.postMessage({
       type: 'featureContent',
       featureId: feature.id,
-      content: feature.content,
+      content,
       frontmatter
     })
   }
@@ -548,21 +539,6 @@ export class KanbanPanel {
     vscode.window.showInformationMessage(`Kanban Markdown: ${msg}`)
   }
 
-  private _dataSource(): string {
-    return vscode.workspace.getConfiguration('kanban-extension').get<string>('dataSource', 'files')
-  }
-
-  /** Load the board from the Backlog MCP (when dataSource = backlog-mcp), then render. */
-  private async _refreshMcpFeatures(): Promise<void> {
-    try {
-      this._mcpFeatures = await loadBoardFeatures(this._repo.getEffectiveRoot() ?? undefined)
-    } catch (err) {
-      console.error('[kanban-extension] failed to load Backlog MCP features', err)
-      this._mcpFeatures = []
-    }
-    this._sendFeaturesToWebview()
-  }
-
   private _sendFeaturesToWebview(): void {
     const config = vscode.workspace.getConfiguration('kanban-extension')
 
@@ -594,8 +570,7 @@ export class KanbanPanel {
     const collapsedEpics: string[] = this._context.workspaceState.get('kanban-extension.collapsedEpics', [])
 
     const workspaceRoot = this._repo.getEffectiveRoot()
-    const sourceFeatures = this._dataSource() === 'backlog-mcp' ? this._mcpFeatures : this._repo.features
-    const features = sourceFeatures.map(f => ({
+    const features = this._repo.features.map(f => ({
       ...f,
       filePath: workspaceRoot ? path.relative(workspaceRoot, f.filePath) : f.filePath
     }))
