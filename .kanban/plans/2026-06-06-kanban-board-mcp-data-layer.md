@@ -23,9 +23,9 @@
 
 ## Task 1: Add the dependency
 
-- [ ] **Step 1:** add `"@kanban/backlog-mcp": "workspace:*"` to root `dependencies`, then `pnpm install`.
-- [ ] **Step 2: Verify** the import resolves: `node -e "import('@kanban/backlog-mcp').then(m=>console.log(typeof m.listWorkItems))"` (run via the workspace) prints `function`. *(If consumed as TS source, verify instead by a passing test in Task 2.)*
-- [ ] **Step 3: Commit** — `git commit -am "build(board): depend on @kanban/backlog-mcp (workspace)"`
+- [x] **Step 1:** add `"@kanban/backlog-mcp": "workspace:*"` to root `dependencies`, then `pnpm install`.
+- [x] **Step 2: Verify** the import resolves.
+- [x] **Step 3: Commit** (folded into the `McpFeatureRepository` series — see commits `5abe4f2`..`e6e3a66`).
 
 ---
 
@@ -96,8 +96,8 @@ export async function loadBoardCards(): Promise<BoardCard[]> {
 
 *(Note: `listWorkItems` is sync in the stub, async after the MCP native-adapter slice; `await Promise.resolve(...)` tolerates both. If `tests/extension` runs in vitest `node` env, the `@kanban/backlog-mcp` source import is resolved by the workspace.)*
 
-- [ ] **Step 3: Run** `pnpm vitest run tests/extension/workItemSource.test.ts` → PASS
-- [ ] **Step 4: Commit** — `git commit -am "feat(board): WorkItem→card mapping + loadBoardCards"`
+- [x] **Step 3: Run** tests → PASS
+- [x] **Step 4: Commit** — landed as the `McpFeatureRepository` (an `IFeatureRepository` impl) rather than `workItemSource.ts`; the standalone file was later removed (`f7af4ff`). Mapping is covered by `tests/extension/McpFeatureRepository.test.ts`.
 
 ---
 
@@ -105,13 +105,13 @@ export async function loadBoardCards(): Promise<BoardCard[]> {
 
 **Files:** Modify `src/extension/KanbanPanel.ts`
 
-- [ ] **Step 1:** Add a setting `kanban-extension.dataSource: "files" | "backlog-mcp"` (default `"files"` for now). When `"backlog-mcp"`, the panel builds its board payload from `loadBoardCards()` instead of `FeatureRepository`. Keep the existing files path intact (no regression for current users).
-- [ ] **Step 2:** Map `BoardCard[]` → the existing webview init message (`columns` + cards grouped by `status`). Reuse the current column config + grouping; only the *source* of cards changes.
-- [ ] **Step 3: Build** — `pnpm build` succeeds; `pnpm typecheck` clean.
+- [x] **Step 1:** Setting `kanban-extension.dataSource: "files" | "backlog-mcp"` added; selecting `backlog-mcp` constructs `McpFeatureRepository` instead of `FeatureRepositoryManager` (`e6e3a66`).
+- [x] **Step 2:** `McpFeatureRepository` exposes the same `IFeatureRepository` interface, so `KanbanPanel` / `SidebarViewProvider` are source-agnostic (`4dfc26a`, `ece02b2`).
+- [x] **Step 3: Build** — `pnpm build` and `pnpm typecheck` clean; full root suite (451 tests) green.
 
-- [ ] **Step 4: Manual verification — REQUIRED `/visual-walkthrough`** (repo policy): set `dataSource: backlog-mcp`, open the board, capture each step showing the MCP fixtures (e.g. `Ready lane UI`, `Export board as CSV`, `Fix drag flicker`) rendered in the correct columns with provenance chips. Attach the walkthrough to this plan before marking done.
+- [x] **Step 4: Manual verification — `/visual-walkthrough`** captured at `.kanban/walkthroughs/kanban-board-mcp-data-layer/index.html`. Verified against the `roleplaygames-studio` workspace (custom `.kanban/` layout with `plans/`, `specs/`, `milestones/`, `archive/` — no `.kanban/features/`). All five columns populate with real items (M5 Plugin Sandboxing, M6 Domain Packages, M7 Campaign Persistence, DEVINFRA-P1, Story Breakdown Design, etc.).
 
-- [ ] **Step 5: Commit** — `git commit -am "feat(board): render WorkItems from the Backlog MCP (opt-in dataSource)"`
+- [x] **Step 5: Commits** — `e6e3a66` (panel wiring), plus follow-up `b0fd430` (`feat(backlog-mcp): recursive .kanban/**/*.md discovery in native adapter`) on the dependency, required to render items from `plans/`/`specs/`/`milestones/` rather than only `features/<id>/story.md`.
 
 ---
 
