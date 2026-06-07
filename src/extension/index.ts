@@ -211,8 +211,6 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(mcpDisposable)
   }
   context.subscriptions.push(didChangeMcpEmitter)
-
-  context.subscriptions.push(repo)
 }
 
 export function deactivate() {}
