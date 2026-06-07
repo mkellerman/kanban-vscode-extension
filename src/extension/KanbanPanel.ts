@@ -2,7 +2,7 @@ import * as vscode from 'vscode'
 import * as crypto from 'crypto'
 import * as path from 'path'
 import * as fs from 'fs'
-import { getTitleFromContent, generateFeatureFilename, DEFAULT_COLUMNS } from '../shared/types'
+import { DEFAULT_COLUMNS } from '../shared/types'
 import type { Feature, FeatureStatus, Priority, KanbanColumn, FeatureFrontmatter, CardDisplaySettings, FilenamePattern, BoardViewMode } from '../shared/types'
 import { serializeFeature } from '../shared/featureFrontmatter'
 import { t, getBundle, getEffectiveLocale, reloadBundle, getAllDefaultColumnNames, getDefaultColumnNamesForLocale } from './l10n'
@@ -314,7 +314,7 @@ export class KanbanPanel {
     this._panel.webview.html = this._getHtmlForWebview(this._panel.webview)
   }
 
-  private _getHtmlForWebview(webview: vscode.Webview): string {
+  private _getHtmlForWebview(_webview: vscode.Webview): string {
     const extPath = this._extensionUri.fsPath
     const bundlePath = path.join(extPath, 'dist', 'webview', 'index.js')
     const stylePath  = path.join(extPath, 'dist', 'webview', 'style.css')
