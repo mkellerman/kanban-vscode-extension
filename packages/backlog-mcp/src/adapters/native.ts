@@ -1,6 +1,7 @@
 import { readdir, readFile, writeFile, stat, mkdir, rm } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 import { stringify } from 'yaml'
+import ignore, { type Ignore } from 'ignore'
 import type { WorkItem, NormStatus, Priority, WorkItemType } from '../contract'
 import type { FrameworkAdapter, AdapterContext, CreateItemInput, ItemPatch } from './types'
 import { splitFrontmatter, titleFromBody, acceptanceCriteria } from './markdown'
@@ -12,6 +13,25 @@ const stripNs = (x: string) => (x.startsWith(`${NS}:`) ? x.slice(NS.length + 1) 
 const DEFAULT_KANBAN_DIR = '.kanban/features'
 const kanbanDir = (ctx: AdapterContext) => join(ctx.root, ctx.kanbanDir ?? DEFAULT_KANBAN_DIR)
 const WALK_IGNORE = new Set(['node_modules', '.git'])
+const KANBAN_IGNORE_FILE = '.kanbanignore'
+
+/** Patterns in `<kanbanDir>/.kanbanignore` are matched against paths
+ *  relative to the workspace root (e.g. `.kanban/specs/foo.md`), matching
+ *  how the user-introduced file looks. Returns a predicate that says "ignore
+ *  this absolute path". Missing/unreadable file → predicate is always false. */
+async function loadIgnoreMatcher(ctx: AdapterContext): Promise<(absPath: string) => boolean> {
+  try {
+    const text = await readFile(join(kanbanDir(ctx), KANBAN_IGNORE_FILE), 'utf8')
+    const ig: Ignore = ignore().add(text)
+    return (absPath: string) => {
+      const rel = relative(ctx.root, absPath).split(sep).join('/')
+      if (!rel || rel.startsWith('..')) return false
+      return ig.ignores(rel)
+    }
+  } catch {
+    return () => false
+  }
+}
 
 function toWorkItem(rawId: string, text: string, path: string): WorkItem {
   const { fm, body } = splitFrontmatter(text)
@@ -39,7 +59,7 @@ function toWorkItem(rawId: string, text: string, path: string): WorkItem {
   }
 }
 
-async function walkMdFiles(dir: string): Promise<string[]> {
+async function walkMdFiles(dir: string, isIgnored: (p: string) => boolean): Promise<string[]> {
   const out: string[] = []
   async function walk(d: string) {
     let entries
@@ -49,6 +69,7 @@ async function walkMdFiles(dir: string): Promise<string[]> {
     for (const e of entries) {
       if (WALK_IGNORE.has(e.name)) continue
       const p = join(d, e.name)
+      if (isIgnored(p)) continue
       if (e.isDirectory()) await walk(p)
       else if (e.isFile() && e.name.endsWith('.md')) out.push(p)
     }
@@ -57,16 +78,21 @@ async function walkMdFiles(dir: string): Promise<string[]> {
   return out
 }
 
-async function listFolderFormatItems(ctx: AdapterContext): Promise<WorkItem[]> {
+async function listFolderFormatItems(ctx: AdapterContext, isIgnored: (p: string) => boolean): Promise<WorkItem[]> {
   const folders = await listStoryFolders(kanbanDir(ctx))
+  const kept = folders.filter((f) => !isIgnored(f.path) && !isIgnored(join(kanbanDir(ctx), f.folder)))
   return Promise.all(
-    folders.map(async (f) => toWorkItem(f.folder, await readFile(f.path, 'utf8'), f.path))
+    kept.map(async (f) => toWorkItem(f.folder, await readFile(f.path, 'utf8'), f.path))
   )
 }
 
-async function listRecursiveExtras(ctx: AdapterContext, exclude: Set<string>): Promise<WorkItem[]> {
+async function listRecursiveExtras(
+  ctx: AdapterContext,
+  exclude: Set<string>,
+  isIgnored: (p: string) => boolean
+): Promise<WorkItem[]> {
   const base = kanbanDir(ctx)
-  const files = await walkMdFiles(base)
+  const files = await walkMdFiles(base, isIgnored)
   const items: WorkItem[] = []
   for (const path of files) {
     if (exclude.has(path)) continue
@@ -81,9 +107,10 @@ async function listRecursiveExtras(ctx: AdapterContext, exclude: Set<string>): P
 }
 
 async function listAllItems(ctx: AdapterContext): Promise<WorkItem[]> {
-  const folderItems = await listFolderFormatItems(ctx)
+  const isIgnored = await loadIgnoreMatcher(ctx)
+  const folderItems = await listFolderFormatItems(ctx, isIgnored)
   const folderPaths = new Set(folderItems.map((i) => i.source.path))
-  const extras = await listRecursiveExtras(ctx, folderPaths)
+  const extras = await listRecursiveExtras(ctx, folderPaths, isIgnored)
   return [...folderItems, ...extras]
 }
 
@@ -199,7 +226,8 @@ export const nativeAdapter: FrameworkAdapter = {
       const { path } = await resolveStoryPath(ctx, stripNs(itemId))
       return splitFrontmatter(await readFile(path, 'utf8')).body.trim()
     } catch (e) {
-      const extras = await listRecursiveExtras(ctx, new Set())
+      const isIgnored = await loadIgnoreMatcher(ctx)
+      const extras = await listRecursiveExtras(ctx, new Set(), isIgnored)
       const item = extras.find((i) => i.id === itemId)
       if (!item) throw e
       return splitFrontmatter(await readFile(item.source.path, 'utf8')).body.trim()

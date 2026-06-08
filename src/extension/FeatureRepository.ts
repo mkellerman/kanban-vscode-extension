@@ -35,6 +35,10 @@ export interface IFeatureRepository extends vscode.Disposable {
   updateFeature(featureId: string, updates: Partial<Feature>): Promise<void>
   moveFeature(featureId: string, newStatus: string, newOrder: number): Promise<void>
   deleteFeature(featureId: string): Promise<void>
+  /** Hide a feature from the board without deleting the file on disk
+   *  (appends its workspace-relative path to .kanbanignore). Optional —
+   *  the files data source has no notion of ignore. */
+  removeFeature?(featureId: string): Promise<void>
   moveAllFeatures(sourceColumnId: string, targetColumnId: string, epicLane?: string | null): Promise<void>
   archiveFeatures(sourceColumnId: string): Promise<{ failedCount: number }>
   renameLabel(oldName: string, newName: string): Promise<number>

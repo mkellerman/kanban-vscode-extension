@@ -171,6 +171,26 @@ describe('McpFeatureRepository — writes', () => {
     expect(feat.order).toBe('b1')
   })
 
+  it('deleteFeature unlinks a recursively-discovered flat .md', async () => {
+    const { stat, mkdir, writeFile } = await import('node:fs/promises')
+    // flat file under .kanban/plans/ — not folder-format
+    const plansDir = join(tmp, '.kanban', 'plans')
+    await mkdir(plansDir, { recursive: true })
+    const flatPath = join(plansDir, 'flat.md')
+    await writeFile(flatPath,
+      '---\nid: "FLAT"\nstatus: "todo"\n---\n# Flat\n', 'utf8')
+    repo = new McpFeatureRepository(tmp, '.kanban')
+    await repo.load()
+    expect(repo.features.some(f => f.id === 'native:FLAT')).toBe(true)
+
+    await repo.deleteFeature('native:FLAT')
+
+    // file gone, card gone
+    await expect(stat(flatPath)).rejects.toThrow()
+    await repo.load()
+    expect(repo.features.some(f => f.id === 'native:FLAT')).toBe(false)
+  })
+
   it('deleteFeature removes the folder', async () => {
     await makeStory(tmp, 'gone',
       '---\nid: "gone"\nstatus: "todo"\npriority: "low"\n---\n# Gone\n')
@@ -179,6 +199,43 @@ describe('McpFeatureRepository — writes', () => {
     await repo.deleteFeature('native:gone')
     await repo.load()
     expect(repo.features.find(f => f.id === 'native:gone')).toBeUndefined()
+  })
+
+  it('removeFeature appends the folder pattern to .kanbanignore and hides the card', async () => {
+    const { readFile, stat } = await import('node:fs/promises')
+    await makeStory(tmp, 'hideme',
+      '---\nid: "hideme"\nstatus: "todo"\npriority: "low"\n---\n# Hide Me\n')
+    repo = new McpFeatureRepository(tmp)
+    await repo.load()
+    expect(repo.features.some(f => f.id === 'native:hideme')).toBe(true)
+
+    await repo.removeFeature!('native:hideme')
+
+    // The story.md file still exists on disk
+    const filePath = join(tmp, '.kanban', 'features', 'hideme', 'story.md')
+    expect((await stat(filePath)).isFile()).toBe(true)
+
+    // .kanbanignore contains the folder pattern
+    const ignorePath = join(tmp, '.kanban', 'features', '.kanbanignore')
+    const text = await readFile(ignorePath, 'utf8')
+    expect(text).toMatch(/^\.kanban\/features\/hideme\/$/m)
+
+    // After reload the card is no longer in the repo
+    await repo.load()
+    expect(repo.features.some(f => f.id === 'native:hideme')).toBe(false)
+  })
+
+  it('removeFeature is idempotent (no duplicate lines)', async () => {
+    const { readFile } = await import('node:fs/promises')
+    await makeStory(tmp, 'twice',
+      '---\nid: "twice"\nstatus: "todo"\npriority: "low"\n---\n# T\n')
+    repo = new McpFeatureRepository(tmp)
+    await repo.load()
+    await repo.removeFeature!('native:twice')
+    await repo.removeFeature!('native:twice')
+    const text = await readFile(join(tmp, '.kanban', 'features', '.kanbanignore'), 'utf8')
+    const matches = text.match(/\.kanban\/features\/twice\//g) || []
+    expect(matches.length).toBe(1)
   })
 })
 

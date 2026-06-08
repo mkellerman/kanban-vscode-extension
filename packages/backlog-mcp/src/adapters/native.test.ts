@@ -451,6 +451,64 @@ describe('native adapter — flexible recursive discovery', () => {
     } finally { await rm(tmp, { recursive: true, force: true }) }
   })
 
+  it('respects .kanbanignore for recursive items (file pattern)', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-ignore-'))
+    try {
+      await makeFile(tmp, '.kanban/plans/keep.md',
+        '---\nid: "KEEP"\nstatus: "todo"\n---\n# Keep\n')
+      await makeFile(tmp, '.kanban/plans/hidden.md',
+        '---\nid: "HIDDEN"\nstatus: "todo"\n---\n# Hidden\n')
+      await makeFile(tmp, '.kanban/.kanbanignore', '.kanban/plans/hidden.md\n')
+      const items = await nativeAdapter.listItems(flexCtx(tmp))
+      expect(items.some((i) => i.id === 'native:KEEP')).toBe(true)
+      expect(items.some((i) => i.id === 'native:HIDDEN')).toBe(false)
+    } finally { await rm(tmp, { recursive: true, force: true }) }
+  })
+
+  it('respects .kanbanignore for whole subtrees (folder pattern)', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-ignore-'))
+    try {
+      await makeFile(tmp, '.kanban/plans/p.md',  '---\nid: "P"\nstatus: "todo"\n---\n# P\n')
+      await makeFile(tmp, '.kanban/specs/a.md',  '---\nid: "A"\nstatus: "todo"\n---\n# A\n')
+      await makeFile(tmp, '.kanban/specs/b.md',  '---\nid: "B"\nstatus: "todo"\n---\n# B\n')
+      await makeFile(tmp, '.kanban/.kanbanignore', '.kanban/specs/\n')
+      const items = await nativeAdapter.listItems(flexCtx(tmp))
+      expect(items.some((i) => i.id === 'native:P')).toBe(true)
+      expect(items.some((i) => i.id === 'native:A')).toBe(false)
+      expect(items.some((i) => i.id === 'native:B')).toBe(false)
+    } finally { await rm(tmp, { recursive: true, force: true }) }
+  })
+
+  it('respects .kanbanignore for folder-format stories (folder pattern)', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-ignore-'))
+    try {
+      // two folder-format stories under the default kanbanDir
+      await mkdir(join(tmp, '.kanban/features/keep'), { recursive: true })
+      await writeFile(join(tmp, '.kanban/features/keep/story.md'),
+        '---\nid: "keep"\nstatus: "todo"\n---\n# Keep\n', 'utf8')
+      await mkdir(join(tmp, '.kanban/features/skip'), { recursive: true })
+      await writeFile(join(tmp, '.kanban/features/skip/story.md'),
+        '---\nid: "skip"\nstatus: "todo"\n---\n# Skip\n', 'utf8')
+      await mkdir(join(tmp, '.kanban/features'), { recursive: true })
+      await writeFile(join(tmp, '.kanban/features/.kanbanignore'),
+        '.kanban/features/skip/\n', 'utf8')
+
+      // default kanbanDir = '.kanban/features'
+      const items = await nativeAdapter.listItems({ root: tmp })
+      expect(items.some((i) => i.id === 'native:keep')).toBe(true)
+      expect(items.some((i) => i.id === 'native:skip')).toBe(false)
+    } finally { await rm(tmp, { recursive: true, force: true }) }
+  })
+
+  it('missing .kanbanignore is a no-op', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'pa-native-ignore-'))
+    try {
+      await makeFile(tmp, '.kanban/plans/x.md', '---\nid: "X"\nstatus: "todo"\n---\n# X\n')
+      const items = await nativeAdapter.listItems(flexCtx(tmp))
+      expect(items.some((i) => i.id === 'native:X')).toBe(true)
+    } finally { await rm(tmp, { recursive: true, force: true }) }
+  })
+
   it('default kanbanDir = .kanban/features keeps plans/specs siblings out of scope', async () => {
     const tmp = await mkdtemp(join(tmpdir(), 'pa-native-flex-'))
     try {

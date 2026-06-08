@@ -140,6 +140,7 @@ export type WebviewMessage =
   | { type: 'createFeature'; data: { status: FeatureStatus; priority: Priority; content: string; assignee: string | null; epic: string | null; dueDate: string | null; labels: string[] } }
   | { type: 'moveFeature'; featureId: string; newStatus: string; newOrder: number }
   | { type: 'deleteFeature'; featureId: string }
+  | { type: 'removeFeature'; featureId: string }
   | { type: 'updateFeature'; featureId: string; updates: Partial<Feature> }
   | { type: 'openFeature'; featureId: string }
   | { type: 'saveFeatureContent'; featureId: string; content: string; frontmatter: FeatureFrontmatter }

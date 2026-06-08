@@ -1,5 +1,6 @@
 import * as vscode from 'vscode'
 import * as path from 'path'
+import * as fs from 'fs/promises'
 import {
   listWorkItems,
   getItemBody,
@@ -176,9 +177,52 @@ export class McpFeatureRepository implements IFeatureRepository {
   }
 
   async deleteFeature(featureId: string): Promise<void> {
-    await deleteItem(featureId)
+    const feat = this._features.find(f => f.id === featureId)
+    try {
+      await deleteItem(featureId)
+    } catch (e) {
+      // The library's deleteItem only handles folder-format
+      // (`<kanbanDir>/<id>/story.md`). For a recursively-discovered .md
+      // (`<kanbanDir>/plans/foo.md` etc.), unlink the file directly.
+      if (feat?.filePath) {
+        await fs.unlink(feat.filePath)
+      } else {
+        throw e
+      }
+    }
     await this.load()
   }
+
+  /** Append the feature's path to <kanbanDir>/.kanbanignore so it disappears
+   *  from the board without touching the file on disk. For folder-format
+   *  stories (`.../story.md` inside a folder under kanbanDir) the ignore
+   *  entry is the folder so listStoryFolders also skips it. */
+  async removeFeature(featureId: string): Promise<void> {
+    if (!this._root) return
+    const feat = this._features.find(f => f.id === featureId)
+    if (!feat) return
+
+    const kanbanAbs = path.join(this._root, this._kanbanDir)
+    let target = feat.filePath
+    // Folder-format heuristic: <kanbanDir>/<folder>/story.md → hide the folder
+    if (path.basename(target) === 'story.md' && path.dirname(path.dirname(target)) === kanbanAbs) {
+      target = path.dirname(target)
+    }
+    const rel = path.relative(this._root, target).split(path.sep).join('/')
+    const pattern = (target !== feat.filePath && !rel.endsWith('/')) ? `${rel}/` : rel
+
+    const ignoreFile = path.join(kanbanAbs, '.kanbanignore')
+    let existing = ''
+    try { existing = await fs.readFile(ignoreFile, 'utf8') } catch { /* missing → create */ }
+    const lines = existing ? existing.split(/\r?\n/) : []
+    if (!lines.some(l => l.trim() === pattern)) {
+      const next = (existing && !existing.endsWith('\n') ? existing + '\n' : existing) + pattern + '\n'
+      await fs.mkdir(kanbanAbs, { recursive: true })
+      await fs.writeFile(ignoreFile, next, 'utf8')
+    }
+    await this.load()
+  }
+
   async moveAllFeatures(
     sourceColumnId: string,
     targetColumnId: string,

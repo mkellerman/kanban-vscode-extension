@@ -130,6 +130,14 @@ export class KanbanPanel {
           case 'deleteFeature':
             await this._repo.deleteFeature(message.featureId)
             break
+          case 'removeFeature':
+            if (this._repo.removeFeature) {
+              await this._repo.removeFeature(message.featureId)
+            } else {
+              // Files data source has no .kanbanignore concept — fall back to delete.
+              await this._repo.deleteFeature(message.featureId)
+            }
+            break
           case 'updateFeature':
             await this._repo.updateFeature(message.featureId, message.updates)
             break

@@ -317,6 +317,12 @@ function App(): React.JSX.Element {
     handleDeleteFeatureFromCard(editingFeature.id)
   }
 
+  const handleRemoveFeature = (): void => {
+    if (!editingFeature) return
+    vscode.postMessage({ type: 'removeFeature', featureId: editingFeature.id })
+    setEditingFeature(null)
+  }
+
   const handleOpenFile = (): void => {
     if (!editingFeature) return
     vscode.postMessage({ type: 'openFile', featureId: editingFeature.id })
@@ -429,6 +435,7 @@ function App(): React.JSX.Element {
                   onSave={handleSaveFeature}
                   onClose={handleCloseEditor}
                   onDelete={handleDeleteFeature}
+                  onRemove={handleRemoveFeature}
                   onOpenFile={handleOpenFile}
                   onStartWithAI={handleStartWithAI}
                 />

@@ -48,6 +48,7 @@ interface FeatureEditorProps {
   onSave: (content: string, frontmatter: FeatureFrontmatter) => void
   onClose: () => void
   onDelete: () => void
+  onRemove: () => void
   onOpenFile: () => void
   onStartWithAI: (agent: AIAgent, permissionMode: AIPermissionMode) => void
 }
@@ -532,6 +533,7 @@ export function FeatureEditor({
   onSave,
   onClose,
   onDelete,
+  onRemove,
   onOpenFile,
   onStartWithAI
 }: FeatureEditorProps) {
@@ -663,21 +665,33 @@ export function FeatureEditor({
           {confirmingDelete ? (
             <div className="flex items-center gap-1.5">
               <span className="text-xs" style={{ color: 'var(--vscode-errorForeground)' }}>
-                {t('editor.deleteConfirm')}
+                {t('editor.removeConfirm')}
               </span>
+              <button
+                onClick={() => {
+                  setConfirmingDelete(false)
+                  onRemove()
+                }}
+                className="px-2 py-1 text-xs font-medium rounded transition-colors vscode-hover-bg"
+                style={{ color: 'var(--vscode-foreground)' }}
+                title={t('editor.removeTicket')}
+              >
+                {t('editor.removeYes')}
+              </button>
               <button
                 onClick={() => {
                   setConfirmingDelete(false)
                   onDelete()
                 }}
                 className="px-2 py-1 text-xs font-medium rounded transition-colors text-white bg-red-600 hover:bg-red-700"
+                title={t('editor.deleteTicketHard')}
               >
                 {t('editor.deleteYes')}
               </button>
               <button
                 onClick={() => setConfirmingDelete(false)}
                 className="px-2 py-1 text-xs font-medium rounded transition-colors vscode-hover-bg"
-                style={{ color: 'var(--vscode-foreground)' }}
+                style={{ color: 'var(--vscode-descriptionForeground)' }}
               >
                 {t('editor.deleteNo')}
               </button>
@@ -708,10 +722,10 @@ export function FeatureEditor({
                   borderColor:
                     'var(--vscode-widget-border, var(--vscode-contrastBorder, rgba(128,128,128,0.35)))'
                 }}
-                title={t('editor.deleteTicket')}
+                title={t('editor.removeTicket')}
               >
                 <Trash2 size={16} />
-                <span className="text-xs">{t('editor.delete')}</span>
+                <span className="text-xs">{t('editor.remove')}</span>
               </button>
             </>
           )}
