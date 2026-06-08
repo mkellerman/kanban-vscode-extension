@@ -18,18 +18,23 @@ import type { CreateFeatureData, IFeatureRepository } from './FeatureRepository'
 
 const COLUMN_STATUS = new Set<FeatureStatus>(['backlog', 'todo', 'in-progress', 'review', 'done'])
 
-function toFeatureStatus(status: string): FeatureStatus {
+/** Map a raw WorkItem status to a board column id, or `null` if it doesn't
+ *  belong on the board (e.g. `draft`, `deferred`). `blocked`/`cancelled` are
+ *  preserved as known aliases. */
+function toFeatureStatus(status: string): FeatureStatus | null {
   if (COLUMN_STATUS.has(status as FeatureStatus)) return status as FeatureStatus
   if (status === 'blocked') return 'todo'
   if (status === 'cancelled') return 'done'
-  return 'backlog'
+  return null
 }
 
-function toFeature(wi: WorkItem): Feature {
+function toFeature(wi: WorkItem): Feature | null {
+  const mapped = toFeatureStatus(wi.status)
+  if (mapped === null) return null
   const now = new Date().toISOString()
   return {
     id: wi.id,
-    status: toFeatureStatus(wi.status),
+    status: mapped,
     priority: (wi.priority ?? 'medium') as Priority,
     assignee: wi.assignee ?? null,
     epic: wi.parent,
@@ -110,7 +115,17 @@ export class McpFeatureRepository implements IFeatureRepository {
     setBoardRoot(this._root)
     setKanbanDir(this._kanbanDir)
     const items = await listWorkItems()
-    this._features = items.map(toFeature)
+    const mapped: Feature[] = []
+    let dropped = 0
+    for (const wi of items) {
+      const feat = toFeature(wi)
+      if (feat) mapped.push(feat)
+      else dropped++
+    }
+    if (dropped > 0) {
+      console.warn(`[kanban-mcp] ${dropped} item(s) hidden: status not mapped to a board column`)
+    }
+    this._features = mapped
     this._emitter.fire(this._features)
   }
 

@@ -84,6 +84,28 @@ describe('McpFeatureRepository', () => {
     await repo.load()
     expect(handler).toHaveBeenCalled()
   })
+
+  it('excludes items whose status does not map to a board column', async () => {
+    // `draft` is not a column id and is not a known alias; the item should
+    // be silently dropped from the board rather than coerced into Backlog.
+    await makeStory(tmp, 'visible', '---\nid: "visible"\nstatus: "todo"\n---\n# Visible\n')
+    await makeStory(tmp, 'drafty',  '---\nid: "drafty"\nstatus: "draft"\n---\n# Drafty\n')
+    await makeStory(tmp, 'deferred', '---\nid: "deferred"\nstatus: "deferred"\n---\n# Deferred\n')
+    repo = new McpFeatureRepository(tmp)
+    await repo.load()
+    expect(repo.features.some(f => f.id === 'native:visible')).toBe(true)
+    expect(repo.features.some(f => f.id === 'native:drafty')).toBe(false)
+    expect(repo.features.some(f => f.id === 'native:deferred')).toBe(false)
+  })
+
+  it('keeps known aliases blocked->todo and cancelled->done', async () => {
+    await makeStory(tmp, 'b', '---\nid: "b"\nstatus: "blocked"\n---\n# B\n')
+    await makeStory(tmp, 'c', '---\nid: "c"\nstatus: "cancelled"\n---\n# C\n')
+    repo = new McpFeatureRepository(tmp)
+    await repo.load()
+    expect(repo.features.find(f => f.id === 'native:b')?.status).toBe('todo')
+    expect(repo.features.find(f => f.id === 'native:c')?.status).toBe('done')
+  })
 })
 
 describe('McpFeatureRepository — writes', () => {
