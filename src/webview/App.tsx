@@ -71,6 +71,19 @@ function App(): React.JSX.Element {
     editingFeatureRef.current = editingFeature
   }, [editingFeature])
 
+  // Auto-close the detail editor when its feature is no longer present
+  // (e.g. removed via .kanbanignore, deleted off-board, watcher reload).
+  useEffect(() => {
+    return useStore.subscribe((state, prev) => {
+      if (state.features === prev.features) return
+      const open = editingFeatureRef.current
+      if (open && !state.features.some(f => f.id === open.id)) {
+        setEditingFeature(null)
+        vscode.postMessage({ type: 'closeFeature' })
+      }
+    })
+  }, [])
+
   // Undo delete stack
   const [pendingDeletes, setPendingDeletes] = useState<{ id: string; feature: Feature }[]>([])
   const pendingDeletesRef = useRef(pendingDeletes)
